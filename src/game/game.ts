@@ -2,11 +2,14 @@ import { HOURS_PER_SECOND, PRIORITY_KEYMAP, TICK_HOURS, WORLD_SIZE } from "./cor
 import { InputHandler } from "./core/InputHandler";
 import { PlayerSpirit } from "./core/PlayerSpirit";
 import { clamp } from "./core/utils";
-import type { Citizen, ClimateState, PriorityMark, ResourceTrend, ToastNotification, Vec2 } from "./core/types";
+import type { Citizen, ClimateState, PriorityMark, ResourceTrend, Role, ToastNotification, Vec2 } from "./core/types";
 import { WorldEngine } from "./core/world/WorldEngine";
 import { CitizenSystem, type CitizenSystemEvent } from "./systems/CitizenSystem";
 import { HUDController, type HUDSnapshot } from "./ui/HUDController";
+import { CitizenPanelController } from "./ui/CitizenPanel";
 import { GameRenderer, type RenderState, type ViewMetrics } from "./ui/GameRenderer";
+
+type AssignableRole = Extract<Role, "farmer" | "worker" | "warrior" | "scout">;
 
 export class Game {
   private running = false;
@@ -18,6 +21,17 @@ export class Game {
   private readonly player = new PlayerSpirit(WORLD_SIZE);
   private readonly renderer: GameRenderer;
   private readonly hud = new HUDController();
+  private readonly citizenPanel = new CitizenPanelController({ onSelect: (id) => this.handleCitizenPanelSelection(id) });
+  private readonly playerTribeId = 1;
+  private readonly assignableRoles: AssignableRole[] = ["farmer", "worker", "warrior", "scout"];
+  private roleControls: Record<AssignableRole, { input: HTMLInputElement | null; value: HTMLSpanElement | null }> = {
+    farmer: { input: null, value: null },
+    worker: { input: null, value: null },
+    warrior: { input: null, value: null },
+    scout: { input: null, value: null },
+  };
+  private debugExportButton = document.querySelector<HTMLButtonElement>("#debug-export");
+  private extinctionAnnounced = false;
   private handleCitizenEvent = (event: CitizenSystemEvent) => {
     if (event.type === "log") {
       this.logEvent(event.message, event.notificationType);
@@ -56,18 +70,21 @@ export class Game {
     this.renderer = new GameRenderer(canvas);
     this.world.citizenLookup = (id) => this.citizenSystem.getCitizenById(id);
     this.viewTarget = { x: this.player.x + 0.5, y: this.player.y + 0.5 };
-    this.citizenSystem.init(["farmer", "farmer", "worker", "worker", "warrior", "warrior", "scout", "child", "child", "elder"], 1);
+    this.citizenSystem.init(["farmer", "farmer", "worker", "worker", "warrior", "warrior", "scout", "child", "child", "elder"], this.playerTribeId);
 
     this.hud.setupHeaderButtons(this.handlePauseToggle);
     this.hud.registerOverlayInstructions(() => this.start());
     this.setupZoomControls();
+    this.setupRoleControls();
     this.bindCanvasEvents();
+    this.debugExportButton?.addEventListener("click", this.exportDebugLog);
 
     window.addEventListener("resize", this.handleResize);
     window.addEventListener("mouseup", this.handleMouseUp);
     window.addEventListener("mousemove", this.handlePanMove);
     window.addEventListener("blur", this.stopPanning);
     this.handleResize();
+    this.updateCitizenPanel();
   }
 
   start() {
@@ -107,6 +124,71 @@ export class Game {
     this.canvas.addEventListener("mousemove", this.handleCanvasHover);
     this.canvas.addEventListener("wheel", this.handleCanvasWheel, { passive: false });
     this.canvas.addEventListener("mousedown", this.handleMouseDown);
+  }
+
+  private setupRoleControls() {
+    this.roleControls = {
+      farmer: {
+        input: document.querySelector<HTMLInputElement>("#role-farmer"),
+        value: document.querySelector<HTMLSpanElement>("#role-value-farmer"),
+      },
+      worker: {
+        input: document.querySelector<HTMLInputElement>("#role-worker"),
+        value: document.querySelector<HTMLSpanElement>("#role-value-worker"),
+      },
+      warrior: {
+        input: document.querySelector<HTMLInputElement>("#role-warrior"),
+        value: document.querySelector<HTMLSpanElement>("#role-value-warrior"),
+      },
+      scout: {
+        input: document.querySelector<HTMLInputElement>("#role-scout"),
+        value: document.querySelector<HTMLSpanElement>("#role-value-scout"),
+      },
+    };
+
+    for (const role of this.assignableRoles) {
+      this.roleControls[role].input?.addEventListener("input", this.handleRoleSliderInput);
+    }
+
+    this.updateRoleControls(true);
+  }
+
+  private handleRoleSliderInput = () => {
+    const targets = this.collectRoleTargets();
+    this.citizenSystem.rebalanceRoles(targets, this.playerTribeId);
+    this.updateRoleControls(true);
+  };
+
+  private collectRoleTargets() {
+    const targets: Record<AssignableRole, number> = {
+      farmer: 0,
+      worker: 0,
+      warrior: 0,
+      scout: 0,
+    };
+    for (const role of this.assignableRoles) {
+      const input = this.roleControls[role].input;
+      const value = input ? Number.parseInt(input.value, 10) : 0;
+      targets[role] = Number.isNaN(value) ? 0 : Math.max(0, value);
+    }
+    return targets;
+  }
+
+  private updateRoleControls(force = false) {
+    const assignable = this.citizenSystem.getAssignablePopulationCount(this.playerTribeId);
+    const counts = this.citizenSystem.getRoleCounts(this.playerTribeId);
+    for (const role of this.assignableRoles) {
+      const control = this.roleControls[role];
+      if (control.value) {
+        control.value.textContent = counts[role]?.toString() ?? "0";
+      }
+      if (control.input) {
+        control.input.max = Math.max(assignable, 0).toString();
+        if (force || document.activeElement !== control.input) {
+          control.input.value = counts[role]?.toString() ?? "0";
+        }
+      }
+    }
   }
 
   private loop = (time: number) => {
@@ -168,7 +250,10 @@ export class Game {
     this.regeneratePlayerPower(tickHours);
     this.trackResourceTrends(tickHours);
     this.hud.tickNotifications();
+    this.updateRoleControls();
     this.updateHUD();
+    this.updateCitizenPanel();
+    this.checkExtinction();
   }
 
   private applyPriority(priority: PriorityMark) {
@@ -315,6 +400,10 @@ export class Game {
     this.hud.updateHUD(hudSnapshot);
   }
 
+  private updateCitizenPanel() {
+    this.citizenPanel.update(this.citizenSystem.getCitizens(), this.selectedCitizen);
+  }
+
   private getResourceTrendAverage(type: keyof ResourceTrend): number {
     if (this.resourceHistory.length === 0) return 0;
     const recent = this.resourceHistory.slice(-5);
@@ -322,8 +411,52 @@ export class Game {
     return sum / recent.length;
   }
 
+  private checkExtinction() {
+    if (this.extinctionAnnounced) return;
+    const alive = this.citizenSystem.getPopulationCount(
+      (citizen) => citizen.state === "alive" && citizen.tribeId === this.playerTribeId,
+    );
+    if (alive > 0) return;
+    this.extinctionAnnounced = true;
+    this.hud.updateStatus("☠️ La tribu ha desaparecido.");
+    this.logEvent("Todos los habitantes han muerto. Usa 'Descargar debug' para guardar el registro.");
+    this.enableDebugExport();
+  }
+
+  private enableDebugExport() {
+    if (this.debugExportButton) {
+      this.debugExportButton.disabled = false;
+    }
+  }
+
+  private exportDebugLog = () => {
+    const entries = this.hud.getHistoryArchive();
+    if (entries.length === 0) {
+      this.logEvent("No hay eventos registrados para exportar.");
+      return;
+    }
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[:.]/g, "-");
+    const header = `Registro de depuración - ${now.toLocaleString()} (entradas: ${entries.length})\n`;
+    const lines = entries.map((entry, index) => `${String(index + 1).padStart(4, "0")} ${entry}`);
+    const blob = new Blob([header + lines.join("\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `espiritu-debug-${timestamp}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    this.logEvent("Registro de depuración exportado.");
+  };
+
   private logEvent(message: string, notificationType?: ToastNotification["type"]) {
     this.hud.appendHistory(message);
+
+    if (message.startsWith("[DEBUG]")) {
+      return;
+    }
 
     if (notificationType) {
       this.hud.showNotification(message, notificationType);
@@ -366,6 +499,16 @@ export class Game {
     if (worldPoint) {
       this.focusOn(worldPoint);
     }
+    this.updateCitizenPanel();
+  };
+
+  private handleCitizenPanelSelection = (citizenId: number) => {
+    const citizen = this.citizenSystem.getCitizenById(citizenId) ?? null;
+    this.selectedCitizen = citizen;
+    if (citizen) {
+      this.focusOn({ x: citizen.x + 0.5, y: citizen.y + 0.5 });
+    }
+    this.updateCitizenPanel();
   };
 
   private handleCanvasHover = (event: MouseEvent) => {
