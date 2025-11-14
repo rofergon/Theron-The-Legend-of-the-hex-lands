@@ -24,6 +24,7 @@ export class HUDController {
   private notifications: ToastNotification[] = [];
   private nextNotificationId = 1;
   private historyEntries: string[] = [];
+  private logArchive: string[] = [];
 
   updateHUD(snapshot: HUDSnapshot) {
     if (this.hudScore) {
@@ -64,11 +65,16 @@ export class HUDController {
   }
 
   appendHistory(message: string) {
+    this.logArchive.push(message);
     this.historyEntries.unshift(message);
     this.historyEntries = this.historyEntries.slice(0, 12);
     if (this.historyList) {
       this.historyList.innerHTML = this.historyEntries.map((entry) => `<li>${entry}</li>`).join("");
     }
+  }
+
+  getHistoryArchive() {
+    return [...this.logArchive];
   }
 
   showNotification(message: string, type: ToastNotification["type"] = "info", duration = 4000) {
