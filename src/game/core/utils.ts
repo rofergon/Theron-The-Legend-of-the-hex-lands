@@ -11,6 +11,12 @@ export const mulberry32 = (seed: number) => {
 };
 
 export const hashNoise = (x: number, y: number, seed: number) => {
-  const s = Math.sin((x * 374761 + y * 668265 + seed * 69069) * 0.0001);
-  return s - Math.floor(s);
+  // Improved hash function to eliminate diagonal patterns
+  let h = seed + x * 2654435761 + y * 2246822519;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
 };
