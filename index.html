@@ -20,6 +20,18 @@
         </nav>
       </header>
       <div id="layout">
+        <aside id="left-panel">
+          <section class="panel-block" id="citizen-panel">
+            <h2>Aldeanos</h2>
+            <div class="citizen-panel">
+              <div class="citizen-list" id="citizen-list"></div>
+              <div class="citizen-detail" id="citizen-detail">
+                <p class="citizen-detail-empty">Selecciona un habitante para ver sus detalles.</p>
+              </div>
+            </div>
+          </section>
+        </aside>
+
         <div id="game-wrapper">
           <canvas id="game"></canvas>
           <div id="zoom-controls" role="group" aria-label="Controles de zoom">
@@ -47,6 +59,31 @@
             </div>
           </section>
 
+          <section class="panel-block" id="roles-panel">
+            <h2>Oficios</h2>
+            <div class="role-control" data-role="farmer">
+              <label for="role-farmer">Granjero</label>
+              <input type="range" id="role-farmer" min="0" max="10" value="2" step="1" />
+              <span class="role-value" id="role-value-farmer">2</span>
+            </div>
+            <div class="role-control" data-role="worker">
+              <label for="role-worker">Trabajador</label>
+              <input type="range" id="role-worker" min="0" max="10" value="2" step="1" />
+              <span class="role-value" id="role-value-worker">2</span>
+            </div>
+            <div class="role-control" data-role="warrior">
+              <label for="role-warrior">Guerrero</label>
+              <input type="range" id="role-warrior" min="0" max="10" value="2" step="1" />
+              <span class="role-value" id="role-value-warrior">2</span>
+            </div>
+            <div class="role-control" data-role="scout">
+              <label for="role-scout">Explorador</label>
+              <input type="range" id="role-scout" min="0" max="10" value="1" step="1" />
+              <span class="role-value" id="role-value-scout">1</span>
+            </div>
+            <p class="role-note">Los niños y ancianos no se reasignan automáticamente.</p>
+          </section>
+
           <section class="panel-block" id="instructions">
             <h2>Controles</h2>
             <ul>
@@ -57,7 +94,10 @@
               <li>E / Espacio: bendecir. T: invocar tótem.</li>
             </ul>
             <p id="status-text">Simulación en curso.</p>
-            <button id="pause-button">⏸️ Pausar</button>
+            <div class="panel-actions">
+              <button id="pause-button" class="panel-button">⏸️ Pausar</button>
+              <button id="debug-export" class="panel-button" disabled>⬇️ Descargar debug</button>
+            </div>
           </section>
 
           <section class="panel-block" id="history-panel">
