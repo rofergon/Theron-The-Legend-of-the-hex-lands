@@ -78,8 +78,8 @@ export class WorldEngine {
         elevation = Math.pow(elevation, 2.5);
         elevationMap[y]![x] = elevation;
         
-        // Múltiples octavas para humedad (diferentes frecuencias)
-        const moisture = this.multiOctaveNoise(x + 1000, y + 1000, seed + 999, [
+        // Múltiples octavas para humedad con offsets muy diferentes para evitar correlación
+        const moisture = this.multiOctaveNoise(x + 12345, y + 67890, seed + 314159, [
           { freq: 1, amp: 1.0 },
           { freq: 2, amp: 0.75 },
           { freq: 4, amp: 0.33 },
@@ -153,13 +153,26 @@ export class WorldEngine {
     
     octaves.forEach((octave, i) => {
       const frequency = baseFrequency * octave.freq;
-      // Usar offsets diferentes para cada octava para evitar correlación
-      const offsetX = i * 73.129;
-      const offsetY = i * 41.538;
+      
+      // Domain warping para eliminar patrones diagonales
+      const warpStrength = 8.0;
+      const warpFreq = frequency * 0.5;
+      
+      const warpX = hashNoise(x * warpFreq + 1000, y * warpFreq + 2000, seed + i * 1000) * warpStrength;
+      const warpY = hashNoise(x * warpFreq + 3000, y * warpFreq + 4000, seed + i * 1000) * warpStrength;
+      
+      const warpedX = x + warpX;
+      const warpedY = y + warpY;
+      
+      // Usar offsets más diversos y primos grandes para evitar correlación
+      const offsetX = i * 127.1;
+      const offsetY = i * 311.7;
+      const offsetSeed = seed + i * 2654435761;
+      
       total += hashNoise(
-        (x + offsetX) * frequency,
-        (y + offsetY) * frequency,
-        seed + i * 1000
+        (warpedX + offsetX) * frequency,
+        (warpedY + offsetY) * frequency,
+        offsetSeed
       ) * octave.amp;
       totalAmplitude += octave.amp;
     });
@@ -301,13 +314,25 @@ export class WorldEngine {
           const dx = x - region.x;
           const dy = y - region.y;
           const distance = Math.hypot(dx, dy);
-          const jitter = this.multiOctaveNoise(
-            x + region.x * 0.31,
-            y + region.y * 0.27,
-            seed + region.id * 997,
-            jitterOctaves
+          
+          // Improved jitter using domain warping to break diagonal patterns
+          const warpX = hashNoise(x * 0.01 + 5000, y * 0.01 + 6000, seed + region.id * 997) * 12;
+          const warpY = hashNoise(x * 0.01 + 7000, y * 0.01 + 8000, seed + region.id * 997) * 12;
+          
+          const jitterX = hashNoise(
+            (x + warpX) * 0.02 + region.x * 0.31,
+            (y + warpY) * 0.02 + region.y * 0.27,
+            seed + region.id * 1009
           );
-          const warpedDistance = distance * (0.75 + jitter * 0.5) * region.spread;
+          const jitterY = hashNoise(
+            (x + warpX + 1000) * 0.02 + region.x * 0.31,
+            (y + warpY + 1000) * 0.02 + region.y * 0.27,
+            seed + region.id * 1009
+          );
+          
+          const jitterMagnitude = Math.sqrt(jitterX * jitterX + jitterY * jitterY);
+          const warpedDistance = distance * (0.7 + jitterMagnitude * 0.6) * region.spread;
+          
           const climateDiff =
             Math.abs(elevation - region.elevation) * 90 +
             Math.abs(moisture - region.moisture) * 70;
