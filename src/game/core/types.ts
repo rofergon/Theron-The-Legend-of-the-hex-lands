@@ -75,6 +75,8 @@ export interface Citizen {
   lastDamageCause?: string;
   debugLastAction?: string;
   actionHistory: CitizenActionLogEntry[];
+  stuckCounter?: number;
+  lastPosition?: Vec2;
 }
 
 export interface WorldView {

@@ -106,9 +106,14 @@ export class CitizenSystem {
       if (urgentAction) {
         action = urgentAction;
       } else {
-        const ai = aiDispatch[citizen.role] ?? passiveAI;
+        let ai = aiDispatch[citizen.role] ?? passiveAI;
+        let aiSource = `rol ${citizen.role}`;
+        if (isGoalBehavior(citizen.currentGoal)) {
+          ai = GOAL_BEHAVIOR_MAP[citizen.currentGoal];
+          aiSource = `meta ${citizen.currentGoal}`;
+        }
         action = ai(citizen, view);
-        actionSource = `rol ${citizen.role}`;
+        actionSource = aiSource;
       }
       this.logCitizenAction(citizen, action, actionSource);
       this.applyCitizenAction(citizen, action, tickHours);
@@ -352,7 +357,6 @@ export class CitizenSystem {
     const dx = clamp(targetX - citizen.x, -1, 1);
     const dy = clamp(targetY - citizen.y, -1, 1);
     if (dx === 0 && dy === 0) {
-      this.handleMoveArrival(citizen, targetX, targetY);
       return;
     }
 
@@ -365,35 +369,73 @@ export class CitizenSystem {
 
     pushStep(dx, dy);
     if (dx !== 0 && dy !== 0) {
-      // Intentar avanzar en ejes independientes si la diagonal está bloqueada.
       pushStep(dx, 0);
       pushStep(0, dy);
     }
 
     const currentDist = Math.abs(targetX - citizen.x) + Math.abs(targetY - citizen.y);
+    
+    // Rastrear estancamiento
+    if (!citizen.stuckCounter) citizen.stuckCounter = 0;
+    if (citizen.lastPosition?.x === citizen.x && citizen.lastPosition?.y === citizen.y) {
+      citizen.stuckCounter++;
+    } else {
+      citizen.stuckCounter = 0;
+    }
+    const isStuck = citizen.stuckCounter > 3;
+
+    // Nivel 1: Intentar movimientos que acercan
     for (const next of tries) {
       if (!this.world.isWalkable(next.x, next.y)) continue;
       const nextDist = Math.abs(targetX - next.x) + Math.abs(targetY - next.y);
-      if (nextDist > currentDist) continue;
-      if (this.world.moveCitizen(citizen.id, { x: citizen.x, y: citizen.y }, next)) {
-        citizen.x = next.x;
-        citizen.y = next.y;
-        if (citizen.x === targetX && citizen.y === targetY) {
-          this.handleMoveArrival(citizen, targetX, targetY);
+      if (nextDist < currentDist) {
+        if (this.world.moveCitizen(citizen.id, { x: citizen.x, y: citizen.y }, next)) {
+          citizen.lastPosition = { x: citizen.x, y: citizen.y };
+          citizen.x = next.x;
+          citizen.y = next.y;
+          return;
         }
-        return;
       }
     }
+
+    // Nivel 2: Intentar movimientos laterales (no nos alejan)
+    for (const next of tries) {
+      if (!this.world.isWalkable(next.x, next.y)) continue;
+      const nextDist = Math.abs(targetX - next.x) + Math.abs(targetY - next.y);
+      if (nextDist <= currentDist) {
+        if (this.world.moveCitizen(citizen.id, { x: citizen.x, y: citizen.y }, next)) {
+          citizen.lastPosition = { x: citizen.x, y: citizen.y };
+          citizen.x = next.x;
+          citizen.y = next.y;
+          return;
+        }
+      }
+    }
+
+    // Nivel 3: Si está estancado, intentar cualquier movimiento válido para rodear
+    if (isStuck) {
+      const allDirections = [
+        { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
+        { x: 1, y: 1 }, { x: 1, y: -1 }, { x: -1, y: 1 }, { x: -1, y: -1 }
+      ];
+      
+      for (const dir of allDirections) {
+        const next = { x: citizen.x + dir.x, y: citizen.y + dir.y };
+        if (!this.world.isWalkable(next.x, next.y)) continue;
+        if (this.world.moveCitizen(citizen.id, { x: citizen.x, y: citizen.y }, next)) {
+          citizen.lastPosition = { x: citizen.x, y: citizen.y };
+          citizen.x = next.x;
+          citizen.y = next.y;
+          citizen.stuckCounter = 0;
+          return;
+        }
+      }
+    }
+    
+    citizen.lastPosition = { x: citizen.x, y: citizen.y };
   }
 
-  private handleMoveArrival(citizen: Citizen, targetX: number, targetY: number) {
-    const brain = citizen.brain;
-    if (!brain || brain.kind !== "gatherer" || !brain.target) return;
-    if (brain.target.x !== targetX || brain.target.y !== targetY) return;
-    if (brain.phase === "goingToResource") {
-      brain.phase = "gathering";
-    }
-  }
+
 
   private gatherResource(citizen: Citizen, type: ResourceType) {
     const cell = this.world.getCell(citizen.x, citizen.y);
@@ -574,6 +616,7 @@ export class CitizenSystem {
   private finalizeCitizenDeath(citizen: Citizen) {
     citizen.state = "dead";
     this.world.removeCitizen(citizen.id, { x: citizen.x, y: citizen.y });
+    this.citizenById.delete(citizen.id);
     const reason = citizen.lastDamageCause ?? "causa desconocida";
     this.emit({
       type: "log",
@@ -653,6 +696,56 @@ const pickWanderTarget = (citizen: Citizen): Vec2 => {
 const wanderCitizen = (citizen: Citizen): CitizenAction => {
   const target = pickWanderTarget(citizen);
   return { type: "move", x: target.x, y: target.y };
+};
+
+type LocatedEnemy = { target: Citizen; distance: number };
+
+const findClosestEnemyCitizen = (citizen: Citizen, view: WorldView): LocatedEnemy | null => {
+  let closest: Citizen | null = null;
+  let bestDistance = Infinity;
+  for (const other of view.nearbyCitizens) {
+    if (other.state === "dead") continue;
+    if (other.tribeId === citizen.tribeId) continue;
+    const distance = Math.abs(other.x - citizen.x) + Math.abs(other.y - citizen.y);
+    if (distance < bestDistance) {
+      closest = other;
+      bestDistance = distance;
+    }
+  }
+  if (!closest) return null;
+  return { target: closest, distance: bestDistance };
+};
+
+const raiderAI: CitizenAI = (citizen, view) => {
+  const enemy = findClosestEnemyCitizen(citizen, view);
+  if (enemy) {
+    if (enemy.distance <= 1) {
+      return { type: "attack", targetId: enemy.target.id };
+    }
+    return { type: "move", x: enemy.target.x, y: enemy.target.y };
+  }
+  if (view.villageCenter) {
+    const offsetX = Math.round(Math.random() * 4 - 2);
+    const offsetY = Math.round(Math.random() * 4 - 2);
+    return { type: "move", x: view.villageCenter.x + offsetX, y: view.villageCenter.y + offsetY };
+  }
+  return wanderCitizen(citizen);
+};
+
+const beastAI: CitizenAI = (citizen, view) => {
+  const enemy = findClosestEnemyCitizen(citizen, view);
+  if (enemy) {
+    if (enemy.distance <= 1) {
+      return { type: "attack", targetId: enemy.target.id };
+    }
+    return { type: "move", x: enemy.target.x, y: enemy.target.y };
+  }
+  if (view.villageCenter) {
+    const targetX = view.villageCenter.x + Math.round(Math.random() * 6 - 3);
+    const targetY = view.villageCenter.y + Math.round(Math.random() * 6 - 3);
+    return { type: "move", x: targetX, y: targetY };
+  }
+  return wanderCitizen(citizen);
 };
 
 const isInventoryFull = (citizen: Citizen, resourceType: "food" | "stone") => {
@@ -744,6 +837,16 @@ const runGathererBrain = (citizen: Citizen, view: WorldView, resourceType: "food
       return { type: "move", x: targetCell.x, y: targetCell.y };
     }
     case "goingToResource": {
+      // Verificar si YA está en un recurso válido (incluso si no es el target original)
+      const currentCell = view.cells.find((c) => c.x === citizen.x && c.y === citizen.y);
+      const hasResource = currentCell?.resource?.type === resourceType && (currentCell.resource.amount ?? 0) > 0;
+      
+      if (hasResource) {
+        brain.target = { x: citizen.x, y: citizen.y };
+        brain.phase = "gathering";
+        return { type: "gather", resourceType };
+      }
+      
       if (!brain.target) {
         return redirectToNewResource();
       }
@@ -865,6 +968,18 @@ const workerAI: CitizenAI = (citizen, view) => {
   return runGathererBrain(citizen, view, "stone");
 };
 
+const settlerAI: CitizenAI = (citizen, view) => {
+  const hasFarmOpportunity = view.cells.some((cell) => {
+    if (cell.priority === "farm") return true;
+    if (cell.cropReady) return true;
+    return cell.resource?.type === "food" && (cell.resource.amount ?? 0) > 0;
+  });
+  if (hasFarmOpportunity || citizen.carrying.food === 0) {
+    return farmerAI(citizen, view);
+  }
+  return workerAI(citizen, view);
+};
+
 const scoutAI: CitizenAI = (citizen, view) => {
   const exploreCell = view.cells.find((cell) => cell.priority === "explore");
   if (exploreCell) {
@@ -887,4 +1002,18 @@ const aiDispatch: Record<Role, CitizenAI> = {
   scout: scoutAI,
   child: passiveAI,
   elder: passiveAI,
+};
+
+const GOAL_BEHAVIOR_MAP = {
+  passive: passiveAI,
+  raid: raiderAI,
+  settle: settlerAI,
+  beast: beastAI,
+} as const;
+
+type GoalBehavior = keyof typeof GOAL_BEHAVIOR_MAP;
+
+const isGoalBehavior = (goal?: string): goal is GoalBehavior => {
+  if (!goal) return false;
+  return Object.prototype.hasOwnProperty.call(GOAL_BEHAVIOR_MAP, goal);
 };
