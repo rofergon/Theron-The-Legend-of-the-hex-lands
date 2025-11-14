@@ -7,6 +7,7 @@ import type {
   PriorityMark,
   ResourceType,
   Role,
+  StructureType,
   ToastNotification,
   Vec2,
   WorldView,
@@ -20,6 +21,8 @@ export type CitizenSystemEvent =
 type AssignableRole = Extract<Role, "farmer" | "worker" | "warrior" | "scout">;
 const ASSIGNABLE_ROLES: AssignableRole[] = ["farmer", "worker", "warrior", "scout"];
 const GAME_HOURS_PER_YEAR = 24; // 1 in-game day equals 1 citizen year for balance pacing
+const REST_START_FATIGUE = 70;
+const REST_STOP_FATIGUE = 35;
 
 export class CitizenSystem {
   private citizens: Citizen[] = [];
@@ -77,9 +80,9 @@ export class CitizenSystem {
       const cell = this.world.getCell(citizen.x, citizen.y);
       const hungerRate = cell?.terrain === "desert" ? 1.5 : 1;
       citizen.age += tickHours / GAME_HOURS_PER_YEAR;
-      citizen.hunger = clamp(citizen.hunger + hungerRate * 0.864, 0, 100);
-      citizen.fatigue = clamp(citizen.fatigue + 0.8, 0, 100);
-      citizen.morale = clamp(citizen.morale - 0.2, 0, 100);
+      citizen.hunger = clamp(citizen.hunger + hungerRate * 0.864 * tickHours, 0, 100);
+      citizen.fatigue = clamp(citizen.fatigue + 0.8 * tickHours, 0, 100);
+      citizen.morale = clamp(citizen.morale - 0.2 * tickHours, 0, 100);
 
       if (citizen.hunger > 80) this.inflictDamage(citizen, 4, "hambre");
       if (citizen.fatigue > 80) this.inflictDamage(citizen, 2, "agotamiento");
@@ -246,6 +249,11 @@ export class CitizenSystem {
   }
 
   private evaluateUrgentNeed(citizen: Citizen, view: WorldView): CitizenAction | null {
+    const continuingRest = citizen.currentGoal === "resting" && citizen.fatigue > REST_STOP_FATIGUE;
+    if (citizen.currentGoal === "resting" && citizen.fatigue <= REST_STOP_FATIGUE) {
+      delete citizen.currentGoal;
+    }
+
     if (citizen.health < 25 && view.villageCenter) {
       return { type: "move", x: view.villageCenter.x, y: view.villageCenter.y };
     }
@@ -274,7 +282,39 @@ export class CitizenSystem {
       this.inflictDamage(citizen, 2, "fragilidad");
     }
 
+    if (citizen.fatigue >= REST_START_FATIGUE || continuingRest) {
+      citizen.currentGoal = "resting";
+      const restSpot = this.findRestLocation(citizen, view);
+      if (restSpot && (restSpot.x !== citizen.x || restSpot.y !== citizen.y)) {
+        return { type: "move", x: restSpot.x, y: restSpot.y };
+      }
+      return { type: "rest" };
+    }
+
     return null;
+  }
+
+  private findRestLocation(citizen: Citizen, view: WorldView): Vec2 | null {
+    const preferredStructures: StructureType[] = ["house", "campfire", "village"];
+    let best: Vec2 | null = null;
+    let bestDistance = Infinity;
+
+    for (const cell of view.cells) {
+      if (!cell.structure) continue;
+      if (!preferredStructures.includes(cell.structure)) continue;
+
+      const distance = Math.abs(cell.x - citizen.x) + Math.abs(cell.y - citizen.y);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = { x: cell.x, y: cell.y };
+      }
+    }
+
+    if (!best && view.villageCenter) {
+      best = { x: view.villageCenter.x, y: view.villageCenter.y };
+    }
+
+    return best;
   }
 
   private applyCitizenAction(citizen: Citizen, action: CitizenAction, tickHours: number) {
@@ -311,11 +351,32 @@ export class CitizenSystem {
   private moveCitizenTowards(citizen: Citizen, targetX: number, targetY: number) {
     const dx = clamp(targetX - citizen.x, -1, 1);
     const dy = clamp(targetY - citizen.y, -1, 1);
-    const next = { x: citizen.x + dx, y: citizen.y + dy };
-    if (!this.world.isWalkable(next.x, next.y)) return;
-    if (this.world.moveCitizen(citizen.id, { x: citizen.x, y: citizen.y }, next)) {
-      citizen.x = next.x;
-      citizen.y = next.y;
+    if (dx === 0 && dy === 0) return;
+
+    const tries: Vec2[] = [];
+    const start = { x: citizen.x, y: citizen.y };
+    const pushStep = (stepX: number, stepY: number) => {
+      if (stepX === 0 && stepY === 0) return;
+      tries.push({ x: start.x + stepX, y: start.y + stepY });
+    };
+
+    pushStep(dx, dy);
+    if (dx !== 0 && dy !== 0) {
+      // Intentar avanzar en ejes independientes si la diagonal está bloqueada.
+      pushStep(dx, 0);
+      pushStep(0, dy);
+    }
+
+    const currentDist = Math.abs(targetX - citizen.x) + Math.abs(targetY - citizen.y);
+    for (const next of tries) {
+      if (!this.world.isWalkable(next.x, next.y)) continue;
+      const nextDist = Math.abs(targetX - next.x) + Math.abs(targetY - next.y);
+      if (nextDist > currentDist) continue;
+      if (this.world.moveCitizen(citizen.id, { x: citizen.x, y: citizen.y }, next)) {
+        citizen.x = next.x;
+        citizen.y = next.y;
+        return;
+      }
     }
   }
 
