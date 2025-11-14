@@ -9,6 +9,7 @@ import { HUDController, type HUDSnapshot } from "./ui/HUDController";
 import { CitizenPanelController } from "./ui/CitizenPanel";
 import { GameRenderer, type RenderState, type ViewMetrics } from "./ui/GameRenderer";
 import { MainMenu } from "./ui/MainMenu";
+import { CellTooltipController } from "./ui/CellTooltip";
 
 type AssignableRole = Extract<Role, "farmer" | "worker" | "warrior" | "scout">;
 
@@ -24,6 +25,7 @@ export class Game {
   private readonly renderer: GameRenderer;
   private readonly hud = new HUDController();
   private readonly citizenPanel = new CitizenPanelController({ onSelect: (id) => this.handleCitizenPanelSelection(id) });
+  private readonly cellTooltip = new CellTooltipController();
   private readonly playerTribeId = 1;
   private readonly assignableRoles: AssignableRole[] = ["farmer", "worker", "warrior", "scout"];
   private roleControls: Record<AssignableRole, { input: HTMLInputElement | null; value: HTMLSpanElement | null }> = {
@@ -198,6 +200,11 @@ export class Game {
     this.canvas.addEventListener("mousemove", this.handleCanvasHover);
     this.canvas.addEventListener("wheel", this.handleCanvasWheel, { passive: false });
     this.canvas.addEventListener("mousedown", this.handleMouseDown);
+    this.canvas.addEventListener("mouseleave", this.handleCanvasLeave);
+    
+    // Ocultar tooltip al hacer scroll o redimensionar
+    window.addEventListener("scroll", this.hideTooltip);
+    window.addEventListener("resize", this.hideTooltip);
   }
 
   private setupRoleControls() {
@@ -587,6 +594,7 @@ export class Game {
     const cell = this.getCellUnderPointer(event);
     if (!cell) {
       this.selectedCitizen = null;
+      this.cellTooltip.hide();
       return;
     }
 
@@ -594,6 +602,9 @@ export class Game {
       .getCitizens()
       .find((citizen) => citizen.state === "alive" && citizen.x === cell.x && citizen.y === cell.y);
     this.selectedCitizen = clickedCitizen || null;
+
+    // Mostrar tooltip con información de la celda
+    this.showCellTooltip(cell, event);
 
     const worldPoint = this.getWorldPosition(event);
     if (worldPoint) {
@@ -621,11 +632,35 @@ export class Game {
     this.hoveredCell = this.getCellUnderPointer(event);
   };
 
+  private showCellTooltip(cellPos: Vec2, event: MouseEvent) {
+    const cell = this.world.getCell(cellPos.x, cellPos.y);
+    if (!cell) return;
+
+    const citizensInCell = this.citizenSystem
+      .getCitizens()
+      .filter((citizen) => citizen.state === "alive" && citizen.x === cellPos.x && citizen.y === cellPos.y);
+
+    this.cellTooltip.show({
+      cell,
+      citizens: citizensInCell,
+      position: { x: event.clientX, y: event.clientY }
+    });
+  }
+
+  private handleCanvasLeave = () => {
+    this.cellTooltip.hide();
+  };
+
+  private hideTooltip = () => {
+    this.cellTooltip.hide();
+  };
+
   private handleCanvasWheel = (event: WheelEvent) => {
     if (!this.gameInitialized) {
       return;
     }
     event.preventDefault();
+    this.cellTooltip.hide(); // Ocultar tooltip al hacer zoom
     const anchor = this.getWorldPosition(event);
     const delta = event.deltaY < 0 ? 0.2 : -0.2;
     this.adjustZoom(delta, anchor ?? undefined);
@@ -637,6 +672,7 @@ export class Game {
     }
     if (event.button === 1) {
       event.preventDefault();
+      this.cellTooltip.hide(); // Ocultar tooltip al iniciar paneo
       this.isPanning = true;
       this.lastPanPosition = { x: event.clientX, y: event.clientY };
     }
@@ -798,6 +834,14 @@ export class Game {
     this.canvas.style.height = `${size}px`;
     this.canvas.width = size;
     this.canvas.height = size;
+    
+    // Ocultar tooltip al redimensionar
+    this.cellTooltip.hide();
   };
+
+  destroy() {
+    this.cellTooltip.destroy();
+    // Limpiar otros event listeners si es necesario
+  }
 
 }
