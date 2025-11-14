@@ -19,6 +19,7 @@ export type CitizenSystemEvent =
 
 type AssignableRole = Extract<Role, "farmer" | "worker" | "warrior" | "scout">;
 const ASSIGNABLE_ROLES: AssignableRole[] = ["farmer", "worker", "warrior", "scout"];
+const GAME_HOURS_PER_YEAR = 24; // 1 in-game day equals 1 citizen year for balance pacing
 
 export class CitizenSystem {
   private citizens: Citizen[] = [];
@@ -75,7 +76,7 @@ export class CitizenSystem {
       if (citizen.state === "dead") continue;
       const cell = this.world.getCell(citizen.x, citizen.y);
       const hungerRate = cell?.terrain === "desert" ? 1.5 : 1;
-      citizen.age += tickHours;
+      citizen.age += tickHours / GAME_HOURS_PER_YEAR;
       citizen.hunger = clamp(citizen.hunger + hungerRate * 0.864, 0, 100);
       citizen.fatigue = clamp(citizen.fatigue + 0.8, 0, 100);
       citizen.morale = clamp(citizen.morale - 0.2, 0, 100);
@@ -625,6 +626,17 @@ const findStorageTarget = (citizen: Citizen, view: WorldView): Vec2 => {
 
 const runGathererBrain = (citizen: Citizen, view: WorldView, resourceType: "food" | "stone"): CitizenAction => {
   const brain = ensureGathererBrain(citizen, resourceType);
+  const redirectToNewResource = (): CitizenAction => {
+    const nextCell = findClosestResourceCell(citizen, view, resourceType);
+    if (nextCell) {
+      brain.phase = "goingToResource";
+      brain.target = { x: nextCell.x, y: nextCell.y };
+      return { type: "move", x: nextCell.x, y: nextCell.y };
+    }
+    brain.phase = "idle";
+    brain.target = null;
+    return wanderCitizen(citizen);
+  };
 
   switch (brain.phase) {
     case "idle": {
@@ -657,14 +669,16 @@ const runGathererBrain = (citizen: Citizen, view: WorldView, resourceType: "food
     }
     case "goingToResource": {
       if (!brain.target) {
-        brain.phase = "idle";
-        brain.target = null;
-        return wanderCitizen(citizen);
+        return redirectToNewResource();
       }
       if (isInventoryFull(citizen, resourceType)) {
         brain.phase = "goingToStorage";
         brain.target = findStorageTarget(citizen, view);
         return { type: "move", x: brain.target.x, y: brain.target.y };
+      }
+      const targetCell = view.cells.find((c) => c.x === brain.target!.x && c.y === brain.target!.y);
+      if (targetCell && (!targetCell.resource || targetCell.resource.type !== resourceType || (targetCell.resource.amount ?? 0) <= 0)) {
+        return redirectToNewResource();
       }
       if (citizen.x === brain.target.x && citizen.y === brain.target.y) {
         brain.phase = "gathering";
@@ -675,9 +689,7 @@ const runGathererBrain = (citizen: Citizen, view: WorldView, resourceType: "food
     case "gathering": {
       const cell = view.cells.find((c) => c.x === citizen.x && c.y === citizen.y);
       if (!cell || !cell.resource || cell.resource.type !== resourceType || (cell.resource.amount ?? 0) <= 0) {
-        brain.phase = "idle";
-        brain.target = null;
-        return wanderCitizen(citizen);
+        return redirectToNewResource();
       }
       if (isInventoryFull(citizen, resourceType)) {
         brain.phase = "goingToStorage";
@@ -698,6 +710,13 @@ const runGathererBrain = (citizen: Citizen, view: WorldView, resourceType: "food
       return { type: "move", x: brain.target.x, y: brain.target.y };
     }
     case "depositing": {
+      const currentCell = view.cells.find((c) => c.x === citizen.x && c.y === citizen.y);
+      const atStorage = currentCell?.structure === "village" || currentCell?.structure === "granary";
+      if (!atStorage) {
+        brain.phase = "goingToStorage";
+        brain.target = findStorageTarget(citizen, view);
+        return { type: "move", x: brain.target.x, y: brain.target.y };
+      }
       const hasResources = (resourceType === "food" && citizen.carrying.food > 0) || (resourceType === "stone" && citizen.carrying.stone > 0);
       if (hasResources) {
         return { type: "storeResources" };
@@ -716,16 +735,18 @@ const runGathererBrain = (citizen: Citizen, view: WorldView, resourceType: "food
 
 const farmerAI: CitizenAI = (citizen, view) => {
   const brain = ensureGathererBrain(citizen, "food");
-  
-  // Prioridad 1: Si ya está en proceso de depositar o recolectar, continuar sin interrupciones
-  if (brain.phase === "goingToStorage" || brain.phase === "depositing" || brain.phase === "gathering" || brain.phase === "goingToResource") {
-    return runGathererBrain(citizen, view, "food");
-  }
-  
-  // Prioridad 2: Si el inventario está lleno, forzar a depositar
-  if (isInventoryFull(citizen, "food")) {
+  const isDepositingPhase = brain.phase === "goingToStorage" || brain.phase === "depositing";
+  const isGatheringPhase = brain.phase === "gathering" || brain.phase === "goingToResource";
+
+  // Prioridad 1: si el inventario está lleno, forzar el depósito (salvo que ya esté en ello).
+  if (!isDepositingPhase && isInventoryFull(citizen, "food")) {
     brain.phase = "goingToStorage";
     brain.target = findStorageTarget(citizen, view);
+    return runGathererBrain(citizen, view, "food");
+  }
+
+  // Prioridad 2: si ya está en alguna fase del cerebro recolector, continuarla.
+  if (isDepositingPhase || isGatheringPhase) {
     return runGathererBrain(citizen, view, "food");
   }
 
