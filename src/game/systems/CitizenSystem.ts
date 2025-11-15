@@ -354,6 +354,97 @@ export class CitizenSystem {
   }
 
   private moveCitizenTowards(citizen: Citizen, targetX: number, targetY: number) {
+    const target = { x: targetX, y: targetY };
+    if (this.tryFollowPath(citizen, target)) {
+      return;
+    }
+    this.clearCitizenPath(citizen);
+    this.greedyMoveTowards(citizen, targetX, targetY);
+  }
+
+  private tryFollowPath(citizen: Citizen, target: Vec2): boolean {
+    if (citizen.x === target.x && citizen.y === target.y) {
+      this.clearCitizenPath(citizen);
+      return true;
+    }
+
+    const cacheKey = this.getPathCacheKey(target);
+    const needsPath =
+      !citizen.path ||
+      !citizen.pathTarget ||
+      citizen.pathTarget.x !== target.x ||
+      citizen.pathTarget.y !== target.y ||
+      citizen.path.length === 0 ||
+      citizen.pathCacheKey !== cacheKey;
+
+    if (needsPath) {
+      const nextPath = this.world.findPath(
+        { x: citizen.x, y: citizen.y },
+        target,
+        cacheKey ? { cacheKey } : undefined
+      );
+      if (!nextPath) {
+        return false;
+      }
+      citizen.path = [...nextPath];
+      citizen.pathTarget = { x: target.x, y: target.y };
+      if (cacheKey) {
+        citizen.pathCacheKey = cacheKey;
+      } else {
+        delete citizen.pathCacheKey;
+      }
+      if (nextPath.length === 0) {
+        return true;
+      }
+    }
+
+    const nextStep = citizen.path?.[0];
+    if (!nextStep) {
+      return false;
+    }
+
+    if (!this.world.isWalkable(nextStep.x, nextStep.y)) {
+      return false;
+    }
+
+    const previousPosition = { x: citizen.x, y: citizen.y };
+    if (this.world.moveCitizen(citizen.id, previousPosition, nextStep)) {
+      citizen.x = nextStep.x;
+      citizen.y = nextStep.y;
+      citizen.lastPosition = previousPosition;
+      citizen.path?.shift();
+      citizen.stuckCounter = 0;
+      if (!citizen.path || citizen.path.length === 0) {
+        this.clearCitizenPath(citizen);
+      }
+      return true;
+    }
+
+    citizen.stuckCounter = (citizen.stuckCounter ?? 0) + 1;
+    if (citizen.stuckCounter > 2) {
+      this.clearCitizenPath(citizen);
+    }
+    return false;
+  }
+
+  private getPathCacheKey(target: Vec2): string | undefined {
+    if (target.x === this.world.villageCenter.x && target.y === this.world.villageCenter.y) {
+      return "special:village-center";
+    }
+    const cell = this.world.getCell(target.x, target.y);
+    if (cell?.structure) {
+      return `structure:${cell.structure}:${target.x},${target.y}`;
+    }
+    return undefined;
+  }
+
+  private clearCitizenPath(citizen: Citizen): void {
+    delete citizen.path;
+    delete citizen.pathTarget;
+    delete citizen.pathCacheKey;
+  }
+
+  private greedyMoveTowards(citizen: Citizen, targetX: number, targetY: number) {
     const dx = clamp(targetX - citizen.x, -1, 1);
     const dy = clamp(targetY - citizen.y, -1, 1);
     if (dx === 0 && dy === 0) {
@@ -374,8 +465,7 @@ export class CitizenSystem {
     }
 
     const currentDist = Math.abs(targetX - citizen.x) + Math.abs(targetY - citizen.y);
-    
-    // Rastrear estancamiento
+
     if (!citizen.stuckCounter) citizen.stuckCounter = 0;
     if (citizen.lastPosition?.x === citizen.x && citizen.lastPosition?.y === citizen.y) {
       citizen.stuckCounter++;
@@ -384,7 +474,6 @@ export class CitizenSystem {
     }
     const isStuck = citizen.stuckCounter > 3;
 
-    // Nivel 1: Intentar movimientos que acercan
     for (const next of tries) {
       if (!this.world.isWalkable(next.x, next.y)) continue;
       const nextDist = Math.abs(targetX - next.x) + Math.abs(targetY - next.y);
@@ -398,7 +487,6 @@ export class CitizenSystem {
       }
     }
 
-    // Nivel 2: Intentar movimientos laterales (no nos alejan)
     for (const next of tries) {
       if (!this.world.isWalkable(next.x, next.y)) continue;
       const nextDist = Math.abs(targetX - next.x) + Math.abs(targetY - next.y);
@@ -412,13 +500,18 @@ export class CitizenSystem {
       }
     }
 
-    // Nivel 3: Si está estancado, intentar cualquier movimiento válido para rodear
     if (isStuck) {
       const allDirections = [
-        { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
-        { x: 1, y: 1 }, { x: 1, y: -1 }, { x: -1, y: 1 }, { x: -1, y: -1 }
+        { x: 1, y: 0 },
+        { x: -1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 0, y: -1 },
+        { x: 1, y: 1 },
+        { x: 1, y: -1 },
+        { x: -1, y: 1 },
+        { x: -1, y: -1 },
       ];
-      
+
       for (const dir of allDirections) {
         const next = { x: citizen.x + dir.x, y: citizen.y + dir.y };
         if (!this.world.isWalkable(next.x, next.y)) continue;
@@ -431,7 +524,7 @@ export class CitizenSystem {
         }
       }
     }
-    
+
     citizen.lastPosition = { x: citizen.x, y: citizen.y };
   }
 
@@ -679,6 +772,7 @@ const warriorAI: CitizenAI = (citizen, view) => {
 
 const MAX_FOOD_CARRY = 3;
 const MAX_STONE_CARRY = 3;
+const MIN_FOOD_NODE_AMOUNT = 0.95; // Consider food nodes depleted when they can't yield a full unit.
 
 const randomStep = () => Math.round(Math.random() * 2 - 1);
 
@@ -769,7 +863,10 @@ const findClosestResourceCell = (citizen: Citizen, view: WorldView, resourceType
   let minDistance = Infinity;
   
   for (const cell of view.cells) {
-    if (!cell.resource || cell.resource.type !== resourceType || (cell.resource.amount ?? 0) <= 0) continue;
+    if (!cell.resource || cell.resource.type !== resourceType) continue;
+    const amount = cell.resource.amount ?? 0;
+    if (amount <= 0) continue;
+    if (resourceType === "food" && amount < MIN_FOOD_NODE_AMOUNT) continue;
     
     const distance = Math.abs(cell.x - citizen.x) + Math.abs(cell.y - citizen.y);
     if (distance < minDistance) {
@@ -795,6 +892,13 @@ const findStorageTarget = (citizen: Citizen, view: WorldView): Vec2 => {
 
 const runGathererBrain = (citizen: Citizen, view: WorldView, resourceType: "food" | "stone"): CitizenAction => {
   const brain = ensureGathererBrain(citizen, resourceType);
+  const carryAmount = resourceType === "food" ? citizen.carrying.food : citizen.carrying.stone;
+  const hasCargo = carryAmount > 0;
+  const sendToStorage = (): CitizenAction => {
+    brain.phase = "goingToStorage";
+    brain.target = findStorageTarget(citizen, view);
+    return { type: "move", x: brain.target.x, y: brain.target.y };
+  };
   const redirectToNewResource = (): CitizenAction => {
     const nextCell = findClosestResourceCell(citizen, view, resourceType);
     if (nextCell) {
@@ -804,6 +908,9 @@ const runGathererBrain = (citizen: Citizen, view: WorldView, resourceType: "food
     }
     brain.phase = "idle";
     brain.target = null;
+    if (hasCargo) {
+      return sendToStorage();
+    }
     return wanderCitizen(citizen);
   };
 
@@ -830,7 +937,7 @@ const runGathererBrain = (citizen: Citizen, view: WorldView, resourceType: "food
       const targetCell = findClosestResourceCell(citizen, view, resourceType);
       if (!targetCell) {
         brain.target = null;
-        return wanderCitizen(citizen);
+        return hasCargo ? sendToStorage() : wanderCitizen(citizen);
       }
       brain.phase = "goingToResource";
       brain.target = { x: targetCell.x, y: targetCell.y };
@@ -856,7 +963,14 @@ const runGathererBrain = (citizen: Citizen, view: WorldView, resourceType: "food
         return { type: "move", x: brain.target.x, y: brain.target.y };
       }
       const targetCell = view.cells.find((c) => c.x === brain.target!.x && c.y === brain.target!.y);
-      if (targetCell && (!targetCell.resource || targetCell.resource.type !== resourceType || (targetCell.resource.amount ?? 0) <= 0)) {
+      const targetAmount = targetCell?.resource?.amount ?? 0;
+      const targetInvalid =
+        !targetCell ||
+        !targetCell.resource ||
+        targetCell.resource.type !== resourceType ||
+        targetAmount <= 0 ||
+        (resourceType === "food" && targetAmount < MIN_FOOD_NODE_AMOUNT);
+      if (targetInvalid) {
         return redirectToNewResource();
       }
       if (citizen.x === brain.target.x && citizen.y === brain.target.y) {
@@ -867,7 +981,14 @@ const runGathererBrain = (citizen: Citizen, view: WorldView, resourceType: "food
     }
     case "gathering": {
       const cell = view.cells.find((c) => c.x === citizen.x && c.y === citizen.y);
-      if (!cell || !cell.resource || cell.resource.type !== resourceType || (cell.resource.amount ?? 0) <= 0) {
+      const amount = cell?.resource?.amount ?? 0;
+      const depleted =
+        !cell ||
+        !cell.resource ||
+        cell.resource.type !== resourceType ||
+        amount <= 0 ||
+        (resourceType === "food" && amount < MIN_FOOD_NODE_AMOUNT);
+      if (depleted) {
         return redirectToNewResource();
       }
       if (isInventoryFull(citizen, resourceType)) {

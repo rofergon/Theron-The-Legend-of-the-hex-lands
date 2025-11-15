@@ -70,6 +70,8 @@ export class Game {
   private zoomOutButton = document.querySelector<HTMLButtonElement>("#zoom-out");
   private isPanning = false;
   private lastPanPosition: { x: number; y: number } | null = null;
+  private speedButtons: HTMLButtonElement[] = [];
+  private speedMultiplier = 1;
 
   constructor(private canvas: HTMLCanvasElement) {
     this.renderer = new GameRenderer(canvas);
@@ -83,6 +85,7 @@ export class Game {
     
     this.setupZoomControls();
     this.setupRoleControls();
+    this.setupSpeedControls();
     this.bindCanvasEvents();
     this.debugExportButton?.addEventListener("click", this.exportDebugLog);
 
@@ -234,6 +237,51 @@ export class Game {
     this.updateRoleControls(true);
   }
 
+  private setupSpeedControls() {
+    const container = document.querySelector<HTMLDivElement>("#speed-controls");
+    if (!container) {
+      return;
+    }
+    this.speedButtons = Array.from(container.querySelectorAll<HTMLButtonElement>("button[data-speed]"));
+    if (this.speedButtons.length === 0) {
+      return;
+    }
+    this.speedButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const nextSpeed = Number(button.dataset.speed ?? "1");
+        if (!Number.isFinite(nextSpeed) || nextSpeed <= 0) {
+          return;
+        }
+        this.setSpeedMultiplier(nextSpeed);
+      });
+    });
+    this.updateSpeedButtons();
+  }
+
+  private setSpeedMultiplier(multiplier: number) {
+    if (!Number.isFinite(multiplier) || multiplier <= 0) {
+      return;
+    }
+    const changed = this.speedMultiplier !== multiplier;
+    this.speedMultiplier = multiplier;
+    this.updateSpeedButtons();
+    if (changed && this.gameInitialized) {
+      this.logEvent(`Velocidad de simulación ${multiplier}×`);
+    }
+  }
+
+  private updateSpeedButtons() {
+    if (this.speedButtons.length === 0) {
+      return;
+    }
+    this.speedButtons.forEach((button) => {
+      const buttonSpeed = Number(button.dataset.speed ?? "1");
+      const isActive = buttonSpeed === this.speedMultiplier;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+  }
+
   private handleRoleSliderInput = () => {
     if (!this.gameInitialized || !this.citizenSystem) {
       return;
@@ -297,7 +345,7 @@ export class Game {
     this.lastTime = time;
     this.handleRealtimeInput();
 
-    this.accumulatedHours += deltaSeconds * HOURS_PER_SECOND;
+    this.accumulatedHours += deltaSeconds * HOURS_PER_SECOND * this.speedMultiplier;
     while (this.accumulatedHours >= TICK_HOURS) {
       this.runTick(TICK_HOURS);
       this.accumulatedHours -= TICK_HOURS;

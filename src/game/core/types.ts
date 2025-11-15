@@ -77,6 +77,9 @@ export interface Citizen {
   actionHistory: CitizenActionLogEntry[];
   stuckCounter?: number;
   lastPosition?: Vec2;
+  path?: Vec2[];
+  pathTarget?: Vec2 | null;
+  pathCacheKey?: string;
 }
 
 export interface WorldView {
