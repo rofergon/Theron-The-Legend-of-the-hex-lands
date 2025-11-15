@@ -10,6 +10,8 @@ import type {
 } from "../core/types";
 import type { PlayerSpirit } from "../core/PlayerSpirit";
 import type { WorldEngine } from "../core/world/WorldEngine";
+import { createHexGeometry, getHexCenter, traceHexPath } from "./hexGrid";
+import type { HexGeometry } from "./hexGrid";
 
 export type ViewMetrics = {
   cellSize: number;
@@ -46,56 +48,53 @@ export class GameRenderer {
   render(state: RenderState) {
     const { ctx } = this;
     const { cellSize, offsetX, offsetY } = state.view;
+    const hex = createHexGeometry(cellSize);
 
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     state.world.cells.forEach((row) =>
       row.forEach((cell) => {
-        ctx.fillStyle = this.getTerrainColor(cell);
-        ctx.fillRect(offsetX + cell.x * cellSize, offsetY + cell.y * cellSize, cellSize, cellSize);
+        const center = getHexCenter(cell.x, cell.y, hex, offsetX, offsetY);
+        this.fillHex(center, hex, this.getTerrainColor(cell));
 
         if (cell.priority !== "none") {
-          ctx.fillStyle = this.getPriorityColor(cell.priority);
-          ctx.globalAlpha = 0.3;
-          ctx.fillRect(offsetX + cell.x * cellSize, offsetY + cell.y * cellSize, cellSize, cellSize);
+          ctx.globalAlpha = 0.35;
+          this.fillHex(center, hex, this.getPriorityColor(cell.priority));
           ctx.globalAlpha = 1;
         }
 
         if (cell.structure) {
-          this.drawStructure(cell.structure, cell.x, cell.y, cellSize, offsetX, offsetY);
+          this.drawStructure(cell.structure, center, cellSize);
         }
 
         if (cell.resource) {
-          this.drawResource(cell.resource.type, cell.x, cell.y, cellSize, offsetX, offsetY);
+          this.drawResource(cell.resource.type, center, cellSize);
         }
       }),
     );
 
     state.citizens.forEach((citizen) => {
       if (citizen.state === "dead") return;
-      this.drawCitizen(citizen, cellSize, offsetX, offsetY);
+      const center = getHexCenter(citizen.x, citizen.y, hex, offsetX, offsetY);
+      this.drawCitizen(citizen, center, hex);
 
       if (citizen === state.selectedCitizen) {
         ctx.strokeStyle = "#ffff00";
         ctx.lineWidth = 2;
-        ctx.strokeRect(offsetX + citizen.x * cellSize, offsetY + citizen.y * cellSize, cellSize, cellSize);
+        traceHexPath(ctx, center, hex);
+        ctx.stroke();
       }
     });
 
     ctx.strokeStyle = "#f9dd82";
     ctx.lineWidth = 2;
     state.player.getCoveredCells().forEach(({ x, y }) => {
-      ctx.strokeRect(offsetX + x * cellSize, offsetY + y * cellSize, cellSize, cellSize);
+      const center = getHexCenter(x, y, hex, offsetX, offsetY);
+      traceHexPath(ctx, center, hex);
+      ctx.stroke();
     });
 
-    ctx.strokeStyle = "rgba(255,255,255,0.25)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(
-      offsetX + (state.player.x - state.player.influenceRadius) * cellSize,
-      offsetY + (state.player.y - state.player.influenceRadius) * cellSize,
-      state.player.influenceRadius * 2 * cellSize,
-      state.player.influenceRadius * 2 * cellSize,
-    );
+    this.drawInfluenceBoundary(state.player, hex, offsetX, offsetY);
 
     this.drawNotifications(state.notifications);
     this.drawContextPanel(state.selectedCitizen);
@@ -144,11 +143,8 @@ export class GameRenderer {
     }
   }
 
-  private drawCitizen(citizen: Citizen, cellSize: number, offsetX: number, offsetY: number) {
+  private drawCitizen(citizen: Citizen, center: Vec2, hex: HexGeometry) {
     const ctx = this.ctx;
-    const x = offsetX + citizen.x * cellSize;
-    const y = offsetY + citizen.y * cellSize;
-
     const roleEmoji: Record<Citizen["role"], string> = {
       worker: "🔨",
       farmer: "👨‍🌾",
@@ -160,35 +156,45 @@ export class GameRenderer {
 
     const color = citizen.tribeId === 1 ? "#ffe7c7" : citizen.tribeId === 99 ? "#ff7b7b" : "#7db2ff";
     ctx.fillStyle = color;
-    ctx.fillRect(x + cellSize * 0.2, y + cellSize * 0.2, cellSize * 0.6, cellSize * 0.6);
+    ctx.beginPath();
+    ctx.arc(center.x, center.y, hex.size * 0.45, 0, Math.PI * 2);
+    ctx.fill();
 
     if (citizen.blessedUntil && citizen.age < citizen.blessedUntil) {
       ctx.strokeStyle = "#ffea00";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x + cellSize * 0.15, y + cellSize * 0.15, cellSize * 0.7, cellSize * 0.7);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(center.x, center.y, hex.size * 0.55, 0, Math.PI * 2);
+      ctx.stroke();
     }
 
-    ctx.font = `${cellSize * 0.5}px Arial`;
+    ctx.font = `${hex.size * 0.9}px Arial`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(roleEmoji[citizen.role], x + cellSize * 0.5, y + cellSize * 0.5);
+    ctx.fillText(roleEmoji[citizen.role], center.x, center.y + 1);
 
     if (citizen.health < 30) {
-      ctx.fillStyle = "#ff0000";
-      ctx.fillRect(x, y, cellSize * (citizen.health / 100), cellSize * 0.1);
+      const barWidth = hex.width * 0.55;
+      const barHeight = 4;
+      const barX = center.x - barWidth / 2;
+      const barY = center.y + hex.size * 0.75;
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.fillRect(barX, barY, barWidth, barHeight);
+      ctx.fillStyle = "#ff4d4d";
+      ctx.fillRect(barX, barY, (barWidth * clamp(citizen.health, 0, 100)) / 100, barHeight);
     }
   }
 
-  private drawResource(type: ResourceType, x: number, y: number, cellSize: number, offsetX: number, offsetY: number) {
+  private drawResource(type: ResourceType, center: Vec2, cellSize: number) {
     const ctx = this.ctx;
     const emoji = type === "food" ? "🌾" : type === "stone" ? "🪨" : "💧";
-    ctx.font = `${cellSize * 0.6}px Arial`;
+    ctx.font = `${cellSize * 0.9}px Arial`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(emoji, offsetX + x * cellSize + cellSize * 0.5, offsetY + y * cellSize + cellSize * 0.5);
+    ctx.fillText(emoji, center.x, center.y);
   }
 
-  private drawStructure(type: StructureType, x: number, y: number, cellSize: number, offsetX: number, offsetY: number) {
+  private drawStructure(type: StructureType, center: Vec2, cellSize: number) {
     const ctx = this.ctx;
     const emoji: Record<StructureType, string> = {
       village: "🏛️",
@@ -198,10 +204,30 @@ export class GameRenderer {
       temple: "⛪",
       campfire: "🔥",
     };
-    ctx.font = `${cellSize * 0.7}px Arial`;
+    ctx.font = `${cellSize}px Arial`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(emoji[type], offsetX + x * cellSize + cellSize * 0.5, offsetY + y * cellSize + cellSize * 0.5);
+    ctx.fillText(emoji[type], center.x, center.y);
+  }
+
+  private fillHex(center: Vec2, hex: HexGeometry, color: string) {
+    const ctx = this.ctx;
+    traceHexPath(ctx, center, hex);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
+  private drawInfluenceBoundary(player: PlayerSpirit, hex: HexGeometry, offsetX: number, offsetY: number) {
+    const ctx = this.ctx;
+    const radius = player.influenceRadius;
+    const topLeft = getHexCenter(player.x - radius, player.y - radius, hex, offsetX, offsetY);
+    const bottomRight = getHexCenter(player.x + radius, player.y + radius, hex, offsetX, offsetY);
+    const width = bottomRight.x - topLeft.x;
+    const height = bottomRight.y - topLeft.y;
+
+    ctx.strokeStyle = "rgba(255,255,255,0.25)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(topLeft.x - hex.halfWidth, topLeft.y - hex.size, width + hex.width, height + hex.height);
   }
 
   private drawNotifications(notifications: ToastNotification[]) {

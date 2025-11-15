@@ -10,6 +10,7 @@ import { CitizenPanelController } from "./ui/CitizenPanel";
 import { GameRenderer, type RenderState, type ViewMetrics } from "./ui/GameRenderer";
 import { MainMenu } from "./ui/MainMenu";
 import { CellTooltipController } from "./ui/CellTooltip";
+import { axialToOffset, createHexGeometry, getHexCenter, getHexWorldBounds, pixelToAxial, roundAxial } from "./ui/hexGrid";
 
 type AssignableRole = Extract<Role, "farmer" | "worker" | "warrior" | "scout">;
 
@@ -64,7 +65,6 @@ export class Game {
   private zoom = 1;
   private readonly minZoom = 0.75;
   private readonly maxZoom = 2.5;
-  private defaultCenter: Vec2 = { x: (WORLD_SIZE - 1) / 2, y: (WORLD_SIZE - 1) / 2 };
   private viewTarget: Vec2 = { x: (WORLD_SIZE - 1) / 2, y: (WORLD_SIZE - 1) / 2 };
   private zoomInButton = document.querySelector<HTMLButtonElement>("#zoom-in");
   private zoomOutButton = document.querySelector<HTMLButtonElement>("#zoom-out");
@@ -116,8 +116,6 @@ export class Game {
     this.world.citizenLookup = (id) => this.citizenSystem.getCitizenById(id);
     
     this.viewTarget = { x: this.player.x + 0.5, y: this.player.y + 0.5 };
-    this.defaultCenter.x = (config.worldSize - 1) / 2;
-    this.defaultCenter.y = (config.worldSize - 1) / 2;
 
     // Inicializar ciudadanos según dificultad
     const roles: Role[] = [];
@@ -750,9 +748,10 @@ export class Game {
     if (dx === 0 && dy === 0) return;
     const { cellSize } = this.getViewMetrics();
     if (cellSize <= 0) return;
+    const hex = createHexGeometry(cellSize);
     const nextTarget = {
-      x: this.viewTarget.x - dx / cellSize,
-      y: this.viewTarget.y - dy / cellSize,
+      x: this.viewTarget.x - dx / hex.horizontalSpacing,
+      y: this.viewTarget.y - dy / hex.verticalSpacing,
     };
     this.focusOn(nextTarget);
     this.lastPanPosition = { x: event.clientX, y: event.clientY };
@@ -764,29 +763,33 @@ export class Game {
   };
 
   private getWorldPosition(event: MouseEvent | WheelEvent): Vec2 | null {
-    if (!this.gameInitialized || !this.world) {
+    const cell = this.getCellUnderPointer(event);
+    if (!cell) {
       return null;
     }
-    const rect = this.canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    const { cellSize, offsetX, offsetY } = this.getViewMetrics();
-    const worldX = (x - offsetX) / cellSize;
-    const worldY = (y - offsetY) / cellSize;
-    if (!Number.isFinite(worldX) || !Number.isFinite(worldY)) {
-      return null;
-    }
-    return { x: worldX, y: worldY };
+    return { x: cell.x + 0.5, y: cell.y + 0.5 };
   }
 
   private getCellUnderPointer(event: MouseEvent | WheelEvent): Vec2 | null {
     if (!this.world) {
       return null;
     }
-    const worldPoint = this.getWorldPosition(event);
-    if (!worldPoint) return null;
-    const cellX = Math.floor(worldPoint.x);
-    const cellY = Math.floor(worldPoint.y);
+    const rect = this.canvas.getBoundingClientRect();
+    const px = event.clientX - rect.left;
+    const py = event.clientY - rect.top;
+    const { cellSize, offsetX, offsetY } = this.getViewMetrics();
+    if (cellSize <= 0) return null;
+    const hex = createHexGeometry(cellSize);
+    const localX = px - offsetX;
+    const localY = py - offsetY;
+    const axial = pixelToAxial(localX, localY, hex);
+    const rounded = roundAxial(axial);
+    const cell = axialToOffset(rounded);
+    const cellX = Math.round(cell.x);
+    const cellY = Math.round(cell.y);
+    if (!Number.isFinite(cellX) || !Number.isFinite(cellY)) {
+      return null;
+    }
     if (cellX < 0 || cellY < 0 || cellX >= this.world.size || cellY >= this.world.size) {
       return null;
     }
@@ -826,27 +829,37 @@ export class Game {
   }
 
   private getViewMetrics(): ViewMetrics {
-    const baseCell = Math.min(this.canvas.width, this.canvas.height) / this.world.size;
+    const worldSize = this.world?.size ?? WORLD_SIZE;
+    const widthFactor = Math.sqrt(3) * (worldSize + 0.5);
+    const heightFactor = 1.5 * worldSize + 0.5;
+    const baseCell = Math.min(this.canvas.width / widthFactor, this.canvas.height / heightFactor);
     const cellSize = baseCell * this.zoom;
-    const center = this.resolveCenter(cellSize);
-    const offsetX = this.canvas.width / 2 - center.x * cellSize;
-    const offsetY = this.canvas.height / 2 - center.y * cellSize;
-    return { cellSize, offsetX, offsetY, center };
-  }
+    const hex = createHexGeometry(cellSize);
+    const targetPixel = getHexCenter(this.viewTarget.x, this.viewTarget.y, hex, 0, 0);
+    const bounds = getHexWorldBounds(worldSize, hex);
+    const halfW = this.canvas.width / 2;
+    const halfH = this.canvas.height / 2;
+    const worldWidth = bounds.maxX - bounds.minX;
+    const worldHeight = bounds.maxY - bounds.minY;
 
-  private resolveCenter(cellSize: number): Vec2 {
-    if (this.zoom <= 1) {
-      return this.defaultCenter;
+    let centerX = targetPixel.x;
+    let centerY = targetPixel.y;
+
+    if (worldWidth <= this.canvas.width || this.zoom <= 1) {
+      centerX = (bounds.minX + bounds.maxX) / 2;
+    } else {
+      centerX = clamp(centerX, bounds.minX + halfW, bounds.maxX - halfW);
     }
 
-    const halfVisibleX = this.canvas.width / (cellSize * 2);
-    const halfVisibleY = this.canvas.height / (cellSize * 2);
-    const maxHalf = this.world.size / 2;
+    if (worldHeight <= this.canvas.height || this.zoom <= 1) {
+      centerY = (bounds.minY + bounds.maxY) / 2;
+    } else {
+      centerY = clamp(centerY, bounds.minY + halfH, bounds.maxY - halfH);
+    }
 
-    const centerX = halfVisibleX >= maxHalf ? this.defaultCenter.x : clamp(this.viewTarget.x, halfVisibleX, this.world.size - halfVisibleX);
-    const centerY = halfVisibleY >= maxHalf ? this.defaultCenter.y : clamp(this.viewTarget.y, halfVisibleY, this.world.size - halfVisibleY);
-
-    return { x: centerX, y: centerY };
+    const offsetX = this.canvas.width / 2 - centerX;
+    const offsetY = this.canvas.height / 2 - centerY;
+    return { cellSize, offsetX, offsetY, center: this.viewTarget };
   }
 
   private setupZoomControls() {
