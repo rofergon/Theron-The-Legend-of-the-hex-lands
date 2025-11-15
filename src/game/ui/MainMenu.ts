@@ -211,7 +211,7 @@ export class MainMenu {
     const previewX = previewMargin;
     const previewY = previewMargin;
 
-    const headerHeight = 200;
+    const headerHeight = 227; // 200 + ~27px (aproximadamente 7mm)
     const configPanelHeight = 360;
     const configPanelWidth = Math.min(500, canvasWidth - margin * 2);
     const configPanelX = centerX - configPanelWidth / 2;
