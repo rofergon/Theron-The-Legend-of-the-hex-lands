@@ -1,5 +1,6 @@
 import type { Terrain } from "../core/types";
 import { WorldEngine } from "../core/world/WorldEngine";
+import { createHexGeometry, getHexCenter, getHexWorldBounds, traceHexPath } from "./hexGrid";
 
 export interface WorldGenerationConfig {
   seed: number;
@@ -396,27 +397,32 @@ export class MainMenu {
     }
 
     const gridSize = previewWorld.size;
-    const cellSize = Math.max(1, Math.min(availableWidth / gridSize, availableHeight / gridSize));
-    const gridWidth = cellSize * gridSize;
-    const gridHeight = cellSize * gridSize;
-    const gridX = x + (width - gridWidth) / 2;
-    const gridY = y + gridTopOffset + (availableHeight - gridHeight) / 2;
+    const widthFactor = Math.sqrt(3) * (gridSize + 0.5);
+    const heightFactor = 1.5 * gridSize + 0.5;
+    const cellSize = Math.max(4, Math.min(availableWidth / widthFactor, availableHeight / heightFactor));
+    const hex = createHexGeometry(cellSize);
+    const bounds = getHexWorldBounds(gridSize, hex);
+    const worldWidth = bounds.maxX - bounds.minX;
+    const worldHeight = bounds.maxY - bounds.minY;
+    const originX = x + (width - worldWidth) / 2;
+    const originY = y + gridTopOffset + (availableHeight - worldHeight) / 2;
+    const offsetX = originX - bounds.minX;
+    const offsetY = originY - bounds.minY;
 
     previewWorld.cells.forEach((row) =>
       row.forEach((cell) => {
+        const center = getHexCenter(cell.x, cell.y, hex, offsetX, offsetY);
+        traceHexPath(ctx, center, hex);
         ctx.fillStyle = this.getPreviewTerrainColor(cell.terrain);
-        ctx.fillRect(gridX + cell.x * cellSize, gridY + cell.y * cellSize, cellSize, cellSize);
+        ctx.fill();
       }),
     );
 
     ctx.strokeStyle = "#f97316";
     ctx.lineWidth = Math.max(1, cellSize * 0.18);
-    ctx.strokeRect(
-      gridX + previewWorld.villageCenter.x * cellSize,
-      gridY + previewWorld.villageCenter.y * cellSize,
-      cellSize,
-      cellSize,
-    );
+    const villageCenter = getHexCenter(previewWorld.villageCenter.x, previewWorld.villageCenter.y, hex, offsetX, offsetY);
+    traceHexPath(ctx, villageCenter, hex);
+    ctx.stroke();
 
     ctx.fillStyle = "rgba(15, 23, 42, 0.6)";
     ctx.fillRect(x + 10, y + height - 26, width - 20, 18);

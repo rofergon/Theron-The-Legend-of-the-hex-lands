@@ -54,6 +54,7 @@ export const getHexCorners = (center: Vec2, geom: HexGeometry): Vec2[] => {
 
 export const traceHexPath = (ctx: CanvasRenderingContext2D, center: Vec2, geom: HexGeometry) => {
   const corners = getHexCorners(center, geom);
+  if (!corners.length) return;
   ctx.beginPath();
   ctx.moveTo(corners[0].x, corners[0].y);
   for (let i = 1; i < corners.length; i += 1) {
