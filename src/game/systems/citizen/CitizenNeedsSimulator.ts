@@ -1,0 +1,47 @@
+import { clamp } from "../../core/utils";
+import type { Citizen } from "../../core/types";
+import type { WorldEngine } from "../../core/world/WorldEngine";
+
+const GAME_HOURS_PER_YEAR = 24; // 1 in-game day equals 1 citizen year for balance pacing
+
+type NeedsHooks = {
+  inflictDamage: (citizen: Citizen, amount: number, cause: string) => void;
+  tryEatFromStockpile: (citizen: Citizen) => void;
+};
+
+export interface NeedSimulationResult {
+  died: boolean;
+}
+
+/**
+ * Applies deterministic needs simulation (edad, hambre, fatiga, moral, etc.)
+ * keeping the logic isolated from the main system loop.
+ */
+export class CitizenNeedsSimulator {
+  constructor(private world: WorldEngine, private hooks: NeedsHooks) {}
+
+  advance(citizen: Citizen, tickHours: number): NeedSimulationResult {
+    const cell = this.world.getCell(citizen.x, citizen.y);
+    const hungerRate = cell?.terrain === "desert" ? 1.5 : 1;
+    citizen.age += tickHours / GAME_HOURS_PER_YEAR;
+    citizen.hunger = clamp(citizen.hunger + hungerRate * 0.864 * tickHours, 0, 100);
+    citizen.fatigue = clamp(citizen.fatigue + 0.8 * tickHours, 0, 100);
+    citizen.morale = clamp(citizen.morale - 0.2 * tickHours, 0, 100);
+
+    if (citizen.hunger > 80) this.hooks.inflictDamage(citizen, 4, "hambre");
+    if (citizen.fatigue > 80) this.hooks.inflictDamage(citizen, 2, "agotamiento");
+    if (citizen.morale < 20) citizen.currentGoal = "passive";
+
+    if (citizen.age > 70 && Math.random() < tickHours * 0.02) this.hooks.inflictDamage(citizen, 5, "vejez");
+
+    if (citizen.health <= 0) {
+      return { died: true };
+    }
+
+    if (citizen.hunger > 70) {
+      this.hooks.tryEatFromStockpile(citizen);
+    }
+
+    return { died: false };
+  }
+}
