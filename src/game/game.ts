@@ -1,10 +1,9 @@
 import { HOURS_PER_SECOND, PRIORITY_KEYMAP, TICK_HOURS, WORLD_SIZE } from "./core/constants";
 import { InputHandler } from "./core/InputHandler";
-import { PlayerSpirit } from "./core/PlayerSpirit";
 import { clamp } from "./core/utils";
-import type { Citizen, ClimateState, PriorityMark, ResourceTrend, Role, ToastNotification, Vec2 } from "./core/types";
-import { WorldEngine } from "./core/world/WorldEngine";
-import { CitizenSystem, type CitizenSystemEvent } from "./systems/CitizenSystem";
+import type { Citizen, PriorityMark, Role, ToastNotification, Vec2 } from "./core/types";
+import { SimulationSession } from "./core/SimulationSession";
+import { CameraController } from "./core/CameraController";
 import { HUDController, type HUDSnapshot } from "./ui/HUDController";
 import { CitizenPanelController } from "./ui/CitizenPanel";
 import { GameRenderer, type RenderState, type ViewMetrics } from "./ui/GameRenderer";
@@ -21,13 +20,12 @@ export class Game {
 
   private readonly input = new InputHandler();
   private mainMenu: MainMenu;
-  private world!: WorldEngine;
-  private player!: PlayerSpirit;
   private readonly renderer: GameRenderer;
   private readonly hud = new HUDController();
   private readonly citizenPanel = new CitizenPanelController({ onSelect: (id) => this.handleCitizenPanelSelection(id) });
   private readonly cellTooltip = new CellTooltipController();
   private readonly playerTribeId = 1;
+  private simulation: SimulationSession | null = null;
   private readonly assignableRoles: AssignableRole[] = ["farmer", "worker", "warrior", "scout"];
   private roleControls: Record<AssignableRole, { input: HTMLInputElement | null; value: HTMLSpanElement | null }> = {
     farmer: { input: null, value: null },
@@ -38,29 +36,14 @@ export class Game {
   private debugExportButton = document.querySelector<HTMLButtonElement>("#debug-export");
   private extinctionAnnounced = false;
   private gameInitialized = false;
-  private handleCitizenEvent = (event: CitizenSystemEvent) => {
-    if (event.type === "log") {
-      this.logEvent(event.message, event.notificationType);
-    }
-    if (event.type === "powerGain") {
-      this.player.power = clamp(this.player.power + event.amount, 0, 120);
-    }
-  };
-  private citizenSystem!: CitizenSystem;
+  private readonly camera: CameraController;
 
   private currentDirection: Vec2 = { x: 0, y: 0 };
   private pendingMoveDirection: Vec2 | null = null;
   private pendingPriority: PriorityMark | null = null;
 
-  private climate: ClimateState = { drought: false, droughtTimer: 0, rainy: false, rainyTimer: 0 };
-  private nextEventTimer = 8;
-
   private selectedCitizen: Citizen | null = null;
   private hoveredCell: Vec2 | null = null;
-
-  private resourceHistory: ResourceTrend[] = [];
-  private lastResourceSnapshot = { food: 40, stone: 10, population: 10 };
-  private resourceTrackTimer = 0;
 
   private zoom = 1;
   private readonly minZoom = 0.75;
@@ -68,15 +51,14 @@ export class Game {
   private viewTarget: Vec2 = { x: (WORLD_SIZE - 1) / 2, y: (WORLD_SIZE - 1) / 2 };
   private zoomInButton = document.querySelector<HTMLButtonElement>("#zoom-in");
   private zoomOutButton = document.querySelector<HTMLButtonElement>("#zoom-out");
-  private isPanning = false;
-  private lastPanPosition: { x: number; y: number } | null = null;
   private speedButtons: HTMLButtonElement[] = [];
   private speedMultiplier = 1;
 
   constructor(private canvas: HTMLCanvasElement) {
     this.renderer = new GameRenderer(canvas);
+    this.camera = new CameraController({ canvas }, () => this.simulation?.getWorld() ?? null);
     this.mainMenu = new MainMenu(canvas);
-    this.viewTarget = { x: WORLD_SIZE / 2, y: WORLD_SIZE / 2 };
+    this.camera.setViewTarget({ x: WORLD_SIZE / 2, y: WORLD_SIZE / 2 });
 
     this.hud.setupHeaderButtons(this.handlePauseToggle);
     this.hud.hideOverlay(); // Ocultar el overlay inmediatamente
@@ -105,52 +87,25 @@ export class Game {
     if (this.gameInitialized) return;
     
     const config = this.mainMenu.getConfig();
-    
-    // Crear mundo con la configuración del menú
-    this.world = new WorldEngine(config.worldSize, config.seed);
-    this.player = new PlayerSpirit(config.worldSize);
-    this.player.x = this.world.villageCenter.x;
-    this.player.y = this.world.villageCenter.y;
-    
-    this.citizenSystem = new CitizenSystem(this.world, this.handleCitizenEvent);
-    this.world.citizenLookup = (id) => this.citizenSystem.getCitizenById(id);
-    
-    this.viewTarget = { x: this.player.x + 0.5, y: this.player.y + 0.5 };
 
-    // Inicializar ciudadanos según dificultad
-    const roles: Role[] = [];
-    const baseRoles: Role[] = ["farmer", "farmer", "worker", "worker"];
-    
-    if (config.difficulty === "easy") {
-      roles.push(...baseRoles, "warrior", "scout", "child", "child");
-    } else if (config.difficulty === "normal") {
-      roles.push(...baseRoles, "warrior", "scout", "child");
-    } else {
-      roles.push(...baseRoles, "warrior");
-    }
-    
-    this.citizenSystem.init(roles, this.playerTribeId);
-    this.updateRoleControls(true);
-    
-    // Agregar recursos extra en modo fácil
-    if (config.difficulty === "easy") {
-      this.world.stockpile.food += 20;
-      this.world.stockpile.stone += 10;
-    } else if (config.difficulty === "hard") {
-      this.world.stockpile.food = Math.max(20, this.world.stockpile.food - 10);
-      this.world.stockpile.stone = Math.max(5, this.world.stockpile.stone - 5);
-    }
-    
+    this.simulation = new SimulationSession(this.playerTribeId, {
+      onLog: (message, notificationType) => this.logEvent(message, notificationType),
+      onExtinction: this.handleExtinction,
+    });
+    this.simulation.initialize(config);
+    this.extinctionAnnounced = false;
+
+    const player = this.simulation.getPlayer();
+    this.camera.setViewTarget({ x: player.x + 0.5, y: player.y + 0.5 });
+    this.selectedCitizen = null;
+    this.hoveredCell = null;
+
     this.gameInitialized = true;
+    this.updateRoleControls(true);
     this.updateCitizenPanel();
-    
-    // Configurar el HUD para mostrar que el juego está en marcha
+
     this.hud.setPauseButtonState(true);
     this.hud.updateStatus("▶️ Simulación en curso.");
-    
-    this.logEvent(`🌍 Mundo generado con semilla: ${config.seed}`, "info");
-    this.logEvent(`📏 Tamaño: ${config.worldSize}x${config.worldSize}`, "info");
-    this.logEvent(`⚔️ Dificultad: ${config.difficulty}`, "info");
   }
 
   private initializeAndStart() {
@@ -281,11 +236,11 @@ export class Game {
   }
 
   private handleRoleSliderInput = () => {
-    if (!this.gameInitialized || !this.citizenSystem) {
+    if (!this.gameInitialized || !this.simulation) {
       return;
     }
     const targets = this.collectRoleTargets();
-    this.citizenSystem.rebalanceRoles(targets, this.playerTribeId);
+    this.simulation.getCitizenSystem().rebalanceRoles(targets, this.playerTribeId);
     this.updateRoleControls(true);
   };
 
@@ -305,11 +260,12 @@ export class Game {
   }
 
   private updateRoleControls(force = false) {
-    if (!this.citizenSystem) {
+    if (!this.simulation) {
       return;
     }
-    const assignable = this.citizenSystem.getAssignablePopulationCount(this.playerTribeId);
-    const counts = this.citizenSystem.getRoleCounts(this.playerTribeId);
+    const citizenSystem = this.simulation.getCitizenSystem();
+    const assignable = citizenSystem.getAssignablePopulationCount(this.playerTribeId);
+    const counts = citizenSystem.getRoleCounts(this.playerTribeId);
     for (const role of this.assignableRoles) {
       const control = this.roleControls[role];
       if (control.value) {
@@ -376,200 +332,85 @@ export class Game {
   }
 
   private runTick(tickHours: number) {
-    if (!this.gameInitialized) return;
-    
+    if (!this.gameInitialized || !this.simulation) return;
+
     const moveIntent = this.pendingMoveDirection ?? this.currentDirection;
-    if (moveIntent.x !== 0 || moveIntent.y !== 0) {
-      this.player.move(moveIntent.x, moveIntent.y, this.world);
-    }
+    const priority = this.pendingPriority;
+
+    this.simulation.runTick(tickHours, {
+      moveIntent,
+      priority: priority ?? null,
+    });
+
     this.pendingMoveDirection = null;
+    this.pendingPriority = null;
 
-    if (this.pendingPriority) {
-      this.applyPriority(this.pendingPriority);
-      this.pendingPriority = null;
-    }
-
-    this.updateEvents(tickHours);
-    this.world.updateEnvironment(this.climate, tickHours);
-    this.citizenSystem.update(tickHours);
     if (this.selectedCitizen?.state === "dead") {
       this.selectedCitizen = null;
     }
-    this.regeneratePlayerPower(tickHours);
-    this.trackResourceTrends(tickHours);
+
     this.hud.tickNotifications();
     this.updateRoleControls();
     this.updateHUD();
     this.updateCitizenPanel();
-    this.checkExtinction();
-  }
-
-  private applyPriority(priority: PriorityMark) {
-    this.player.getCoveredCells().forEach(({ x, y }) => this.world.setPriorityAt(x, y, priority));
-    const label =
-      priority === "none" ? "Sin prioridad" : priority === "explore" ? "Explorar" : priority === "defend" ? "Defender" : priority === "farm" ? "Farmear" : "Minar";
-    this.logEvent(`Prioridad: ${label}`);
   }
 
   private blessNearestCitizen() {
-    if (!this.player.spendPower(this.player.blessingCost)) {
-      this.logEvent("No hay poder suficiente para bendecir.");
+    if (!this.gameInitialized || !this.simulation) {
       return;
     }
-
-    const candidates = this.citizenSystem.tryBlessCitizens(this.player.getCoveredCells());
-    if (candidates.length === 0) {
-      this.logEvent("No hay habitantes cercanos.");
-      this.player.power += this.player.blessingCost;
-      return;
-    }
-
-    const target = candidates[0];
-    if (!target) {
-      return;
-    }
-    target.morale = clamp(target.morale + 20, 0, 100);
-    target.health = clamp(target.health + 10, 0, 100);
-    target.fatigue = clamp(target.fatigue - 20, 0, 100);
-    target.blessedUntil = target.age + 8;
-    this.logEvent(`Habitante ${target.id} bendecido.`);
+    this.simulation.blessNearestCitizen();
   }
 
   private dropTotem() {
-    const cell = this.world.getCell(this.player.x, this.player.y);
-    if (!cell || cell.structure) {
-      this.logEvent("Aquí no cabe otro tótem.");
+    if (!this.gameInitialized || !this.simulation) {
       return;
     }
-    if (!this.player.spendPower(25)) {
-      this.logEvent("Hace falta más poder para invocar.");
-      return;
-    }
-    this.world.buildStructure("temple", this.player.x, this.player.y);
-    this.logEvent("Se ha elevado un tótem espiritual.");
-  }
-
-  private updateEvents(tickHours: number) {
-    if (this.climate.drought) {
-      this.climate.droughtTimer -= tickHours;
-      if (this.climate.droughtTimer <= 0) {
-        this.climate.drought = false;
-        this.logEvent("La sequía termina.");
-      }
-    } else {
-      this.nextEventTimer -= tickHours;
-    }
-
-    if (this.climate.rainy) {
-      this.climate.rainyTimer -= tickHours;
-      if (this.climate.rainyTimer <= 0) {
-        this.climate.rainy = false;
-        this.logEvent("Las lluvias menguan.");
-      }
-    }
-
-    if (this.nextEventTimer <= 0) {
-      this.triggerRandomEvent();
-      this.nextEventTimer = 12 + Math.random() * 12;
-    }
-  }
-
-  private triggerRandomEvent() {
-    const roll = Math.random();
-    if (roll < 0.4) {
-      this.climate.drought = true;
-      this.climate.droughtTimer = 16 + Math.random() * 10;
-      this.logEvent("Una sequía azota la comarca.");
-      return;
-    }
-    if (roll < 0.7) {
-      this.climate.rainy = true;
-      this.climate.rainyTimer = 10 + Math.random() * 8;
-      this.logEvent("Nubes cargadas bendicen con lluvia.");
-      return;
-    }
-    if (roll < 0.85) {
-      this.citizenSystem.spawnMigrants("neutral");
-      return;
-    }
-    this.citizenSystem.spawnBeasts();
-  }
-
-  private regeneratePlayerPower(tickHours: number) {
-    const alive = this.citizenSystem.getPopulationCount((citizen) => citizen.state === "alive" && citizen.tribeId === 1);
-    this.player.power = clamp(this.player.power + alive * 0.01 * tickHours, 0, 120);
-  }
-
-  private trackResourceTrends(tickHours: number) {
-    this.resourceTrackTimer += tickHours;
-    if (this.resourceTrackTimer >= 1) {
-      const current = {
-        food: this.world.stockpile.food,
-        stone: this.world.stockpile.stone,
-        population: this.citizenSystem.getPopulationCount((citizen) => citizen.state === "alive" && citizen.tribeId === 1),
-      };
-
-      this.resourceHistory.push({
-        food: current.food - this.lastResourceSnapshot.food,
-        stone: current.stone - this.lastResourceSnapshot.stone,
-        population: current.population - this.lastResourceSnapshot.population,
-      });
-
-      if (this.resourceHistory.length > 24) {
-        this.resourceHistory.shift();
-      }
-
-      this.lastResourceSnapshot = current;
-      this.resourceTrackTimer = 0;
-    }
+    this.simulation.dropTotem();
   }
 
   private updateHUD() {
+    if (!this.gameInitialized || !this.simulation) return;
+    const player = this.simulation.getPlayer();
+    const citizenSystem = this.simulation.getCitizenSystem();
+    const world = this.simulation.getWorld();
     const hudSnapshot: HUDSnapshot = {
-      power: this.player.power,
+      power: player.power,
       population: {
-        value: this.citizenSystem.getPopulationCount((citizen) => citizen.state === "alive" && citizen.tribeId === 1),
-        trend: this.getResourceTrendAverage("population"),
+        value: citizenSystem.getPopulationCount((citizen) => citizen.state === "alive" && citizen.tribeId === 1),
+        trend: this.simulation.getResourceTrendAverage("population"),
       },
-      climate: this.climate,
+      climate: this.simulation.getClimate(),
       food: {
-        value: this.world.stockpile.food,
-        capacity: this.world.stockpile.foodCapacity,
-        trend: this.getResourceTrendAverage("food"),
+        value: world.stockpile.food,
+        capacity: world.stockpile.foodCapacity,
+        trend: this.simulation.getResourceTrendAverage("food"),
       },
       stone: {
-        value: this.world.stockpile.stone,
-        capacity: this.world.stockpile.stoneCapacity,
-        trend: this.getResourceTrendAverage("stone"),
+        value: world.stockpile.stone,
+        capacity: world.stockpile.stoneCapacity,
+        trend: this.simulation.getResourceTrendAverage("stone"),
       },
-      water: this.world.stockpile.water,
+      water: world.stockpile.water,
     };
 
     this.hud.updateHUD(hudSnapshot);
   }
 
   private updateCitizenPanel() {
-    this.citizenPanel.update(this.citizenSystem.getCitizens(), this.selectedCitizen);
+    if (!this.simulation) return;
+    this.citizenPanel.update(this.simulation.getCitizenSystem().getCitizens(), this.selectedCitizen);
   }
 
-  private getResourceTrendAverage(type: keyof ResourceTrend): number {
-    if (this.resourceHistory.length === 0) return 0;
-    const recent = this.resourceHistory.slice(-5);
-    const sum = recent.reduce((acc, trend) => acc + trend[type], 0);
-    return sum / recent.length;
-  }
-
-  private checkExtinction() {
-    if (this.extinctionAnnounced) return;
-    const alive = this.citizenSystem.getPopulationCount(
-      (citizen) => citizen.state === "alive" && citizen.tribeId === this.playerTribeId,
-    );
-    if (alive > 0) return;
+  private handleExtinction = () => {
+    if (this.extinctionAnnounced) {
+      return;
+    }
     this.extinctionAnnounced = true;
     this.hud.updateStatus("☠️ La tribu ha desaparecido.");
     this.logEvent("Todos los habitantes han muerto. Usa 'Descargar debug' para guardar el registro.");
     this.enableDebugExport();
-  }
+  };
 
   private enableDebugExport() {
     if (this.debugExportButton) {
@@ -618,55 +459,55 @@ export class Game {
   }
 
   private draw() {
-    if (!this.gameInitialized) return;
-    
+    if (!this.gameInitialized || !this.simulation) return;
+
     const renderState: RenderState = {
-      world: this.world,
-      citizens: this.citizenSystem.getCitizens(),
-      player: this.player,
+      world: this.simulation.getWorld(),
+      citizens: this.simulation.getCitizenSystem().getCitizens(),
+      player: this.simulation.getPlayer(),
       selectedCitizen: this.selectedCitizen,
       hoveredCell: this.hoveredCell,
       notifications: this.hud.getNotifications(),
-      view: this.getViewMetrics(),
+      view: this.camera.getViewMetrics(),
     };
 
     this.renderer.render(renderState);
   }
 
   private handleCanvasClick = (event: MouseEvent) => {
-    if (!this.gameInitialized) {
+    if (!this.gameInitialized || !this.simulation) {
       return;
     }
-    const cell = this.getCellUnderPointer(event);
+    const cell = this.camera.getCellUnderPointer(event);
     if (!cell) {
       this.selectedCitizen = null;
       this.cellTooltip.hide();
       return;
     }
 
-    const clickedCitizen = this.citizenSystem
+    const clickedCitizen = this.simulation
+      .getCitizenSystem()
       .getCitizens()
       .find((citizen) => citizen.state === "alive" && citizen.x === cell.x && citizen.y === cell.y);
     this.selectedCitizen = clickedCitizen || null;
 
-    // Mostrar tooltip con información de la celda
     this.showCellTooltip(cell, event);
 
-    const worldPoint = this.getWorldPosition(event);
+    const worldPoint = this.camera.getWorldPosition(event);
     if (worldPoint) {
-      this.focusOn(worldPoint);
+      this.camera.focusOn(worldPoint);
     }
     this.updateCitizenPanel();
   };
 
   private handleCitizenPanelSelection = (citizenId: number) => {
-    if (!this.gameInitialized) {
+    if (!this.gameInitialized || !this.simulation) {
       return;
     }
-    const citizen = this.citizenSystem.getCitizenById(citizenId) ?? null;
+    const citizen = this.simulation.getCitizenSystem().getCitizenById(citizenId) ?? null;
     this.selectedCitizen = citizen;
     if (citizen) {
-      this.focusOn({ x: citizen.x + 0.5, y: citizen.y + 0.5 });
+      this.camera.focusOn({ x: citizen.x + 0.5, y: citizen.y + 0.5 });
     }
     this.updateCitizenPanel();
   };
@@ -675,14 +516,16 @@ export class Game {
     if (!this.gameInitialized) {
       return;
     }
-    this.hoveredCell = this.getCellUnderPointer(event);
+    this.hoveredCell = this.camera.getCellUnderPointer(event);
   };
 
   private showCellTooltip(cellPos: Vec2, event: MouseEvent) {
-    const cell = this.world.getCell(cellPos.x, cellPos.y);
+    if (!this.simulation) return;
+    const cell = this.simulation.getWorld().getCell(cellPos.x, cellPos.y);
     if (!cell) return;
 
-    const citizensInCell = this.citizenSystem
+    const citizensInCell = this.simulation
+      .getCitizenSystem()
       .getCitizens()
       .filter((citizen) => citizen.state === "alive" && citizen.x === cellPos.x && citizen.y === cellPos.y);
 
@@ -707,9 +550,9 @@ export class Game {
     }
     event.preventDefault();
     this.cellTooltip.hide(); // Ocultar tooltip al hacer zoom
-    const anchor = this.getWorldPosition(event);
+    const anchor = this.camera.getWorldPosition(event);
     const delta = event.deltaY < 0 ? 0.2 : -0.2;
-    this.adjustZoom(delta, anchor ?? undefined);
+    this.camera.adjustZoom(delta, anchor ?? undefined);
   };
 
   private handleMouseDown = (event: MouseEvent) => {
@@ -719,8 +562,7 @@ export class Game {
     if (event.button === 1) {
       event.preventDefault();
       this.cellTooltip.hide(); // Ocultar tooltip al iniciar paneo
-      this.isPanning = true;
-      this.lastPanPosition = { x: event.clientX, y: event.clientY };
+      this.camera.startPanning({ x: event.clientX, y: event.clientY });
     }
   };
 
@@ -729,7 +571,7 @@ export class Game {
       return;
     }
     if (event.button === 1) {
-      this.stopPanning();
+      this.camera.stopPanning();
     }
   };
 
@@ -737,130 +579,8 @@ export class Game {
     if (!this.gameInitialized) {
       return;
     }
-    if (!this.isPanning || !this.lastPanPosition) return;
-    if (this.zoom <= 1) {
-      this.lastPanPosition = { x: event.clientX, y: event.clientY };
-      return;
-    }
-    event.preventDefault();
-    const dx = event.clientX - this.lastPanPosition.x;
-    const dy = event.clientY - this.lastPanPosition.y;
-    if (dx === 0 && dy === 0) return;
-    const { cellSize } = this.getViewMetrics();
-    if (cellSize <= 0) return;
-    const hex = createHexGeometry(cellSize);
-    const nextTarget = {
-      x: this.viewTarget.x - dx / hex.horizontalSpacing,
-      y: this.viewTarget.y - dy / hex.verticalSpacing,
-    };
-    this.focusOn(nextTarget);
-    this.lastPanPosition = { x: event.clientX, y: event.clientY };
+    this.camera.pan({ x: event.clientX, y: event.clientY });
   };
-
-  private stopPanning = () => {
-    this.isPanning = false;
-    this.lastPanPosition = null;
-  };
-
-  private getWorldPosition(event: MouseEvent | WheelEvent): Vec2 | null {
-    const cell = this.getCellUnderPointer(event);
-    if (!cell) {
-      return null;
-    }
-    return { x: cell.x + 0.5, y: cell.y + 0.5 };
-  }
-
-  private getCellUnderPointer(event: MouseEvent | WheelEvent): Vec2 | null {
-    if (!this.world) {
-      return null;
-    }
-    const rect = this.canvas.getBoundingClientRect();
-    const px = event.clientX - rect.left;
-    const py = event.clientY - rect.top;
-    const { cellSize, offsetX, offsetY } = this.getViewMetrics();
-    if (cellSize <= 0) return null;
-    const hex = createHexGeometry(cellSize);
-    const localX = px - offsetX;
-    const localY = py - offsetY;
-    const axial = pixelToAxial(localX, localY, hex);
-    const rounded = roundAxial(axial);
-    const cell = axialToOffset(rounded);
-    const cellX = Math.round(cell.x);
-    const cellY = Math.round(cell.y);
-    if (!Number.isFinite(cellX) || !Number.isFinite(cellY)) {
-      return null;
-    }
-    if (cellX < 0 || cellY < 0 || cellX >= this.world.size || cellY >= this.world.size) {
-      return null;
-    }
-    return { x: cellX, y: cellY };
-  }
-
-  private adjustZoom(delta: number, anchor?: Vec2 | null) {
-    if (!this.gameInitialized) {
-      return;
-    }
-    if (!Number.isFinite(delta) || delta === 0) return;
-    const nextZoom = clamp(this.zoom + delta, this.minZoom, this.maxZoom);
-    this.setZoom(nextZoom, anchor ?? undefined);
-  }
-
-  private setZoom(value: number, anchor?: Vec2) {
-    if (!this.gameInitialized) {
-      return;
-    }
-    const previous = this.zoom;
-    this.zoom = clamp(value, this.minZoom, this.maxZoom);
-    if (anchor) {
-      this.focusOn(anchor);
-    } else if (previous <= 1 && this.zoom > 1) {
-      this.focusOn({ x: this.player.x + 0.5, y: this.player.y + 0.5 });
-    }
-  }
-
-  private focusOn(point: Vec2) {
-    if (!this.world) {
-      return;
-    }
-    this.viewTarget = {
-      x: clamp(point.x, 0.5, this.world.size - 0.5),
-      y: clamp(point.y, 0.5, this.world.size - 0.5),
-    };
-  }
-
-  private getViewMetrics(): ViewMetrics {
-    const worldSize = this.world?.size ?? WORLD_SIZE;
-    const widthFactor = Math.sqrt(3) * (worldSize + 0.5);
-    const heightFactor = 1.5 * worldSize + 0.5;
-    const baseCell = Math.min(this.canvas.width / widthFactor, this.canvas.height / heightFactor);
-    const cellSize = baseCell * this.zoom;
-    const hex = createHexGeometry(cellSize);
-    const targetPixel = getHexCenter(this.viewTarget.x, this.viewTarget.y, hex, 0, 0);
-    const bounds = getHexWorldBounds(worldSize, hex);
-    const halfW = this.canvas.width / 2;
-    const halfH = this.canvas.height / 2;
-    const worldWidth = bounds.maxX - bounds.minX;
-    const worldHeight = bounds.maxY - bounds.minY;
-
-    let centerX = targetPixel.x;
-    let centerY = targetPixel.y;
-
-    if (worldWidth <= this.canvas.width || this.zoom <= 1) {
-      centerX = (bounds.minX + bounds.maxX) / 2;
-    } else {
-      centerX = clamp(centerX, bounds.minX + halfW, bounds.maxX - halfW);
-    }
-
-    if (worldHeight <= this.canvas.height || this.zoom <= 1) {
-      centerY = (bounds.minY + bounds.maxY) / 2;
-    } else {
-      centerY = clamp(centerY, bounds.minY + halfH, bounds.maxY - halfH);
-    }
-
-    const offsetX = this.canvas.width / 2 - centerX;
-    const offsetY = this.canvas.height / 2 - centerY;
-    return { cellSize, offsetX, offsetY, center: this.viewTarget };
-  }
 
   private setupZoomControls() {
     const hoverAnchor = () => (this.hoveredCell ? { x: this.hoveredCell.x + 0.5, y: this.hoveredCell.y + 0.5 } : null);
@@ -869,15 +589,16 @@ export class Game {
       if (!this.gameInitialized) {
         return;
       }
-      const anchor = hoverAnchor() ?? { x: this.player.x + 0.5, y: this.player.y + 0.5 };
-      this.adjustZoom(0.2, anchor);
+      const player = this.simulation?.getPlayer();
+      const anchor = hoverAnchor() ?? (player ? { x: player.x + 0.5, y: player.y + 0.5 } : null);
+      this.camera.adjustZoom(0.2, anchor);
     });
 
     this.zoomOutButton?.addEventListener("click", () => {
       if (!this.gameInitialized) {
         return;
       }
-      this.adjustZoom(-0.2, hoverAnchor());
+      this.camera.adjustZoom(-0.2, hoverAnchor());
     });
   }
 
