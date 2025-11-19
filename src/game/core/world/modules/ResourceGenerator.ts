@@ -38,24 +38,6 @@ export class ResourceGenerator {
                 }
                 break;
 
-            case "mountain":
-                if (yieldRoll > 0.5) {
-                    return { type: "stone", amount: 5 + Math.floor(richnessRoll * 8), renewable: false, richness: 1.3 };
-                }
-                break;
-
-            case "tundra":
-                if (yieldRoll > 0.8) {
-                    return { type: "stone", amount: 3 + Math.floor(richnessRoll * 4), renewable: false, richness: 0.8 };
-                }
-                break;
-
-            case "desert":
-                if (yieldRoll > 0.9) {
-                    return { type: "stone", amount: 2, renewable: false, richness: 0.4 };
-                }
-                break;
-
             case "river":
             case "ocean":
                 if (yieldRoll > 0.6) {
@@ -179,6 +161,112 @@ export class ResourceGenerator {
             const amount = 8 + Math.floor(this.rng() * 6);
             const richness = 0.8 + this.rng() * 0.4;
             cell.resource = { type: "wood", amount, renewable: true, richness };
+        });
+
+        return clusterCells.length;
+    }
+
+    public placeStoneClusters(cells: WorldCell[][]) {
+        const stonePositions: Vec2[] = [];
+        const validTerrains: Terrain[] = ["mountain", "tundra", "desert"];
+
+        for (let y = 0; y < this.size; y += 1) {
+            for (let x = 0; x < this.size; x += 1) {
+                const cell = cells[y]?.[x];
+                if (cell && validTerrains.includes(cell.terrain)) {
+                    stonePositions.push({ x, y });
+                }
+            }
+        }
+
+        if (stonePositions.length === 0) {
+            return;
+        }
+
+        // Increase density: "appear a bit more"
+        // Previous logic was roughly 50% for mountain, 20% tundra, 10% desert
+        // Let's aim for ~30% of valid cells having stone, but clustered
+        const desiredClusters = clamp(
+            Math.floor(stonePositions.length / 8), // Higher density than wood (55)
+            1,
+            Math.max(5, Math.floor(this.size))
+        );
+        const used = new Set<string>();
+        let placedClusters = 0;
+        const maxAttempts = desiredClusters * 4;
+
+        for (let attempt = 0; attempt < maxAttempts && placedClusters < desiredClusters; attempt += 1) {
+            const seedIndex = Math.floor(this.rng() * stonePositions.length);
+            const seed = stonePositions[seedIndex];
+            if (!seed) continue;
+            const created = this.growStoneCluster(seed, cells, used);
+            if (created > 0) {
+                placedClusters += 1;
+            }
+        }
+    }
+
+    private growStoneCluster(seed: Vec2, cells: WorldCell[][], used: Set<string>): number {
+        const queue: Vec2[] = [seed];
+        const clusterCells: Vec2[] = [];
+        // Max 3, min 1
+        const targetSize = 1 + Math.floor(this.rng() * 3);
+        const neighborOffsets: Vec2[] = [
+            { x: 1, y: 0 },
+            { x: -1, y: 0 },
+            { x: 0, y: 1 },
+            { x: 0, y: -1 },
+            { x: 1, y: -1 },
+            { x: -1, y: 1 },
+        ];
+
+        const validTerrains: Terrain[] = ["mountain", "tundra", "desert"];
+
+        while (queue.length && clusterCells.length < targetSize) {
+            const pos = queue.shift();
+            if (!pos) continue;
+            const key = `${pos.x},${pos.y}`;
+            if (used.has(key)) continue;
+            const cell = cells[pos.y]?.[pos.x];
+            if (!cell) continue;
+            if (!validTerrains.includes(cell.terrain)) continue;
+            if (cell.structure || cell.constructionSiteId) continue;
+            if (cell.resource) continue;
+
+            used.add(key);
+            clusterCells.push(pos);
+
+            neighborOffsets.forEach((offset) => {
+                if (this.rng() < 0.3) return; // Slightly higher spread chance
+                const nx = pos.x + offset.x;
+                const ny = pos.y + offset.y;
+                if (nx < 0 || ny < 0 || nx >= this.size || ny >= this.size) return;
+                const neighborKey = `${nx},${ny}`;
+                if (used.has(neighborKey)) return;
+                queue.push({ x: nx, y: ny });
+            });
+        }
+
+        if (clusterCells.length === 0) {
+            return 0;
+        }
+
+        clusterCells.forEach((pos) => {
+            const cell = cells[pos.y]?.[pos.x];
+            if (!cell) return;
+            // Stone amounts
+            let amount = 3 + Math.floor(this.rng() * 4);
+            let richness = 0.8;
+
+            if (cell.terrain === "mountain") {
+                amount += 2;
+                richness = 1.3;
+            } else if (cell.terrain === "desert") {
+                amount = Math.max(1, amount - 1);
+                richness = 0.5;
+            }
+
+            cell.resource = { type: "stone", amount, renewable: false, richness };
         });
 
         return clusterCells.length;

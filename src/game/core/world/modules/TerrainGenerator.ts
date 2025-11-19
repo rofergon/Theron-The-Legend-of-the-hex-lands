@@ -117,6 +117,7 @@ export class TerrainGenerator {
             rows.push(row);
         }
         this.resourceGenerator.placeWoodClusters(rows);
+        this.resourceGenerator.placeStoneClusters(rows);
         return rows;
     }
 
@@ -274,11 +275,6 @@ export class TerrainGenerator {
         }
 
         const regionMap = Array.from({ length: this.size }, () => Array.from({ length: this.size }, () => 0));
-        // const jitterOctaves = [
-        //   { freq: 0.5, amp: 1 },
-        //   { freq: 1, amp: 0.5 },
-        //   { freq: 2, amp: 0.25 },
-        // ];
 
         for (let y = 0; y < this.size; y += 1) {
             const row = regionMap[y];
