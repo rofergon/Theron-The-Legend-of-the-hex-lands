@@ -282,14 +282,14 @@ const farmerAI: CitizenAI = (citizen, view) => {
 const workerAI: CitizenAI = (citizen, view) => {
   const directive = activeDirector?.getConstructionDirectiveFor(citizen) ?? null;
   const gatherEngine = activeGatherEngine;
-  
+
   if (directive) {
     const stoneDeficit = Math.max(directive.site.stoneRequired - directive.site.stoneDelivered, 0);
     const woodDeficit = Math.max(directive.site.woodRequired - directive.site.woodDelivered, 0);
     const needsStone = stoneDeficit > 0;
     const needsWood = woodDeficit > 0;
     const materialsComplete = !needsStone && !needsWood;
-    
+
     // Si los materiales están completos, trabajar en la construcción
     if (materialsComplete) {
       const isOnSite = directive.site.footprint.some(
@@ -300,13 +300,13 @@ const workerAI: CitizenAI = (citizen, view) => {
       }
       return { type: "move", x: directive.cell.x, y: directive.cell.y };
     }
-    
+
     // Si faltan materiales, ir al almacén a recogerlos
     if (view.villageCenter) {
       const hasStone = citizen.carrying.stone > 0;
       const hasWood = citizen.carrying.wood > 0;
       const atVillage = citizen.x === view.villageCenter.x && citizen.y === view.villageCenter.y;
-      
+
       // Si está en el almacén, recoger materiales
       if (atVillage && activeDirector?.world) {
         const world = activeDirector.world;
@@ -323,7 +323,7 @@ const workerAI: CitizenAI = (citizen, view) => {
           return { type: "move", x: directive.cell.x, y: directive.cell.y };
         }
       }
-      
+
       // Si tiene materiales, entregarlos al sitio
       if (hasStone || hasWood) {
         const isOnSite = directive.site.footprint.some(
@@ -334,12 +334,25 @@ const workerAI: CitizenAI = (citizen, view) => {
         }
         return { type: "move", x: directive.cell.x, y: directive.cell.y };
       }
-      
-      // Si no tiene materiales y no está en el almacén, ir al almacén
-      return { type: "move", x: view.villageCenter.x, y: view.villageCenter.y };
+
+      // Si no tiene materiales y no está en el almacén, verificar si hay en el inventario
+      const world = activeDirector?.world;
+      const stockpileStone = world?.stockpile.stone ?? 0;
+      const stockpileWood = world?.stockpile.wood ?? 0;
+      const canPickup = (needsStone && stockpileStone > 0) || (needsWood && stockpileWood > 0);
+
+      if (canPickup) {
+        return { type: "move", x: view.villageCenter.x, y: view.villageCenter.y };
+      }
+
+      // Si el almacén está vacío, recolectar manualmente
+      if (gatherEngine) {
+        if (needsStone) return gatherEngine.runGathererBrain(citizen, view, "stone");
+        if (needsWood) return gatherEngine.runGathererBrain(citizen, view, "wood");
+      }
     }
   }
-  
+
   // Si no hay directiva de construcción, recolectar recursos naturales
   if (gatherEngine) {
     if (gatherEngine.shouldHarvestWood(citizen, view)) {
