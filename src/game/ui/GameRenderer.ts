@@ -34,6 +34,7 @@ export type RenderState = {
 
 export class GameRenderer {
   private ctx: CanvasRenderingContext2D;
+  private textures: Record<string, HTMLImageElement> = {};
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -41,6 +42,27 @@ export class GameRenderer {
       throw new Error("No se pudo obtener el contexto 2D.");
     }
     this.ctx = ctx;
+    this.loadTextures();
+  }
+
+  private loadTextures() {
+    const terrains = [
+      "beach",
+      "desert",
+      "forest",
+      "grassland",
+      "mountain",
+      "ocean",
+      "river",
+      "snow",
+      "tundra",
+    ];
+
+    terrains.forEach((terrain) => {
+      const img = new Image();
+      img.src = `/assets/textures/${terrain}.png`;
+      this.textures[terrain] = img;
+    });
   }
 
   getCanvas() {
@@ -57,7 +79,7 @@ export class GameRenderer {
     state.world.cells.forEach((row) =>
       row.forEach((cell) => {
         const center = getHexCenter(cell.x, cell.y, hex, offsetX, offsetY);
-        this.fillHex(center, hex, this.getTerrainColor(cell));
+        this.drawTerrainBase(center, hex, cell);
         this.drawTerrainDetail(center, hex, cell.terrain);
 
         if (cell.priority !== "none") {
@@ -112,6 +134,41 @@ export class GameRenderer {
     this.drawNotifications(state.notifications);
     this.drawContextPanel(state.selectedCitizen);
     this.drawLegend();
+  }
+
+  private patterns: Record<string, CanvasPattern> = {};
+
+  private drawTerrainBase(center: Vec2, hex: HexGeometry, cell: WorldCell) {
+    const ctx = this.ctx;
+    traceHexPath(ctx, center, hex);
+
+    const terrain = cell.terrain;
+    const texture = this.textures[terrain];
+
+    if (texture && texture.complete) {
+      ctx.save();
+      ctx.clip();
+
+      // Draw the image to cover the hexagon
+      // Use size * 2 for both dimensions to ensure proper coverage
+      // This matches the hexagon's actual bounding circle
+      const imgSize = hex.size * 2;
+
+      ctx.drawImage(
+        texture,
+        center.x - imgSize / 2,
+        center.y - imgSize / 2,
+        imgSize,
+        imgSize
+      );
+
+      ctx.restore();
+      return;
+    }
+
+    // Fallback to solid color
+    ctx.fillStyle = this.getTerrainColor(cell);
+    ctx.fill();
   }
 
   private getTerrainColor(cell: WorldCell) {
