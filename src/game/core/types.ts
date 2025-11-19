@@ -11,7 +11,7 @@ export type Terrain =
   | "mountain"
   | "swamp"
   | "river";
-export type ResourceType = "food" | "stone" | "waterSpring";
+export type ResourceType = "food" | "stone" | "waterSpring" | "wood";
 export type StructureType = "village" | "granary" | "house" | "tower" | "temple" | "campfire";
 export type FarmTask = "sow" | "fertilize" | "harvest";
 export type PriorityMark = "none" | "explore" | "defend" | "farm" | "mine" | "gather" | "build";

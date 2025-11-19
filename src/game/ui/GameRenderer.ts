@@ -72,7 +72,7 @@ export class GameRenderer {
           this.drawCrop(cell, center, cellSize);
           this.drawFarmOverlay(cell, center, hex);
         } else if (cell.resource) {
-          this.drawResource(cell.resource.type, center, cellSize);
+          this.drawResource(cell, center, cellSize);
         }
 
          if (cell.constructionSiteId) {
@@ -200,13 +200,74 @@ export class GameRenderer {
     }
   }
 
-  private drawResource(type: ResourceType, center: Vec2, cellSize: number) {
+  private drawResource(cell: WorldCell, center: Vec2, cellSize: number) {
+    const resource = cell.resource;
+    if (!resource) return;
+    if (resource.type === "wood") {
+      this.drawWoodCluster(cell, center, cellSize);
+      return;
+    }
+
     const ctx = this.ctx;
-    const emoji = type === "food" ? "🌾" : type === "stone" ? "🪨" : "💧";
+    let emoji = "📦";
+    switch (resource.type) {
+      case "food":
+        emoji = "🌾";
+        break;
+      case "stone":
+        emoji = "🪨";
+        break;
+      case "waterSpring":
+        emoji = "💧";
+        break;
+    }
     ctx.font = `${cellSize * 0.9}px Arial`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(emoji, center.x, center.y);
+  }
+
+  private drawWoodCluster(cell: WorldCell, center: Vec2, cellSize: number) {
+    const ctx = this.ctx;
+    const resource = cell.resource;
+    if (!resource) return;
+    const fullness = clamp(resource.amount / 12, 0.2, 1);
+    const maxTrees = 4;
+    const treeCount = clamp(Math.round(fullness * maxTrees), 1, maxTrees);
+    const offsets = this.getWoodOffsets(cell, maxTrees);
+
+    ctx.save();
+    ctx.font = `${cellSize * 0.75}px Arial`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    for (let i = 0; i < treeCount; i += 1) {
+      const offset = offsets[i];
+      const x = center.x + offset.x * cellSize;
+      const y = center.y + offset.y * cellSize;
+      ctx.globalAlpha = clamp(0.5 + fullness * 0.5 - i * 0.08, 0.35, 1);
+      ctx.fillText("🌲", x, y);
+    }
+
+    ctx.restore();
+  }
+
+  private getWoodOffsets(cell: WorldCell, count: number) {
+    const offsets = [
+      { x: -0.25, y: -0.2 },
+      { x: 0.23, y: -0.18 },
+      { x: -0.15, y: 0.25 },
+      { x: 0.2, y: 0.18 },
+      { x: 0, y: 0.05 },
+    ];
+    const hash = (cell.x * 73856093 + cell.y * 19349663) >>> 0;
+    const start = hash % offsets.length;
+
+    const arranged: Array<{ x: number; y: number }> = [];
+    for (let i = 0; i < count; i += 1) {
+      arranged.push(offsets[(start + i) % offsets.length]);
+    }
+    return arranged;
   }
 
   private drawCrop(cell: WorldCell, center: Vec2, cellSize: number) {

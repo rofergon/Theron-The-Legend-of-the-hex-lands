@@ -269,7 +269,8 @@ export class CellTooltipController {
     const icons: Record<string, string> = {
       food: "🌾",
       stone: "🪨",
-      waterSpring: "💧"
+      waterSpring: "💧",
+      wood: "🌲"
     };
     return icons[resourceType] || "📦";
   }
@@ -278,7 +279,8 @@ export class CellTooltipController {
     const names: Record<string, string> = {
       food: "Comida",
       stone: "Piedra",
-      waterSpring: "Manantial"
+      waterSpring: "Manantial",
+      wood: "Madera"
     };
     return names[resourceType] || resourceType;
   }
