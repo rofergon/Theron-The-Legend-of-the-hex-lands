@@ -26,15 +26,15 @@ export class MainMenu {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private isVisible: boolean = true;
-  
+
   // Opciones configurables
   private config: WorldGenerationConfig = {
     seed: Math.floor(Math.random() * 1000000),
-    worldSize: 60,
+    worldSize: 36,
     difficulty: "normal",
     startingCitizens: 5
   };
-  
+
   private hoveredButton: MenuButtonKey | null = null;
   private focusedInput: string | null = null;
   private seedInputValue: string = "";
@@ -43,22 +43,22 @@ export class MainMenu {
   private lastPreviewUpdate = 0;
   private readonly previewThrottleMs = 220;
   private buttonRegions: Partial<Record<MenuButtonKey, ButtonRegion>> = {};
-  
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("No se pudo obtener el contexto 2D");
     this.ctx = ctx;
     this.seedInputValue = this.config.seed.toString();
-    
+
     this.setupEventListeners();
     this.requestPreviewUpdate();
   }
-  
+
   private setupEventListeners() {
     this.canvas.addEventListener("mousemove", (e) => this.handleMouseMove(e));
     this.canvas.addEventListener("click", (e) => this.handleClick(e));
-    
+
     // Capturar entrada de teclado para el input de semilla
     window.addEventListener("keydown", (e) => {
       if (this.focusedInput === "seed") {
@@ -75,80 +75,80 @@ export class MainMenu {
       }
     });
   }
-  
+
   private applySeedInput() {
     const parsed = parseInt(this.seedInputValue) || Math.floor(Math.random() * 1000000);
     this.config.seed = parsed;
     this.seedInputValue = parsed.toString();
     this.requestPreviewUpdate();
   }
-  
+
   private handleMouseMove(e: MouseEvent) {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    
+
     this.hoveredButton = this.getButtonAt(x, y);
     this.canvas.style.cursor = this.hoveredButton ? "pointer" : "default";
   }
-  
+
   private handleClick(e: MouseEvent) {
     if (!this.isVisible) return;
-    
+
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    
+
     const button = this.getButtonAt(x, y);
-    
+
     switch (button) {
       case "start":
         this.isVisible = false;
         break;
-      
+
       case "randomSeed":
         this.config.seed = Math.floor(Math.random() * 1000000);
         this.seedInputValue = this.config.seed.toString();
         this.focusedInput = null;
         this.requestPreviewUpdate();
         break;
-      
+
       case "seedInput":
         this.focusedInput = "seed";
         break;
-      
+
       case "sizeSmall":
-        this.config.worldSize = 40;
+        this.config.worldSize = 24;
         this.requestPreviewUpdate();
         break;
-      
+
       case "sizeNormal":
-        this.config.worldSize = 60;
+        this.config.worldSize = 36;
         this.requestPreviewUpdate();
         break;
-      
+
       case "sizeLarge":
-        this.config.worldSize = 80;
+        this.config.worldSize = 48;
         this.requestPreviewUpdate();
         break;
-      
+
       case "difficultyEasy":
         this.config.difficulty = "easy";
         this.config.startingCitizens = 8;
         break;
-      
+
       case "difficultyNormal":
         this.config.difficulty = "normal";
         this.config.startingCitizens = 5;
         break;
-      
+
       case "difficultyHard":
         this.config.difficulty = "hard";
         this.config.startingCitizens = 3;
         break;
     }
   }
-  
+
   private getButtonAt(x: number, y: number): MenuButtonKey | null {
     for (const [key, region] of Object.entries(this.buttonRegions) as Array<[MenuButtonKey, ButtonRegion]>) {
       if (!region) continue;
@@ -166,7 +166,7 @@ export class MainMenu {
   private clearButtonRegions() {
     this.buttonRegions = {};
   }
-  
+
   render() {
     if (!this.isVisible) return;
     this.clearButtonRegions();
@@ -203,7 +203,7 @@ export class MainMenu {
   private calculateLayout(canvasWidth: number, canvasHeight: number) {
     const centerX = canvasWidth / 2;
     const margin = 40;
-    
+
     // Preview del mundo - ocupa toda la pantalla
     const previewMargin = 100;
     const previewWidth = canvasWidth - previewMargin * 2;
@@ -216,12 +216,12 @@ export class MainMenu {
     const configPanelWidth = Math.min(500, canvasWidth - margin * 2);
     const configPanelX = centerX - configPanelWidth / 2;
     const configPanelY = headerHeight;
-    
+
     const infoPanelHeight = 85;
     const infoPanelWidth = Math.min(500, canvasWidth - margin * 2);
     const infoPanelX = centerX - infoPanelWidth / 2;
     const infoPanelY = configPanelY + configPanelHeight + 20;
-    
+
     const startButtonHeight = 60;
     const startButtonWidth = 360;
     const startButtonX = centerX - startButtonWidth / 2;
@@ -232,7 +232,7 @@ export class MainMenu {
       useColumns: false,
       preview: { x: previewX, y: previewY, width: previewWidth, height: previewHeight },
       infoPanel: { x: infoPanelX, y: infoPanelY, width: infoPanelWidth, height: infoPanelHeight },
-      startButton: { 
+      startButton: {
         x: startButtonX,
         y: startButtonY,
         width: startButtonWidth,
@@ -253,7 +253,7 @@ export class MainMenu {
 
   private renderTitle(centerX: number) {
     const ctx = this.ctx;
-    
+
     ctx.fillStyle = "#f0e7dc";
     ctx.font = "bold 48px Arial";
     ctx.textAlign = "center";
@@ -266,11 +266,11 @@ export class MainMenu {
 
   private renderInfoPanel(bounds: { x: number; y: number; width: number; height: number }) {
     const ctx = this.ctx;
-    
+
     // Fondo del panel semitransparente
     ctx.fillStyle = "rgba(59, 130, 246, 0.2)";
     ctx.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
-    
+
     ctx.strokeStyle = "rgba(59, 130, 246, 0.4)";
     ctx.lineWidth = 1;
     ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
@@ -289,7 +289,7 @@ export class MainMenu {
       "• Mundos más grandes = más exploración",
       "• Puedes copiar la semilla para compartir"
     ];
-    
+
     tips.forEach((tip, i) => {
       ctx.fillText(tip, bounds.x + 16, bounds.y + 44 + i * 18);
     });
@@ -300,7 +300,7 @@ export class MainMenu {
     this.setButtonRegion("start", bounds.x, bounds.y, bounds.width, bounds.height);
 
     const isHovered = this.hoveredButton === "start";
-    
+
     // Gradiente del botón
     const gradient = ctx.createLinearGradient(bounds.x, bounds.y, bounds.x, bounds.y + bounds.height);
     if (isHovered) {
@@ -313,11 +313,11 @@ export class MainMenu {
 
     ctx.fillStyle = gradient;
     ctx.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
-    
+
     ctx.strokeStyle = isHovered ? "#34d399" : "#10b981";
     ctx.lineWidth = 3;
     ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
-    
+
     // Texto del botón
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 22px Arial";
@@ -327,11 +327,11 @@ export class MainMenu {
 
   private renderConfigPanel(bounds: { x: number; y: number; width: number; height: number }) {
     const ctx = this.ctx;
-    
+
     // Fondo del panel semitransparente para ver el mapa debajo
     ctx.fillStyle = "rgba(15, 23, 42, 0.75)";
     ctx.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
-    
+
     ctx.strokeStyle = "rgba(233, 204, 152, 0.5)";
     ctx.lineWidth = 2;
     ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
@@ -355,7 +355,7 @@ export class MainMenu {
 
   private renderSeedSection(x: number, y: number, width: number): number {
     const ctx = this.ctx;
-    
+
     // Título de la sección
     ctx.fillStyle = "#e9cc98";
     ctx.font = "bold 16px Arial";
@@ -373,9 +373,9 @@ export class MainMenu {
     // Input box
     const isInputHovered = this.hoveredButton === "seedInput";
     const isInputFocused = this.focusedInput === "seed";
-    
+
     this.setButtonRegion("seedInput", x, y, inputWidth, inputHeight);
-    
+
     ctx.fillStyle = isInputFocused
       ? "rgba(59, 130, 246, 0.2)"
       : isInputHovered
@@ -402,16 +402,16 @@ export class MainMenu {
     // Botón aleatorio
     const randomX = x + inputWidth + spacing;
     const isRandomHovered = this.hoveredButton === "randomSeed";
-    
+
     this.setButtonRegion("randomSeed", randomX, y, randomWidth, inputHeight);
-    
+
     ctx.fillStyle = isRandomHovered ? "rgba(139, 92, 246, 0.35)" : "rgba(139, 92, 246, 0.18)";
     ctx.fillRect(randomX, y, randomWidth, inputHeight);
-    
+
     ctx.strokeStyle = isRandomHovered ? "#8b5cf6" : "#6d28d9";
     ctx.lineWidth = 2;
     ctx.strokeRect(randomX, y, randomWidth, inputHeight);
-    
+
     ctx.fillStyle = isRandomHovered ? "#c4b5fd" : "#a78bfa";
     ctx.font = "14px Arial";
     ctx.textAlign = "center";
@@ -422,7 +422,7 @@ export class MainMenu {
 
   private renderWorldSizeSection(x: number, y: number, centerX: number): number {
     const ctx = this.ctx;
-    
+
     // Título de la sección
     ctx.fillStyle = "#e9cc98";
     ctx.font = "bold 16px Arial";
@@ -432,11 +432,11 @@ export class MainMenu {
     y += 28;
 
     const sizeOptions: Array<{ label: string; value: number; key: MenuButtonKey }> = [
-      { label: "Pequeño", value: 40, key: "sizeSmall" },
-      { label: "Normal", value: 60, key: "sizeNormal" },
-      { label: "Grande", value: 80, key: "sizeLarge" }
+      { label: "Pequeño", value: 24, key: "sizeSmall" },
+      { label: "Normal", value: 36, key: "sizeNormal" },
+      { label: "Grande", value: 48, key: "sizeLarge" }
     ];
-    
+
     this.renderOptionButtons(sizeOptions, y, this.config.worldSize, centerX);
 
     return y + 40;
@@ -444,7 +444,7 @@ export class MainMenu {
 
   private renderDifficultySection(x: number, y: number, centerX: number) {
     const ctx = this.ctx;
-    
+
     // Título de la sección
     ctx.fillStyle = "#e9cc98";
     ctx.font = "bold 16px Arial";
@@ -458,7 +458,7 @@ export class MainMenu {
       { label: "Normal", value: "normal", key: "difficultyNormal", desc: "5 ciudadanos" },
       { label: "Difícil", value: "hard", key: "difficultyHard", desc: "3 ciudadanos" }
     ];
-    
+
     this.renderDifficultyButtons(difficultyOptions, y, centerX);
   }
 
@@ -579,7 +579,7 @@ export class MainMenu {
     this.previewDirty = false;
     return this.previewWorld;
   }
-  
+
   private renderOptionButtons(
     options: Array<{ label: string; value: number; key: MenuButtonKey }>,
     y: number,
@@ -591,14 +591,14 @@ export class MainMenu {
     const buttonWidth = 110;
     const buttonHeight = 40;
     const spacing = 10;
-    
+
     const totalWidth = options.length * buttonWidth + (options.length - 1) * spacing;
     let startX = centerX - totalWidth / 2;
-    
+
     options.forEach((option) => {
       const isSelected = option.value === currentValue;
       const isHovered = this.hoveredButton === option.key;
-      
+
       if (isSelected) {
         ctx.fillStyle = "rgba(59, 130, 246, 0.4)";
       } else if (isHovered) {
@@ -606,27 +606,27 @@ export class MainMenu {
       } else {
         ctx.fillStyle = "rgba(30, 41, 59, 0.6)";
       }
-      
+
       ctx.fillRect(startX, y, buttonWidth, buttonHeight);
       this.setButtonRegion(option.key, startX, y, buttonWidth, buttonHeight);
-      
+
       ctx.strokeStyle = isSelected ? "#3b82f6" : isHovered ? "#64748b" : "#475569";
       ctx.lineWidth = isSelected ? 3 : 2;
       ctx.strokeRect(startX, y, buttonWidth, buttonHeight);
-      
+
       ctx.fillStyle = isSelected ? "#93c5fd" : "#cbd5e1";
       ctx.font = isSelected ? "bold 14px Arial" : "14px Arial";
       ctx.textAlign = "center";
       ctx.fillText(option.label, startX + buttonWidth / 2, y + 17);
-      
+
       ctx.font = "11px Arial";
       ctx.fillStyle = "#94a3b8";
       ctx.fillText(`${option.value}x${option.value}`, startX + buttonWidth / 2, y + 32);
-      
+
       startX += buttonWidth + spacing;
     });
   }
-  
+
   private renderDifficultyButtons(
     options: Array<{ label: string; value: "easy" | "normal" | "hard"; key: MenuButtonKey; desc: string }>,
     y: number,
@@ -637,19 +637,19 @@ export class MainMenu {
     const buttonWidth = 110;
     const buttonHeight = 50;
     const spacing = 10;
-    
+
     const totalWidth = options.length * buttonWidth + (options.length - 1) * spacing;
     let startX = centerX - totalWidth / 2;
-    
+
     options.forEach((option) => {
       const isSelected = option.value === this.config.difficulty;
       const isHovered = this.hoveredButton === option.key;
-      
+
       let color = "#64748b";
       if (option.value === "easy") color = "#10b981";
       if (option.value === "normal") color = "#f59e0b";
       if (option.value === "hard") color = "#ef4444";
-      
+
       if (isSelected) {
         ctx.fillStyle = `${color}40`;
       } else if (isHovered) {
@@ -657,39 +657,39 @@ export class MainMenu {
       } else {
         ctx.fillStyle = "rgba(30, 41, 59, 0.6)";
       }
-      
+
       ctx.fillRect(startX, y, buttonWidth, buttonHeight);
       this.setButtonRegion(option.key, startX, y, buttonWidth, buttonHeight);
-      
+
       ctx.strokeStyle = isSelected ? color : isHovered ? `${color}80` : "#475569";
       ctx.lineWidth = isSelected ? 3 : 2;
       ctx.strokeRect(startX, y, buttonWidth, buttonHeight);
-      
+
       ctx.fillStyle = isSelected ? color : "#cbd5e1";
       ctx.font = isSelected ? "bold 14px Arial" : "14px Arial";
       ctx.textAlign = "center";
       ctx.fillText(option.label, startX + buttonWidth / 2, y + 20);
-      
+
       ctx.font = "10px Arial";
       ctx.fillStyle = "#94a3b8";
       ctx.fillText(option.desc, startX + buttonWidth / 2, y + 36);
-      
+
       startX += buttonWidth + spacing;
     });
   }
-  
+
   isMenuVisible(): boolean {
     return this.isVisible;
   }
-  
+
   getConfig(): WorldGenerationConfig {
     return { ...this.config };
   }
-  
+
   show() {
     this.isVisible = true;
   }
-  
+
   hide() {
     this.isVisible = false;
   }

@@ -5,23 +5,23 @@ import { iconLoader } from "./IconLoader";
 
 // Icon mapping for different game elements
 const ICON_MAP = {
-    tree: "oak",
-    stone: "stone-pile",
+    tree: "tree-deciduous",
+    stone: "mountain",
     food: "wheat",
-    water: "water-drop",
-    house: "wood-cabin",  // Changed from "wooden-cabin" to "wood-cabin"
-    village: "huts-village",  // Changed from "village" to "huts-village"
-    granary: "barn",
+    water: "droplet",
+    house: "house",
+    village: "castle",
+    granary: "boxes",
     warehouse: "warehouse",
-    tower: "stone-tower",
-    temple: "greek-temple",
-    campfire: "campfire",
-    worker: "mining",
-    farmer: "farmer",
-    warrior: "swordman",
-    scout: "spyglass",
-    child: "baby-face",
-    elder: "bearded-face",
+    tower: "chess-rook",
+    temple: "landmark",
+    campfire: "flame",
+    worker: "hammer",
+    farmer: "sprout",
+    warrior: "sword",
+    scout: "eye",
+    child: "baby",
+    elder: "user-round",
 };
 
 // Pre-load all icons when module loads

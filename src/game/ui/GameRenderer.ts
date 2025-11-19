@@ -80,6 +80,10 @@ export class GameRenderer {
 
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+    // Ensure high quality scaling to avoid aliasing at low zoom
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
     state.world.cells.forEach((row) =>
       row.forEach((cell) => {
         const center = getHexCenter(cell.x, cell.y, hex, offsetX, offsetY);
@@ -247,11 +251,11 @@ export class GameRenderer {
     const ctx = this.ctx;
     ctx.save();
 
-    // Las imágenes del frame tienen proporción 440x472 (ancho x alto)
-    // Necesitamos respetar esta proporción
-    const aspectRatio = 472 / 440; // ~1.073
+    // Usar la relación de aspecto geométrica del hexágono Pointy Top
+    // Alto / Ancho = 2 / sqrt(3) ≈ 1.1547
+    const aspectRatio = 1.1547;
 
-    const frameWidth = hex.size * 1.86;
+    const frameWidth = hex.size * 1.75; // Ajustado para encajar
     const frameHeight = frameWidth * aspectRatio;
 
     ctx.drawImage(

@@ -1,5 +1,5 @@
 import { getIconData } from '@iconify/utils';
-import gameIconsData from '@iconify/json/json/game-icons.json';
+import lucideData from '@iconify/json/json/lucide.json';
 
 /**
  * Icon loader and cache system for rendering SVG icons on canvas
@@ -48,7 +48,7 @@ export class IconLoader {
      */
     private async loadIcon(iconName: string, color?: string, size: number = 64): Promise<HTMLImageElement> {
         // Get icon data from the Game Icons collection
-        const iconData = getIconData(gameIconsData as any, iconName);
+        const iconData = getIconData(lucideData as any, iconName);
 
         if (!iconData) {
             throw new Error(`Icon not found: ${iconName}`);
