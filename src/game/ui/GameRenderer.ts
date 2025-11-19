@@ -13,6 +13,7 @@ import type { PlayerSpirit } from "../core/PlayerSpirit";
 import type { WorldEngine } from "../core/world/WorldEngine";
 import { createHexGeometry, getHexCenter, traceHexPath } from "./hexGrid";
 import type { HexGeometry } from "./hexGrid";
+import { drawTree, drawStone, drawFood, drawWaterSpring, drawStructure, drawCitizenSprite } from "./RenderHelpers";
 
 export type ViewMetrics = {
   cellSize: number;
@@ -33,6 +34,8 @@ export type RenderState = {
 
 export class GameRenderer {
   private ctx: CanvasRenderingContext2D;
+  private textures: Record<string, HTMLImageElement> = {};
+  private hexFrame: HTMLImageElement | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -40,6 +43,32 @@ export class GameRenderer {
       throw new Error("No se pudo obtener el contexto 2D.");
     }
     this.ctx = ctx;
+    this.loadTextures();
+  }
+
+  private loadTextures() {
+    const terrains = [
+      "beach",
+      "desert",
+      "forest",
+      "grassland",
+      "mountain",
+      "ocean",
+      "river",
+      "snow",
+      "tundra",
+    ];
+
+    terrains.forEach((terrain) => {
+      const img = new Image();
+      img.src = `/assets/textures/${terrain}.png`;
+      this.textures[terrain] = img;
+    });
+
+    // Load hexagonal frame
+    const frameImg = new Image();
+    frameImg.src = `/assets/hex_frames_textures/hex_frame_stone.png`;
+    this.hexFrame = frameImg;
   }
 
   getCanvas() {
@@ -56,7 +85,9 @@ export class GameRenderer {
     state.world.cells.forEach((row) =>
       row.forEach((cell) => {
         const center = getHexCenter(cell.x, cell.y, hex, offsetX, offsetY);
-        this.fillHex(center, hex, this.getTerrainColor(cell));
+        this.drawTerrainBase(center, hex, cell);
+        this.drawTerrainDetail(center, hex, cell.terrain);
+        this.drawHexFrame(center, hex);
 
         if (cell.priority !== "none") {
           ctx.globalAlpha = 0.35;
@@ -75,12 +106,12 @@ export class GameRenderer {
           this.drawResource(cell, center, cellSize);
         }
 
-         if (cell.constructionSiteId) {
-           const site = state.world.getConstructionSite(cell.constructionSiteId);
-           if (site) {
-             this.drawConstructionOverlay(site, center, hex);
-           }
-         }
+        if (cell.constructionSiteId) {
+          const site = state.world.getConstructionSite(cell.constructionSiteId);
+          if (site) {
+            this.drawConstructionOverlay(site, center, hex);
+          }
+        }
       }),
     );
 
@@ -110,6 +141,41 @@ export class GameRenderer {
     this.drawNotifications(state.notifications);
     this.drawContextPanel(state.selectedCitizen);
     this.drawLegend();
+  }
+
+  private patterns: Record<string, CanvasPattern> = {};
+
+  private drawTerrainBase(center: Vec2, hex: HexGeometry, cell: WorldCell) {
+    const ctx = this.ctx;
+    traceHexPath(ctx, center, hex);
+
+    const terrain = cell.terrain;
+    const texture = this.textures[terrain];
+
+    if (texture && texture.complete) {
+      ctx.save();
+      ctx.clip();
+
+      // Draw the image to cover the hexagon
+      // Use size * 2 for both dimensions to ensure proper coverage
+      // This matches the hexagon's actual bounding circle
+      const imgSize = hex.size * 2;
+
+      ctx.drawImage(
+        texture,
+        center.x - imgSize / 2,
+        center.y - imgSize / 2,
+        imgSize,
+        imgSize
+      );
+
+      ctx.restore();
+      return;
+    }
+
+    // Fallback to solid color
+    ctx.fillStyle = this.getTerrainColor(cell);
+    ctx.fill();
   }
 
   private getTerrainColor(cell: WorldCell) {
@@ -158,22 +224,62 @@ export class GameRenderer {
     }
   }
 
+
+  private drawTerrainDetail(center: Vec2, hex: HexGeometry, terrain: WorldCell["terrain"]) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalAlpha = 0.1;
+    ctx.fillStyle = "#000";
+
+    // Simple noise/pattern based on terrain
+    const seed = (center.x * 12.9898 + center.y * 78.233) * 43758.5453;
+
+    if (terrain === "grassland" || terrain === "forest") {
+      // Draw some grass blades
+      for (let i = 0; i < 3; i++) {
+        const offset = (seed + i) % 10;
+        ctx.fillRect(center.x + (offset - 5) * 2, center.y + (offset - 5) * 2, 2, 4);
+      }
+    } else if (terrain === "desert" || terrain === "beach") {
+      // Draw dots
+      for (let i = 0; i < 5; i++) {
+        const offset = (seed + i) % 10;
+        ctx.beginPath();
+        ctx.arc(center.x + (offset - 5) * 3, center.y + (offset - 5) * 3, 1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  private drawHexFrame(center: Vec2, hex: HexGeometry) {
+    if (!this.hexFrame || !this.hexFrame.complete) return;
+
+    const ctx = this.ctx;
+    ctx.save();
+
+    // Las imágenes del frame tienen proporción 440x472 (ancho x alto)
+    // Necesitamos respetar esta proporción
+    const aspectRatio = 472 / 440; // ~1.073
+
+    const frameWidth = hex.size * 1.86;
+    const frameHeight = frameWidth * aspectRatio;
+
+    ctx.drawImage(
+      this.hexFrame,
+      center.x - frameWidth / 2,
+      center.y - frameHeight / 2,
+      frameWidth,
+      frameHeight
+    );
+
+    ctx.restore();
+  }
   private drawCitizen(citizen: Citizen, center: Vec2, hex: HexGeometry) {
     const ctx = this.ctx;
-    const roleEmoji: Record<Citizen["role"], string> = {
-      worker: "🔨",
-      farmer: "👨‍🌾",
-      warrior: "⚔️",
-      scout: "🔍",
-      child: "👶",
-      elder: "👴",
-    };
 
-    const color = citizen.tribeId === 1 ? "#ffe7c7" : citizen.tribeId === 99 ? "#ff7b7b" : "#7db2ff";
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(center.x, center.y, hex.size * 0.45, 0, Math.PI * 2);
-    ctx.fill();
+    drawCitizenSprite(ctx, citizen, center.x, center.y, hex.size);
 
     if (citizen.blessedUntil && citizen.age < citizen.blessedUntil) {
       ctx.strokeStyle = "#ffea00";
@@ -181,22 +287,6 @@ export class GameRenderer {
       ctx.beginPath();
       ctx.arc(center.x, center.y, hex.size * 0.55, 0, Math.PI * 2);
       ctx.stroke();
-    }
-
-    ctx.font = `${hex.size * 0.9}px Arial`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(roleEmoji[citizen.role], center.x, center.y + 1);
-
-    if (citizen.health < 30) {
-      const barWidth = hex.width * 0.55;
-      const barHeight = 4;
-      const barX = center.x - barWidth / 2;
-      const barY = center.y + hex.size * 0.75;
-      ctx.fillStyle = "rgba(0,0,0,0.5)";
-      ctx.fillRect(barX, barY, barWidth, barHeight);
-      ctx.fillStyle = "#ff4d4d";
-      ctx.fillRect(barX, barY, (barWidth * clamp(citizen.health, 0, 100)) / 100, barHeight);
     }
   }
 
@@ -209,26 +299,20 @@ export class GameRenderer {
     }
 
     const ctx = this.ctx;
-    let emoji = "📦";
     switch (resource.type) {
       case "food":
-        emoji = "🌾";
+        drawFood(ctx, center.x, center.y, cellSize);
         break;
       case "stone":
-        emoji = "🪨";
+        drawStone(ctx, center.x, center.y, cellSize);
         break;
       case "waterSpring":
-        emoji = "💧";
+        drawWaterSpring(ctx, center.x, center.y, cellSize);
         break;
     }
-    ctx.font = `${cellSize * 0.9}px Arial`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(emoji, center.x, center.y);
   }
 
   private drawWoodCluster(cell: WorldCell, center: Vec2, cellSize: number) {
-    const ctx = this.ctx;
     const resource = cell.resource;
     if (!resource) return;
     const fullness = clamp(resource.amount / 12, 0.2, 1);
@@ -236,21 +320,15 @@ export class GameRenderer {
     const treeCount = clamp(Math.round(fullness * maxTrees), 1, maxTrees);
     const offsets = this.getWoodOffsets(cell, maxTrees);
 
-    ctx.save();
-    ctx.font = `${cellSize * 0.75}px Arial`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-
     for (let i = 0; i < treeCount; i += 1) {
       const offset = offsets[i];
       if (!offset) continue;
       const x = center.x + offset.x * cellSize;
       const y = center.y + offset.y * cellSize;
-      ctx.globalAlpha = clamp(0.5 + fullness * 0.5 - i * 0.08, 0.35, 1);
-      ctx.fillText("🌲", x, y);
+      // Vary tree size slightly
+      const sizeVar = 1 + (Math.sin(x * y) * 0.1);
+      drawTree(this.ctx, x, y, cellSize * sizeVar);
     }
-
-    ctx.restore();
   }
 
   private getWoodOffsets(cell: WorldCell, count: number) {
@@ -284,32 +362,16 @@ export class GameRenderer {
       2: 0.65,
       3: 0.95,
     };
-    const fontSize = cellSize * sizeByStage[stage];
+    const size = cellSize * sizeByStage[stage];
 
-    ctx.save();
-    ctx.font = `${fontSize}px Arial`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.globalAlpha = 0.95;
-    ctx.fillText("🌾", center.x, center.y);
-    ctx.restore();
+    // Draw multiple small crops
+    drawFood(ctx, center.x - size * 0.2, center.y, size * 0.8);
+    if (stage > 1) drawFood(ctx, center.x + size * 0.2, center.y - size * 0.1, size * 0.8);
+    if (stage > 2) drawFood(ctx, center.x, center.y + size * 0.2, size * 0.8);
   }
 
   private drawStructure(type: StructureType, center: Vec2, cellSize: number) {
-    const ctx = this.ctx;
-    const emoji: Record<StructureType, string> = {
-      village: "🏛️",
-      granary: "🏪",
-      house: "🏠",
-      tower: "🗼",
-      temple: "⛪",
-      campfire: "🔥",
-      warehouse: "📦",
-    };
-    ctx.font = `${cellSize}px Arial`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(emoji[type], center.x, center.y);
+    drawStructure(this.ctx, type, center.x, center.y, cellSize);
   }
 
   private drawProgressOverlay(center: Vec2, hex: HexGeometry, pct: number, color: string) {
@@ -334,14 +396,14 @@ export class GameRenderer {
 
   private drawConstructionOverlay(site: ConstructionSite, center: Vec2, hex: HexGeometry) {
     const ctx = this.ctx;
-    const materialsComplete = 
+    const materialsComplete =
       site.stoneDelivered >= site.stoneRequired &&
       site.woodDelivered >= site.woodRequired;
-    
+
     // Dibujar icono según la fase
     let icon = "📦"; // Materiales pendientes
     let color = "#94a3b8";
-    
+
     if (materialsComplete) {
       if (site.phase === "foundation") {
         icon = "🏗️";
@@ -354,18 +416,18 @@ export class GameRenderer {
         color = "#22c55e";
       }
     }
-    
+
     // Dibujar icono
     ctx.font = `${hex.size * 0.6}px serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = "white";
     ctx.fillText(icon, center.x, center.y - hex.size * 0.2);
-    
+
     // Dibujar barra de progreso
     const pct = site.workRequired > 0 ? clamp(site.workDone / site.workRequired, 0, 1) : 0;
     this.drawProgressOverlay(center, hex, pct, color);
-    
+
     // Si faltan materiales, mostrar info
     if (!materialsComplete) {
       ctx.font = `${hex.size * 0.25}px sans-serif`;
@@ -423,10 +485,10 @@ export class GameRenderer {
         notif.type === "critical"
           ? "rgba(220, 38, 38, 0.95)"
           : notif.type === "warning"
-          ? "rgba(234, 179, 8, 0.95)"
-          : notif.type === "success"
-          ? "rgba(34, 197, 94, 0.95)"
-          : "rgba(59, 130, 246, 0.95)";
+            ? "rgba(234, 179, 8, 0.95)"
+            : notif.type === "success"
+              ? "rgba(34, 197, 94, 0.95)"
+              : "rgba(59, 130, 246, 0.95)";
 
       ctx.fillStyle = bgColor;
       ctx.fillRect(padding, y, notifWidth, notifHeight);

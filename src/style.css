@@ -212,7 +212,7 @@ body {
 }
 
 .zoom-btn:active {
-  transform: scale(0.95);
+  transform: scale(2);
 }
 
 #game {
@@ -834,17 +834,17 @@ body {
   #layout {
     padding: 0.75rem 1rem;
   }
-  
+
   #left-panel,
   #ui-panel {
     width: 280px;
     min-width: 280px;
   }
-  
+
   .game-title {
     font-size: 1.2rem;
   }
-  
+
   .header-btn {
     padding: 0.4rem 0.8rem;
     font-size: 0.85rem;
@@ -855,7 +855,7 @@ body {
   #layout {
     flex-direction: column;
   }
-  
+
   #left-panel,
   #ui-panel {
     width: 100%;
@@ -863,30 +863,30 @@ body {
     flex-direction: row;
     flex-wrap: wrap;
   }
-  
+
   .panel-block {
     flex: 1 1 auto;
     min-width: 200px;
   }
-  
+
   #history-panel {
     width: 100%;
     max-height: 20vh;
   }
-  
+
   #game-header {
     padding: 0.5rem 1rem;
   }
-  
+
   .header-nav {
     gap: 0.5rem;
   }
-  
+
   .header-btn {
     padding: 0.35rem 0.6rem;
     font-size: 0.8rem;
   }
-  
+
   .game-title {
     font-size: 1rem;
   }

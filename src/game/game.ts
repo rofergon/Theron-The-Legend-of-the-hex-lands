@@ -64,9 +64,9 @@ export class Game {
   private selectedStructureType: StructureType | null = null;
   private availableStructures: StructureType[] = [];
 
-  private zoom = 1;
-  private readonly minZoom = 1;
-  private readonly maxZoom = 5;
+  private zoom = 5;
+  private readonly minZoom = 2;
+  private readonly maxZoom = 10;
   private viewTarget: Vec2 = { x: (WORLD_SIZE - 1) / 2, y: (WORLD_SIZE - 1) / 2 };
   private zoomInButton = document.querySelector<HTMLButtonElement>("#zoom-in");
   private zoomOutButton = document.querySelector<HTMLButtonElement>("#zoom-out");
@@ -83,7 +83,7 @@ export class Game {
     this.hud.hideOverlay(); // Ocultar el overlay inmediatamente
     this.hud.updateStatus("🎮 Configura tu mundo y presiona COMENZAR");
     this.hud.setPauseButtonState(false); // Mostrar botón como si estuviera pausado
-    
+
     this.setupZoomControls();
     this.setupRoleControls();
     this.setupSpeedControls();
@@ -96,7 +96,7 @@ export class Game {
     window.addEventListener("mousemove", this.handlePanMove);
     window.addEventListener("blur", this.stopPanning);
     this.handleResize();
-    
+
     // Iniciar el loop de renderizado inmediatamente para mostrar el menú
     this.running = true;
     this.lastTime = performance.now();
@@ -105,7 +105,7 @@ export class Game {
 
   private initializeGame() {
     if (this.gameInitialized) return;
-    
+
     const config = this.mainMenu.getConfig();
 
     this.simulation = new SimulationSession(this.playerTribeId, {
@@ -165,7 +165,7 @@ export class Game {
       }
       return;
     }
-    
+
     if (this.running) {
       this.pause();
     } else {
@@ -179,7 +179,7 @@ export class Game {
     this.canvas.addEventListener("wheel", this.handleCanvasWheel, { passive: false });
     this.canvas.addEventListener("mousedown", this.handleMouseDown);
     this.canvas.addEventListener("mouseleave", this.handleCanvasLeave);
-    
+
     // Ocultar tooltip al hacer scroll o redimensionar
     window.addEventListener("scroll", this.hideTooltip);
     window.addEventListener("resize", this.hideTooltip);
@@ -578,19 +578,19 @@ export class Game {
 
   private loop = (time: number) => {
     if (!this.running) return;
-    
+
     // Si el menú está visible, solo renderizarlo
     if (this.mainMenu.isMenuVisible()) {
       this.mainMenu.render();
       requestAnimationFrame(this.loop);
       return;
     }
-    
+
     // Si el juego no está inicializado pero el menú se cerró, inicializar ahora
     if (!this.gameInitialized) {
       this.initializeGame();
     }
-    
+
     const deltaSeconds = (time - this.lastTime) / 1000;
     this.lastTime = time;
     this.handleRealtimeInput();
@@ -979,7 +979,7 @@ export class Game {
     this.canvas.style.height = `${size}px`;
     this.canvas.width = size;
     this.canvas.height = size;
-    
+
     // Ocultar tooltip al redimensionar
     this.cellTooltip.hide();
   };

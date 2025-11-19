@@ -15,7 +15,7 @@ export class CameraController {
   private readonly canvas: HTMLCanvasElement;
   private readonly minZoom: number;
   private readonly maxZoom: number;
-  private zoom = 1;
+  private zoom = 7.5;
   private viewTarget: Vec2 = { x: 0.5, y: 0.5 };
   private isPanning = false;
   private lastPanPosition: { x: number; y: number } | null = null;
@@ -23,8 +23,8 @@ export class CameraController {
 
   constructor(config: CameraConfig, worldProvider: WorldProvider) {
     this.canvas = config.canvas;
-    this.minZoom = config.minZoom ?? 0.75;
-    this.maxZoom = config.maxZoom ?? 2.5;
+    this.minZoom = config.minZoom ?? 2;
+    this.maxZoom = config.maxZoom ?? 10;
     this.worldProvider = worldProvider;
   }
 
