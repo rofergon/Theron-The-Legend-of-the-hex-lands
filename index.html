@@ -11,6 +11,31 @@
         <div class="header-left">
           <h1 class="game-title">🌟 Espíritu Guardián</h1>
         </div>
+        <div class="header-stats" aria-label="Indicadores de tribu">
+          <div class="hud-pill" data-stat="faith">
+            <span class="hud-pill-icon" aria-hidden="true">✨</span>
+            <span class="hud-pill-value" id="score" aria-label="Fe">0</span>
+          </div>
+          <div class="hud-pill" data-stat="population">
+            <span class="hud-pill-icon" aria-hidden="true">👥</span>
+            <span class="hud-pill-value" id="energy" aria-label="Población">0</span>
+          </div>
+          <div class="hud-pill" data-stat="climate">
+            <span class="hud-pill-value" id="time" aria-label="Clima" title="Clima templado">⛅</span>
+          </div>
+          <div class="hud-pill" data-stat="food">
+            <span class="hud-pill-icon" aria-hidden="true">🌾</span>
+            <span class="hud-pill-value" id="food" aria-label="Comida">0</span>
+          </div>
+          <div class="hud-pill" data-stat="stone">
+            <span class="hud-pill-icon" aria-hidden="true">🪨</span>
+            <span class="hud-pill-value" id="stone" aria-label="Piedra">0</span>
+          </div>
+          <div class="hud-pill" data-stat="water">
+            <span class="hud-pill-icon" aria-hidden="true">💧</span>
+            <span class="hud-pill-value" id="water" aria-label="Agua">0</span>
+          </div>
+        </div>
         <nav class="header-nav">
           <button class="header-btn" id="btn-new-game" title="Nueva Partida">🔄 Nueva</button>
           <button class="header-btn" id="btn-save" title="Guardar Partida">💾 Guardar</button>
@@ -42,24 +67,6 @@
         </div>
 
         <aside id="ui-panel">
-          <section class="panel-block">
-            <h2>Tribu</h2>
-            <div class="stat-grid">
-              <span id="score" data-label="Fe">0</span>
-              <span id="energy" data-label="Población">0</span>
-              <span id="time" data-label="Clima">Templado</span>
-            </div>
-          </section>
-
-          <section class="panel-block">
-            <h2>Reservas</h2>
-            <div class="stat-grid">
-              <span id="food" data-label="Comida">0</span>
-              <span id="stone" data-label="Piedra">0</span>
-              <span id="water" data-label="Agua">0</span>
-            </div>
-          </section>
-
           <section class="panel-block" id="roles-panel">
             <h2>Oficios</h2>
             <div class="role-control" data-role="farmer">
