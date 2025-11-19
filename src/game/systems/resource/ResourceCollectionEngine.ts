@@ -12,7 +12,7 @@ const MAX_CARRY: Record<GatherableResourceType, number> = {
 const MIN_FOOD_NODE_AMOUNT = 0.95;
 
 export class ResourceCollectionEngine {
-  constructor(private world: WorldEngine) {}
+  constructor(private world: WorldEngine) { }
 
   runGathererBrain(citizen: Citizen, view: WorldView, resourceType: GatherableResourceType): CitizenAction {
     const brain = this.ensureGathererBrain(citizen, resourceType);
@@ -93,14 +93,51 @@ export class ResourceCollectionEngine {
     if (markedWood) {
       return true;
     }
+
     const needsWoodForSites = this.world
       .getActiveConstructionSites()
       .some((site) => site.woodDelivered < site.woodRequired);
+
     if (needsWoodForSites) {
       return true;
     }
+
+    // Check if stone is critically low compared to wood
+    const stoneRatio = this.world.stockpile.stone / this.world.stockpile.stoneCapacity;
+    const woodRatio = this.world.stockpile.wood / this.world.stockpile.woodCapacity;
+
+    // If stone is much lower than wood, prefer stone (return false here so AI checks stone next)
+    if (stoneRatio < 0.2 && woodRatio > 0.5) {
+      return false;
+    }
+
     const hasCapacity = this.world.stockpile.wood < this.world.stockpile.woodCapacity - 1;
-    return hasCapacity && this.world.stockpile.wood < this.world.stockpile.woodCapacity * 0.8;
+    return hasCapacity && this.world.stockpile.wood < this.world.stockpile.woodCapacity * 0.9;
+  }
+
+  shouldHarvestStone(citizen: Citizen, view: WorldView) {
+    if (citizen.carrying.stone > 0) {
+      return true;
+    }
+    const hasStoneCell = view.cells.some((cell) => cell.resource?.type === "stone" && (cell.resource.amount ?? 0) > 0);
+    if (!hasStoneCell) {
+      return false;
+    }
+    const markedStone = view.cells.some((cell) => cell.priority === "mine" && cell.resource?.type === "stone");
+    if (markedStone) {
+      return true;
+    }
+
+    const needsStoneForSites = this.world
+      .getActiveConstructionSites()
+      .some((site) => site.stoneDelivered < site.stoneRequired);
+
+    if (needsStoneForSites) {
+      return true;
+    }
+
+    const hasCapacity = this.world.stockpile.stone < this.world.stockpile.stoneCapacity - 1;
+    return hasCapacity && this.world.stockpile.stone < this.world.stockpile.stoneCapacity * 0.9;
   }
 
   gather(citizen: Citizen, type: GatherableResourceType) {
@@ -187,6 +224,11 @@ export class ResourceCollectionEngine {
       if (amount <= 0) continue;
       if (resourceType === "food" && amount < MIN_FOOD_NODE_AMOUNT) continue;
 
+      // Check for occupancy
+      if (this.isCellOccupied(cell, view, citizen.id)) {
+        continue;
+      }
+
       const distance = Math.abs(cell.x - citizen.x) + Math.abs(cell.y - citizen.y);
       const matchesPriority =
         (resourceType === "food" && cell.priority === "gather") ||
@@ -201,6 +243,36 @@ export class ResourceCollectionEngine {
     }
 
     return closest;
+  }
+
+  private isCellOccupied(targetCell: { x: number; y: number; structure?: string; constructionSiteId?: number }, view: WorldView, selfId: number): boolean {
+    // Construction sites allow multiple workers
+    if (targetCell.constructionSiteId !== undefined || targetCell.structure === "village" || targetCell.structure === "warehouse" || targetCell.structure === "granary") {
+      return false;
+    }
+
+    // Check if any other citizen is at the target cell or moving to it
+    return view.nearbyCitizens.some((other) => {
+      if (other.id === selfId) return false;
+      if (other.state === "dead") return false;
+
+      // Check current position
+      if (other.x === targetCell.x && other.y === targetCell.y) return true;
+
+      // Check intended target (if available in brain/target)
+      // Note: We rely on the fact that if they are moving there, they might be close or targeting it.
+      // Since we don't have full access to other's brain targets in a simple way here without casting,
+      // we'll assume if they are ON the cell, it's occupied.
+      // To be more strict as requested: "one villager per cell"
+
+      // If we want to prevent moving to a cell someone else is targeting, we need that info.
+      // Assuming 'target' property on Citizen reflects their destination.
+      if (other.target && other.target.x === targetCell.x && other.target.y === targetCell.y) {
+        return true;
+      }
+
+      return false;
+    });
   }
 
   private harvestFood(citizen: Citizen, cell: WorldCell) {
