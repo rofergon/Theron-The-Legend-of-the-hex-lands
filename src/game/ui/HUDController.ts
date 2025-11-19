@@ -6,6 +6,7 @@ export type HUDSnapshot = {
   climate: ClimateState;
   food: { value: number; capacity: number; trend: number };
   stone: { value: number; capacity: number; trend: number };
+  wood: { value: number; capacity: number; trend: number };
   water: number;
 };
 
@@ -15,6 +16,7 @@ export class HUDController {
   private hudClimate = document.querySelector<HTMLSpanElement>("#time");
   private hudFood = document.querySelector<HTMLSpanElement>("#food");
   private hudStone = document.querySelector<HTMLSpanElement>("#stone");
+  private hudWood = document.querySelector<HTMLSpanElement>("#wood");
   private hudWater = document.querySelector<HTMLSpanElement>("#water");
   private overlay = document.querySelector<HTMLDivElement>("#overlay");
   private historyList = document.querySelector<HTMLUListElement>("#history");
@@ -59,6 +61,11 @@ export class HUDController {
     if (this.hudStone) {
       const arrow = snapshot.stone.trend > 0.2 ? "⬆️" : snapshot.stone.trend < -0.2 ? "⬇️" : "➡️";
       this.hudStone.textContent = `${Math.floor(snapshot.stone.value)}/${snapshot.stone.capacity} ${arrow}`;
+    }
+
+    if (this.hudWood) {
+      const arrow = snapshot.wood.trend > 0.2 ? "⬆️" : snapshot.wood.trend < -0.2 ? "⬇️" : "➡️";
+      this.hudWood.textContent = `${Math.floor(snapshot.wood.value)}/${snapshot.wood.capacity} ${arrow}`;
     }
 
     if (this.hudWater) {

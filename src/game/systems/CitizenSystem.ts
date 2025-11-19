@@ -6,6 +6,7 @@ import { CitizenBehaviorDirector } from "./citizen/CitizenBehaviorDirector";
 import { CitizenNeedsSimulator } from "./citizen/CitizenNeedsSimulator";
 import { Navigator } from "./citizen/Navigator";
 import { CitizenActionExecutor } from "./citizen/CitizenActionExecutor";
+import { ResourceCollectionEngine } from "./resource/ResourceCollectionEngine";
 
 export type CitizenSystemEvent =
   | { type: "log"; message: string; notificationType?: ToastNotification["type"] }
@@ -19,6 +20,7 @@ export class CitizenSystem {
   private readonly behaviorDirector: CitizenBehaviorDirector;
   private readonly navigator: Navigator;
   private readonly actionExecutor: CitizenActionExecutor;
+  private readonly resourceEngine: ResourceCollectionEngine;
   private debugLogging = true;
   private elapsedHours = 0;
   private playerTribeId = 1;
@@ -29,13 +31,14 @@ export class CitizenSystem {
       inflictDamage: (citizen, amount, cause) => this.inflictDamage(citizen, amount, cause),
       tryEatFromStockpile: (citizen) => this.tryEatFromStockpile(citizen),
     });
+    this.resourceEngine = new ResourceCollectionEngine(world);
     this.behaviorDirector = new CitizenBehaviorDirector(world, {
       emit: (event) => this.emit(event),
       tryEatFromStockpile: (citizen) => this.tryEatFromStockpile(citizen),
       inflictDamage: (citizen, amount, cause) => this.inflictDamage(citizen, amount, cause),
-    });
+    }, this.resourceEngine);
     this.navigator = new Navigator(world);
-    this.actionExecutor = new CitizenActionExecutor(world, this.repository, this.navigator, {
+    this.actionExecutor = new CitizenActionExecutor(world, this.repository, this.navigator, this.resourceEngine, {
       emit: (event) => this.emit(event),
       finalizeCitizenDeath: (citizen) => this.finalizeCitizenDeath(citizen),
       createCitizen: (role, x, y, tribeId) => this.createCitizen(role, x, y, tribeId),

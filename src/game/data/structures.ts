@@ -42,6 +42,20 @@ export const STRUCTURE_DEFINITIONS: Record<StructureType, StructureDefinition> =
     workRequired: 35,
     costs: { stone: 15 },
   },
+  warehouse: {
+    type: "warehouse",
+    icon: "📦",
+    displayName: "Almacén",
+    summary: "Depósito techado para apilar troncos y piedra. Añade capacidad para materiales y actúa como punto de entrega.",
+    requirements: { population: 6 },
+    footprint: [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+    ],
+    workRequired: 32,
+    costs: { stone: 12, wood: 10 },
+  },
   house: {
     type: "house",
     icon: "🏠",

@@ -1,22 +1,10 @@
-import type {
-  Citizen,
-  CitizenAction,
-  CitizenAI,
-  FarmTask,
-  GathererBrain,
-  Role,
-  StructureType,
-  Vec2,
-  WorldView,
-} from "../../core/types";
+import type { Citizen, CitizenAction, CitizenAI, FarmTask, Role, StructureType, Vec2, WorldView } from "../../core/types";
 import type { WorldEngine } from "../../core/world/WorldEngine";
 import type { CitizenSystemEvent } from "../CitizenSystem";
+import { ResourceCollectionEngine } from "../resource/ResourceCollectionEngine";
 
 const REST_START_FATIGUE = 70;
 const REST_STOP_FATIGUE = 35;
-const MAX_FOOD_CARRY = 3;
-const MAX_STONE_CARRY = 3;
-const MIN_FOOD_NODE_AMOUNT = 0.95; // Consider food nodes depleted when they can't yield a full unit.
 
 type BehaviorHooks = {
   emit: (event: CitizenSystemEvent) => void;
@@ -30,11 +18,14 @@ export type BehaviorDecision = {
 };
 
 let activeDirector: CitizenBehaviorDirector | null = null;
+let activeGatherEngine: ResourceCollectionEngine | null = null;
 
 export class CitizenBehaviorDirector {
   private readonly aiDispatch: Record<Role, CitizenAI>;
+  readonly world: WorldEngine;
 
-  constructor(private world: WorldEngine, private hooks: BehaviorHooks) {
+  constructor(world: WorldEngine, private hooks: BehaviorHooks, private resourceEngine: ResourceCollectionEngine) {
+    this.world = world;
     this.aiDispatch = {
       warrior: warriorAI,
       farmer: farmerAI,
@@ -44,6 +35,7 @@ export class CitizenBehaviorDirector {
       elder: passiveAI,
     };
     activeDirector = this;
+    activeGatherEngine = this.resourceEngine;
   }
 
   decideAction(citizen: Citizen, view: WorldView): BehaviorDecision {
@@ -232,57 +224,6 @@ const beastAI: CitizenAI = (citizen, view) => {
   return wanderCitizen(citizen);
 };
 
-const isInventoryFull = (citizen: Citizen, resourceType: "food" | "stone") => {
-  return resourceType === "food" ? citizen.carrying.food >= MAX_FOOD_CARRY : citizen.carrying.stone >= MAX_STONE_CARRY;
-};
-
-const ensureGathererBrain = (citizen: Citizen, resourceType: "food" | "stone"): GathererBrain => {
-  if (!citizen.brain || citizen.brain.kind !== "gatherer" || citizen.brain.resourceType !== resourceType) {
-    citizen.brain = {
-      kind: "gatherer",
-      resourceType,
-      phase: "idle",
-      target: null,
-    };
-  }
-  return citizen.brain as GathererBrain;
-};
-
-const findClosestResourceCell = (citizen: Citizen, view: WorldView, resourceType: "food" | "stone") => {
-  let closest: (typeof view.cells)[number] | null = null;
-  let minScore = Infinity;
-
-  for (const cell of view.cells) {
-    if (!cell.resource || cell.resource.type !== resourceType) continue;
-    const amount = cell.resource.amount ?? 0;
-    if (amount <= 0) continue;
-    if (resourceType === "food" && amount < MIN_FOOD_NODE_AMOUNT) continue;
-
-    const distance = Math.abs(cell.x - citizen.x) + Math.abs(cell.y - citizen.y);
-    const matchesPriority =
-      (resourceType === "food" && cell.priority === "gather") || (resourceType === "stone" && cell.priority === "mine");
-    const score = distance - (matchesPriority ? 0.75 : 0);
-    if (score < minScore) {
-      minScore = score;
-      closest = cell;
-      if (score <= 0.5) break;
-    }
-  }
-
-  return closest;
-};
-
-const findStorageTarget = (citizen: Citizen, view: WorldView): Vec2 => {
-  const storageCell = view.cells.find((cell) => cell.structure === "granary" || cell.structure === "village");
-  if (storageCell) {
-    return { x: storageCell.x, y: storageCell.y };
-  }
-  if (view.villageCenter) {
-    return { x: view.villageCenter.x, y: view.villageCenter.y };
-  }
-  return { x: citizen.x, y: citizen.y };
-};
-
 const FARM_TASK_PRIORITY: FarmTask[] = ["harvest", "fertilize", "sow"];
 
 const findFarmWorkCell = (citizen: Citizen, view: WorldView, tasks: FarmTask[]) => {
@@ -303,94 +244,16 @@ const findFarmWorkCell = (citizen: Citizen, view: WorldView, tasks: FarmTask[]) 
   return null;
 };
 
-const runGathererBrain = (citizen: Citizen, view: WorldView, resourceType: "food" | "stone"): CitizenAction => {
-  const brain = ensureGathererBrain(citizen, resourceType);
-  const carryAmount = resourceType === "food" ? citizen.carrying.food : citizen.carrying.stone;
-  const hasCargo = carryAmount > 0;
-  const sendToStorage = (): CitizenAction => {
-    brain.phase = "goingToStorage";
-    brain.target = findStorageTarget(citizen, view);
-    return { type: "move", x: brain.target.x, y: brain.target.y };
-  };
-  const redirectToNewResource = (): CitizenAction => {
-    const nextCell = findClosestResourceCell(citizen, view, resourceType);
-    if (nextCell) {
-      brain.phase = "goingToResource";
-      brain.target = { x: nextCell.x, y: nextCell.y };
-      return { type: "move", x: nextCell.x, y: nextCell.y };
-    }
-    brain.phase = "idle";
-    brain.target = null;
-    if (hasCargo) {
-      return sendToStorage();
-    }
-    return wanderCitizen(citizen);
-  };
-
-  switch (brain.phase) {
-    case "idle": {
-      if (isInventoryFull(citizen, resourceType)) {
-        brain.phase = "goingToStorage";
-        brain.target = findStorageTarget(citizen, view);
-        return { type: "move", x: brain.target.x, y: brain.target.y };
-      }
-
-      // Hysteresis: Si ya tenemos un target cercano válido, continuar con él
-      if (brain.target) {
-        const distanceToTarget = Math.abs(citizen.x - brain.target.x) + Math.abs(citizen.y - brain.target.y);
-        if (distanceToTarget <= 2) {
-          brain.phase = "goingToResource";
-          return { type: "move", x: brain.target.x, y: brain.target.y };
-        }
-      }
-
-      return redirectToNewResource();
-    }
-    case "goingToResource": {
-      if (!brain.target) {
-        return redirectToNewResource();
-      }
-      if (citizen.x === brain.target.x && citizen.y === brain.target.y) {
-        brain.phase = "gathering";
-        return { type: "gather", resourceType };
-      }
-      return { type: "move", x: brain.target.x, y: brain.target.y };
-    }
-    case "gathering": {
-      if (isInventoryFull(citizen, resourceType)) {
-        return sendToStorage();
-      }
-      return { type: "gather", resourceType };
-    }
-    case "goingToStorage": {
-      if (!brain.target) {
-        return sendToStorage();
-      }
-      if (citizen.x === brain.target.x && citizen.y === brain.target.y) {
-        brain.phase = "idle";
-        brain.target = null;
-        return { type: "storeResources" };
-      }
-      return { type: "move", x: brain.target.x, y: brain.target.y };
-    }
-    default: {
-      brain.phase = "idle";
-      brain.target = null;
-      return { type: "idle" };
-    }
-  }
-};
-
 const farmerAI: CitizenAI = (citizen, view) => {
-  const brain = ensureGathererBrain(citizen, "food");
-  const isReturningToStorage = brain.phase === "goingToStorage";
-  const isGatheringPhase = brain.phase === "gathering" || brain.phase === "goingToResource";
+  const brain =
+    citizen.brain && citizen.brain.kind === "gatherer" && citizen.brain.resourceType === "food" ? citizen.brain : null;
+  const isReturningToStorage = brain?.phase === "goingToStorage";
+  const isGatheringPhase = brain?.phase === "gathering" || brain?.phase === "goingToResource";
 
-  // Prioridad 1: si el inventario está lleno, forzar el depósito (salvo que ya esté en ello).
-  if (!isReturningToStorage && isInventoryFull(citizen, "food")) {
-    brain.phase = "goingToStorage";
-    brain.target = findStorageTarget(citizen, view);
-    return runGathererBrain(citizen, view, "food");
+  if (!isReturningToStorage && citizen.carrying.food >= 3) {
+    if (activeGatherEngine) {
+      return activeGatherEngine.runGathererBrain(citizen, view, "food");
+    }
   }
 
   const farmWork = findFarmWorkCell(citizen, view, FARM_TASK_PRIORITY);
@@ -403,26 +266,88 @@ const farmerAI: CitizenAI = (citizen, view) => {
 
   // Si estaba en fases de recolección natural, continuar
   if (isReturningToStorage || isGatheringPhase) {
-    return runGathererBrain(citizen, view, "food");
+    if (activeGatherEngine) {
+      return activeGatherEngine.runGathererBrain(citizen, view, "food");
+    }
+    return wanderCitizen(citizen);
   }
 
   // Recolectar comida natural usando gatherer brain como último recurso
-  return runGathererBrain(citizen, view, "food");
+  if (activeGatherEngine) {
+    return activeGatherEngine.runGathererBrain(citizen, view, "food");
+  }
+  return wanderCitizen(citizen);
 };
 
 const workerAI: CitizenAI = (citizen, view) => {
   const directive = activeDirector?.getConstructionDirectiveFor(citizen) ?? null;
+  const gatherEngine = activeGatherEngine;
+  
   if (directive) {
-    const needsStone = directive.site.stoneDelivered < directive.site.stoneRequired;
-    if (citizen.carrying.stone > 0 || !needsStone) {
-      if (citizen.x === directive.cell.x && citizen.y === directive.cell.y) {
+    const stoneDeficit = Math.max(directive.site.stoneRequired - directive.site.stoneDelivered, 0);
+    const woodDeficit = Math.max(directive.site.woodRequired - directive.site.woodDelivered, 0);
+    const needsStone = stoneDeficit > 0;
+    const needsWood = woodDeficit > 0;
+    const materialsComplete = !needsStone && !needsWood;
+    
+    // Si los materiales están completos, trabajar en la construcción
+    if (materialsComplete) {
+      const isOnSite = directive.site.footprint.some(
+        cell => cell.x === citizen.x && cell.y === citizen.y
+      );
+      if (isOnSite) {
         return { type: "construct", siteId: directive.site.id };
       }
       return { type: "move", x: directive.cell.x, y: directive.cell.y };
     }
-    return runGathererBrain(citizen, view, "stone");
+    
+    // Si faltan materiales, ir al almacén a recogerlos
+    if (view.villageCenter) {
+      const hasStone = citizen.carrying.stone > 0;
+      const hasWood = citizen.carrying.wood > 0;
+      const atVillage = citizen.x === view.villageCenter.x && citizen.y === view.villageCenter.y;
+      
+      // Si está en el almacén, recoger materiales
+      if (atVillage && activeDirector?.world) {
+        const world = activeDirector.world;
+        if (needsStone && !hasStone && world.stockpile.stone > 0) {
+          const taken = world.consume("stone", Math.min(3, stoneDeficit));
+          citizen.carrying.stone += taken;
+        }
+        if (needsWood && !hasWood && world.stockpile.wood > 0) {
+          const taken = world.consume("wood", Math.min(4, woodDeficit));
+          citizen.carrying.wood += taken;
+        }
+        // Si ya recogió materiales, ir al sitio de construcción
+        if (citizen.carrying.stone > 0 || citizen.carrying.wood > 0) {
+          return { type: "move", x: directive.cell.x, y: directive.cell.y };
+        }
+      }
+      
+      // Si tiene materiales, entregarlos al sitio
+      if (hasStone || hasWood) {
+        const isOnSite = directive.site.footprint.some(
+          cell => cell.x === citizen.x && cell.y === citizen.y
+        );
+        if (isOnSite) {
+          return { type: "construct", siteId: directive.site.id };
+        }
+        return { type: "move", x: directive.cell.x, y: directive.cell.y };
+      }
+      
+      // Si no tiene materiales y no está en el almacén, ir al almacén
+      return { type: "move", x: view.villageCenter.x, y: view.villageCenter.y };
+    }
   }
-  return runGathererBrain(citizen, view, "stone");
+  
+  // Si no hay directiva de construcción, recolectar recursos naturales
+  if (gatherEngine) {
+    if (gatherEngine.shouldHarvestWood(citizen, view)) {
+      return gatherEngine.runGathererBrain(citizen, view, "wood");
+    }
+    return gatherEngine.runGathererBrain(citizen, view, "stone");
+  }
+  return wanderCitizen(citizen);
 };
 
 const settlerAI: CitizenAI = (citizen, view) => {

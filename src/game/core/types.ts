@@ -12,7 +12,7 @@ export type Terrain =
   | "swamp"
   | "river";
 export type ResourceType = "food" | "stone" | "waterSpring" | "wood";
-export type StructureType = "village" | "granary" | "house" | "tower" | "temple" | "campfire";
+export type StructureType = "village" | "granary" | "house" | "tower" | "temple" | "campfire" | "warehouse";
 export type FarmTask = "sow" | "fertilize" | "harvest";
 export type PriorityMark = "none" | "explore" | "defend" | "farm" | "mine" | "gather" | "build";
 export type Role = "worker" | "farmer" | "warrior" | "scout" | "child" | "elder";
@@ -48,6 +48,7 @@ export type StructureBlueprint = {
   costs: {
     stone?: number;
     food?: number;
+    wood?: number;
   };
 };
 
@@ -60,12 +61,15 @@ export type ConstructionSite = {
   workDone: number;
   stoneRequired: number;
   stoneDelivered: number;
+  woodRequired: number;
+  woodDelivered: number;
   state: "planned" | "completed";
+  phase: "foundation" | "structure" | "finishing";
 };
 
 export interface GathererBrain {
   kind: "gatherer";
-  resourceType: "food" | "stone";
+  resourceType: "food" | "stone" | "wood";
   phase: GathererPhase;
   target?: Vec2 | null;
 }
@@ -93,6 +97,7 @@ export interface Citizen {
   carrying: {
     food: number;
     stone: number;
+    wood: number;
   };
   blessedUntil?: number;
   state: "alive" | "dead";
@@ -156,5 +161,6 @@ export type ToastNotification = {
 export type ResourceTrend = {
   food: number;
   stone: number;
+  wood: number;
   population: number;
 };

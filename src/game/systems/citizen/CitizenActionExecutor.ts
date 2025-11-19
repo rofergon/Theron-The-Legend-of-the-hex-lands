@@ -5,6 +5,7 @@ import type { CitizenSystemEvent } from "../CitizenSystem";
 import { CitizenRepository } from "./CitizenRepository";
 import { Navigator } from "./Navigator";
 import type { BehaviorDecision } from "./CitizenBehaviorDirector";
+import { ResourceCollectionEngine } from "../resource/ResourceCollectionEngine";
 
 interface ExecutionContext {
   debugLogging: boolean;
@@ -27,6 +28,7 @@ export class CitizenActionExecutor {
     private world: WorldEngine,
     private repository: CitizenRepository,
     private navigator: Navigator,
+    private resourceEngine: ResourceCollectionEngine,
     private hooks: ActionHooks,
   ) {}
 
@@ -70,55 +72,19 @@ export class CitizenActionExecutor {
   }
 
   private gatherResource(citizen: Citizen, type: ResourceType) {
-    const cell = this.world.getCell(citizen.x, citizen.y);
-    if (!cell || !cell.resource || cell.resource.type !== type) return;
-    const amount = clamp(cell.resource.amount, 0, 3);
-    if (amount <= 0) return;
-    const efficiency = type === "food" && citizen.role === "farmer" ? 1.1 : 1;
-    const gathered = Math.min(1, cell.resource.amount);
-    cell.resource.amount = clamp(cell.resource.amount - gathered, 0, 10);
-    if (type === "food") {
-      const isFarmPlot = cell.priority === "farm" && cell.cropStage > 0;
-      citizen.carrying.food += Math.floor(gathered * efficiency);
-      if (isFarmPlot) {
-        const harvestDrain = 0.35 * gathered;
-        cell.cropProgress = clamp(cell.cropProgress - harvestDrain, 0, 1.5);
-      }
-      if (cell.resource.amount <= 0) {
-        if (isFarmPlot || !cell.resource.renewable) {
-          cell.resource = undefined;
-        } else {
-          cell.resource.amount = 0;
-        }
-        if (isFarmPlot) {
-          cell.cropProgress = 0;
-        }
-      }
-    } else if (type === "stone") {
-      citizen.carrying.stone += gathered;
+    if (type === "food" || type === "stone" || type === "wood") {
+      this.resourceEngine.gather(citizen, type);
     }
-    // Depositing now happens via the gatherer brain's state machine.
   }
 
   private storeResources(citizen: Citizen) {
     const cell = this.world.getCell(citizen.x, citizen.y);
-    const atStorage = cell?.structure === "village" || cell?.structure === "granary";
-    if (!atStorage) {
+    if (!this.resourceEngine.isStorageCell(cell)) {
       const target = this.world.villageCenter;
       this.navigator.moveCitizenTowards(citizen, target.x, target.y);
       return;
     }
-    let deposited = false;
-    if (citizen.carrying.food > 0) {
-      const stored = this.world.deposit("food", citizen.carrying.food);
-      citizen.carrying.food -= stored;
-      deposited = stored > 0;
-    }
-    if (citizen.carrying.stone > 0) {
-      const stored = this.world.deposit("stone", citizen.carrying.stone);
-      citizen.carrying.stone -= stored;
-      deposited = deposited || stored > 0;
-    }
+    const deposited = this.resourceEngine.storeAtCurrentCell(citizen);
     if (deposited) {
       citizen.morale = clamp(citizen.morale + 4, 0, 100);
     }
@@ -205,13 +171,18 @@ export class CitizenActionExecutor {
     const labor = 3 * tickHours;
     const availableStone = citizen.carrying.stone;
     const stoneSpend = availableStone > 0 ? Math.min(1, availableStone) : 0;
-    const result = this.world.applyConstructionWork(siteId, labor, stoneSpend);
+    const availableWood = citizen.carrying.wood;
+    const woodSpend = availableWood > 0 ? Math.min(1, availableWood) : 0;
+    const result = this.world.applyConstructionWork(siteId, labor, { stone: stoneSpend, wood: woodSpend });
     if (!result.applied) {
       citizen.fatigue = clamp(citizen.fatigue + 0.5 * tickHours, 0, 100);
       return;
     }
     if (result.stoneUsed && result.stoneUsed > 0) {
       citizen.carrying.stone = Math.max(0, citizen.carrying.stone - result.stoneUsed);
+    }
+    if (result.woodUsed && result.woodUsed > 0) {
+      citizen.carrying.wood = Math.max(0, citizen.carrying.wood - result.woodUsed);
     }
     citizen.fatigue = clamp(citizen.fatigue + 2 * tickHours, 0, 100);
     citizen.morale = clamp(citizen.morale + 0.2, 0, 100);
@@ -233,7 +204,7 @@ export class CitizenActionExecutor {
 
     const description = this.describeAction(action);
     const brainPhase = citizen.brain?.kind === "gatherer" ? ` fase:${citizen.brain.phase}` : "";
-    const carrying = `F${citizen.carrying.food}/P${citizen.carrying.stone}`;
+    const carrying = `F${citizen.carrying.food}/P${citizen.carrying.stone}/M${citizen.carrying.wood}`;
     const hunger = `hambre ${citizen.hunger.toFixed(0)}`;
     const logMessage = `[DEBUG] Habitante ${citizen.id} (${citizen.role}) ${description} via ${source}${brainPhase} @${formatCoords(
       citizen.x,

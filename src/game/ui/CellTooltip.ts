@@ -199,8 +199,8 @@ export class CellTooltipController {
           </div>
           <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem;">
             ${this.getRoleName(citizen.role)} • Edad: ${Math.floor(citizen.age)}
-            ${citizen.carrying.food > 0 || citizen.carrying.stone > 0 ? 
-              ` • Carga: ${citizen.carrying.food}🌾 ${citizen.carrying.stone}🪨` : ''}
+            ${citizen.carrying.food > 0 || citizen.carrying.stone > 0 || citizen.carrying.wood > 0 ? 
+              ` • Carga: ${citizen.carrying.food}🌾 ${citizen.carrying.stone}🪨 ${citizen.carrying.wood}🌲` : ''}
           </div>
         </div>
       `;
@@ -292,7 +292,8 @@ export class CellTooltipController {
       house: "🏠",
       tower: "🗼",
       temple: "⛪",
-      campfire: "🔥"
+      campfire: "🔥",
+      warehouse: "📦",
     };
     return icons[structure] || "🏗️";
   }
@@ -304,7 +305,8 @@ export class CellTooltipController {
       house: "Casa",
       tower: "Torre",
       temple: "Templo",
-      campfire: "Fogata"
+      campfire: "Fogata",
+      warehouse: "Almacén",
     };
     return names[structure] || structure;
   }

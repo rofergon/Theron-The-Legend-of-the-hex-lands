@@ -24,7 +24,7 @@ export class CitizenRepository {
       health: 80,
       fatigue: 20,
       tribeId,
-      carrying: { food: 0, stone: 0 },
+      carrying: { food: 0, stone: 0, wood: 0 },
       state: "alive",
       actionHistory: [],
     };

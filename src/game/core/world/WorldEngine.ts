@@ -53,9 +53,11 @@ export class WorldEngine {
   readonly stockpile = {
     food: 40,
     stone: 10,
+    wood: 12,
     water: 20,
     foodCapacity: 80,
     stoneCapacity: 40,
+    woodCapacity: 30,
   };
 
   readonly villageCenter: Vec2;
@@ -1197,7 +1199,10 @@ export class WorldEngine {
       workDone: 0,
       stoneRequired: blueprint.costs.stone ?? 0,
       stoneDelivered: 0,
+      woodRequired: blueprint.costs.wood ?? 0,
+      woodDelivered: 0,
       state: "planned",
+      phase: "foundation",
     };
     this.constructionSites.set(site.id, site);
 
@@ -1227,26 +1232,57 @@ export class WorldEngine {
     return true;
   }
 
-  applyConstructionWork(siteId: number, labor: number, stoneDelivered: number) {
+  applyConstructionWork(siteId: number, labor: number, delivered: { stone: number; wood: number }) {
     const site = this.constructionSites.get(siteId);
     if (!site || site.state !== "planned") {
       return { applied: false as const };
     }
     let acceptedStone = 0;
-    if (stoneDelivered > 0) {
+    let acceptedWood = 0;
+    if (delivered.stone > 0) {
       const neededStone = Math.max(site.stoneRequired - site.stoneDelivered, 0);
-      acceptedStone = Math.min(neededStone, stoneDelivered);
+      acceptedStone = Math.min(neededStone, delivered.stone);
       site.stoneDelivered += acceptedStone;
     }
-    if (labor > 0) {
+    if (delivered.wood > 0) {
+      const neededWood = Math.max(site.woodRequired - site.woodDelivered, 0);
+      acceptedWood = Math.min(neededWood, delivered.wood);
+      site.woodDelivered += acceptedWood;
+    }
+    
+    // Solo permitir trabajo de construcción si todos los materiales están entregados
+    const materialsComplete = 
+      site.stoneDelivered >= site.stoneRequired &&
+      site.woodDelivered >= site.woodRequired;
+    
+    if (materialsComplete && labor > 0) {
       site.workDone = clamp(site.workDone + labor, 0, site.workRequired);
+      
+      // Actualizar fase según progreso
+      const progress = site.workDone / site.workRequired;
+      if (progress < 0.33) {
+        site.phase = "foundation";
+      } else if (progress < 0.66) {
+        site.phase = "structure";
+      } else {
+        site.phase = "finishing";
+      }
     }
 
-    if (site.workDone >= site.workRequired && site.stoneDelivered >= site.stoneRequired) {
+    if (
+      site.workDone >= site.workRequired &&
+      materialsComplete
+    ) {
       this.completeConstruction(site);
-      return { applied: true as const, completed: true as const, site, stoneUsed: acceptedStone };
+      return {
+        applied: true as const,
+        completed: true as const,
+        site,
+        stoneUsed: acceptedStone,
+        woodUsed: acceptedWood,
+      };
     }
-    return { applied: true as const, completed: false as const, site, stoneUsed: acceptedStone };
+    return { applied: true as const, completed: false as const, site, stoneUsed: acceptedStone, woodUsed: acceptedWood };
   }
 
   getConstructionSite(siteId: number) {
@@ -1400,9 +1436,10 @@ export class WorldEngine {
       });
     });
 
-    if (this.hasStructure("granary")) {
-      this.stockpile.foodCapacity = 150;
-    }
+    this.stockpile.foodCapacity = this.hasStructure("granary") ? 150 : 80;
+    const hasWarehouse = this.hasStructure("warehouse");
+    this.stockpile.stoneCapacity = hasWarehouse ? 120 : 40;
+    this.stockpile.woodCapacity = hasWarehouse ? 90 : 30;
   }
 
   hasStructure(type: StructureType) {
@@ -1417,8 +1454,8 @@ export class WorldEngine {
     return true;
   }
 
-  deposit(type: "food" | "stone", amount: number) {
-    const capacityKey = type === "food" ? "foodCapacity" : "stoneCapacity";
+  deposit(type: "food" | "stone" | "wood", amount: number) {
+    const capacityKey = type === "food" ? "foodCapacity" : type === "stone" ? "stoneCapacity" : "woodCapacity";
     const current = this.stockpile[type];
     const capacity = this.stockpile[capacityKey];
     const accepted = Math.min(amount, Math.max(capacity - current, 0));
@@ -1426,7 +1463,7 @@ export class WorldEngine {
     return accepted;
   }
 
-  consume(type: "food" | "stone", amount: number) {
+  consume(type: "food" | "stone" | "wood", amount: number) {
     const available = this.stockpile[type];
     const used = Math.min(amount, available);
     this.stockpile[type] -= used;

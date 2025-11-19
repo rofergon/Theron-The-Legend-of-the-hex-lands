@@ -21,7 +21,7 @@ const wagmiAdapter = new WagmiAdapter({
 
 // 4. Configurar los metadatos de la aplicación
 const metadata = {
-  name: 'Carpeta con Juan',
+  name: 'Sanabria Tribe',
   description: 'Strategy game with blockchain integration',
   url: 'https://yourdomain.com', // Reemplaza con tu dominio
   icons: ['https://yourdomain.com/icon.png'] // Reemplaza con tu ícono

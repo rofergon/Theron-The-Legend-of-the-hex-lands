@@ -243,6 +243,7 @@ export class GameRenderer {
 
     for (let i = 0; i < treeCount; i += 1) {
       const offset = offsets[i];
+      if (!offset) continue;
       const x = center.x + offset.x * cellSize;
       const y = center.y + offset.y * cellSize;
       ctx.globalAlpha = clamp(0.5 + fullness * 0.5 - i * 0.08, 0.35, 1);
@@ -265,7 +266,9 @@ export class GameRenderer {
 
     const arranged: Array<{ x: number; y: number }> = [];
     for (let i = 0; i < count; i += 1) {
-      arranged.push(offsets[(start + i) % offsets.length]);
+      const offset = offsets[(start + i) % offsets.length];
+      if (!offset) continue;
+      arranged.push(offset);
     }
     return arranged;
   }
@@ -301,6 +304,7 @@ export class GameRenderer {
       tower: "🗼",
       temple: "⛪",
       campfire: "🔥",
+      warehouse: "📦",
     };
     ctx.font = `${cellSize}px Arial`;
     ctx.textAlign = "center";
@@ -329,8 +333,50 @@ export class GameRenderer {
   }
 
   private drawConstructionOverlay(site: ConstructionSite, center: Vec2, hex: HexGeometry) {
+    const ctx = this.ctx;
+    const materialsComplete = 
+      site.stoneDelivered >= site.stoneRequired &&
+      site.woodDelivered >= site.woodRequired;
+    
+    // Dibujar icono según la fase
+    let icon = "📦"; // Materiales pendientes
+    let color = "#94a3b8";
+    
+    if (materialsComplete) {
+      if (site.phase === "foundation") {
+        icon = "🏗️";
+        color = "#f59e0b";
+      } else if (site.phase === "structure") {
+        icon = "🔨";
+        color = "#facc15";
+      } else if (site.phase === "finishing") {
+        icon = "✨";
+        color = "#22c55e";
+      }
+    }
+    
+    // Dibujar icono
+    ctx.font = `${hex.size * 0.6}px serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "white";
+    ctx.fillText(icon, center.x, center.y - hex.size * 0.2);
+    
+    // Dibujar barra de progreso
     const pct = site.workRequired > 0 ? clamp(site.workDone / site.workRequired, 0, 1) : 0;
-    this.drawProgressOverlay(center, hex, pct, "#facc15");
+    this.drawProgressOverlay(center, hex, pct, color);
+    
+    // Si faltan materiales, mostrar info
+    if (!materialsComplete) {
+      ctx.font = `${hex.size * 0.25}px sans-serif`;
+      ctx.fillStyle = "white";
+      const stoneNeeded = Math.max(0, site.stoneRequired - site.stoneDelivered);
+      const woodNeeded = Math.max(0, site.woodRequired - site.woodDelivered);
+      let text = "";
+      if (stoneNeeded > 0) text += `🪨${stoneNeeded}`;
+      if (woodNeeded > 0) text += ` 🪵${woodNeeded}`;
+      ctx.fillText(text, center.x, center.y + hex.size * 0.3);
+    }
   }
 
   private drawFarmOverlay(cell: WorldCell, center: Vec2, hex: HexGeometry) {
@@ -445,7 +491,7 @@ export class GameRenderer {
     ctx.fillStyle = "#94a3b8";
     ctx.fillText(`📍 Pos: (${c.x}, ${c.y})  🎂 Edad: ${Math.floor(c.age)}`, x + 12, lineY);
     lineY += 16;
-    ctx.fillText(`📦 Carga: ${c.carrying.food}🌾 ${c.carrying.stone}🪨`, x + 12, lineY);
+    ctx.fillText(`📦 Carga: ${c.carrying.food}🌾 ${c.carrying.stone}🪨 ${c.carrying.wood}🌲`, x + 12, lineY);
   }
 
   private drawStatBar(label: string, value: number, x: number, y: number, width: number, color: string) {

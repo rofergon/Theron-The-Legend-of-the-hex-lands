@@ -27,7 +27,7 @@ export class SimulationSession {
   private climate: ClimateState = { drought: false, droughtTimer: 0, rainy: false, rainyTimer: 0 };
   private nextEventTimer = 8;
   private resourceHistory: ResourceTrend[] = [];
-  private lastResourceSnapshot = { food: 0, stone: 0, population: 0 };
+  private lastResourceSnapshot = { food: 0, stone: 0, wood: 0, population: 0 };
   private resourceTrackTimer = 0;
   private extinctionAnnounced = false;
   private initialized = false;
@@ -56,6 +56,7 @@ export class SimulationSession {
     this.lastResourceSnapshot = {
       food: this.world.stockpile.food,
       stone: this.world.stockpile.stone,
+      wood: this.world.stockpile.wood,
       population: this.citizenSystem.getPopulationCount((citizen) => citizen.state === "alive" && citizen.tribeId === this.playerTribeId),
     };
 
@@ -170,6 +171,9 @@ export class SimulationSession {
     if (population >= 5) {
       unlocked.push("granary");
     }
+    if (population >= 6) {
+      unlocked.push("warehouse");
+    }
     if (population >= 8) {
       unlocked.push("tower");
     }
@@ -247,12 +251,14 @@ export class SimulationSession {
       const current = {
         food: this.world.stockpile.food,
         stone: this.world.stockpile.stone,
+        wood: this.world.stockpile.wood,
         population: this.citizenSystem.getPopulationCount((citizen) => citizen.state === "alive" && citizen.tribeId === this.playerTribeId),
       };
 
       this.resourceHistory.push({
         food: current.food - this.lastResourceSnapshot.food,
         stone: current.stone - this.lastResourceSnapshot.stone,
+        wood: current.wood - this.lastResourceSnapshot.wood,
         population: current.population - this.lastResourceSnapshot.population,
       });
 
@@ -298,9 +304,11 @@ export class SimulationSession {
     if (difficulty === "easy") {
       this.world.stockpile.food += 20;
       this.world.stockpile.stone += 10;
+      this.world.stockpile.wood += 6;
     } else if (difficulty === "hard") {
       this.world.stockpile.food = Math.max(20, this.world.stockpile.food - 10);
       this.world.stockpile.stone = Math.max(5, this.world.stockpile.stone - 5);
+      this.world.stockpile.wood = Math.max(3, this.world.stockpile.wood - 4);
     }
   }
 

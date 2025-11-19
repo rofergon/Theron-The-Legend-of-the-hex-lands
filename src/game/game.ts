@@ -495,13 +495,16 @@ export class Game {
     }
   }
 
-  private formatStructureCosts(costs: { stone?: number; food?: number }) {
+  private formatStructureCosts(costs: { stone?: number; food?: number; wood?: number }) {
     const parts: string[] = [];
     if (costs.stone && costs.stone > 0) {
       parts.push(`${costs.stone} piedra${costs.stone > 1 ? "s" : ""}`);
     }
     if (costs.food && costs.food > 0) {
       parts.push(`${costs.food} comida`);
+    }
+    if (costs.wood && costs.wood > 0) {
+      parts.push(`${costs.wood} madera${costs.wood > 1 ? "s" : ""}`);
     }
     return parts.length > 0 ? parts.join(" · ") : "Sin coste";
   }
@@ -710,6 +713,11 @@ export class Game {
         value: world.stockpile.stone,
         capacity: world.stockpile.stoneCapacity,
         trend: this.simulation.getResourceTrendAverage("stone"),
+      },
+      wood: {
+        value: world.stockpile.wood,
+        capacity: world.stockpile.woodCapacity,
+        trend: this.simulation.getResourceTrendAverage("wood"),
       },
       water: world.stockpile.water,
     };

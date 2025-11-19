@@ -66,6 +66,7 @@ export class CitizenPanelController {
       <div class="citizen-inventory">
         <span title="Comida transportada">🌾 ${citizen.carrying.food}</span>
         <span title="Piedra transportada">🪨 ${citizen.carrying.stone}</span>
+        <span title="Madera transportada">🌲 ${citizen.carrying.wood}</span>
       </div>
     `;
 
