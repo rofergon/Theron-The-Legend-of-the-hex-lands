@@ -35,6 +35,7 @@ export type RenderState = {
 export class GameRenderer {
   private ctx: CanvasRenderingContext2D;
   private textures: Record<string, HTMLImageElement> = {};
+  private hexFrame: HTMLImageElement | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -63,6 +64,11 @@ export class GameRenderer {
       img.src = `/assets/textures/${terrain}.png`;
       this.textures[terrain] = img;
     });
+
+    // Load hexagonal frame
+    const frameImg = new Image();
+    frameImg.src = `/assets/hex_frames_textures/hex_frame_stone.png`;
+    this.hexFrame = frameImg;
   }
 
   getCanvas() {
@@ -81,6 +87,7 @@ export class GameRenderer {
         const center = getHexCenter(cell.x, cell.y, hex, offsetX, offsetY);
         this.drawTerrainBase(center, hex, cell);
         this.drawTerrainDetail(center, hex, cell.terrain);
+        this.drawHexFrame(center, hex);
 
         if (cell.priority !== "none") {
           ctx.globalAlpha = 0.35;
@@ -242,6 +249,30 @@ export class GameRenderer {
         ctx.fill();
       }
     }
+
+    ctx.restore();
+  }
+
+  private drawHexFrame(center: Vec2, hex: HexGeometry) {
+    if (!this.hexFrame || !this.hexFrame.complete) return;
+
+    const ctx = this.ctx;
+    ctx.save();
+
+    // Las imágenes del frame tienen proporción 440x472 (ancho x alto)
+    // Necesitamos respetar esta proporción
+    const aspectRatio = 472 / 440; // ~1.073
+
+    const frameWidth = hex.size * 1.86;
+    const frameHeight = frameWidth * aspectRatio;
+
+    ctx.drawImage(
+      this.hexFrame,
+      center.x - frameWidth / 2,
+      center.y - frameHeight / 2,
+      frameWidth,
+      frameHeight
+    );
 
     ctx.restore();
   }
