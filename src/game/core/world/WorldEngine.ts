@@ -3,9 +3,11 @@ import { clamp, hashNoise, mulberry32 } from "../utils";
 import type {
   Citizen,
   ClimateState,
+  ConstructionSite,
   PriorityMark,
   ResourceNode,
   ResourceType,
+  StructureBlueprint,
   StructureType,
   Terrain,
   Vec2,
@@ -45,6 +47,66 @@ const PATH_NEIGHBOR_OFFSETS: Vec2[] = [
   { x: -1, y: -1 },
 ];
 
+const STRUCTURE_BLUEPRINTS: Record<StructureType, StructureBlueprint> = {
+  village: {
+    type: "village",
+    footprint: [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 1, y: 1 },
+    ],
+    workRequired: 60,
+    costs: { stone: 30, food: 10 },
+  },
+  granary: {
+    type: "granary",
+    footprint: [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+    ],
+    workRequired: 35,
+    costs: { stone: 15 },
+  },
+  house: {
+    type: "house",
+    footprint: [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+    ],
+    workRequired: 18,
+    costs: { stone: 6 },
+  },
+  tower: {
+    type: "tower",
+    footprint: [
+      { x: 0, y: 0 },
+      { x: 0, y: 1 },
+    ],
+    workRequired: 28,
+    costs: { stone: 18 },
+  },
+  temple: {
+    type: "temple",
+    footprint: [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
+    ],
+    workRequired: 48,
+    costs: { stone: 25, food: 5 },
+  },
+  campfire: {
+    type: "campfire",
+    footprint: [{ x: 0, y: 0 }],
+    workRequired: 10,
+    costs: { food: 2 },
+  },
+};
+
 export class WorldEngine {
   readonly size: number;
   readonly cells: WorldCell[][];
@@ -58,6 +120,8 @@ export class WorldEngine {
 
   readonly villageCenter: Vec2;
   private structures: Array<{ type: StructureType; x: number; y: number }> = [];
+  private constructionSites = new Map<number, ConstructionSite>();
+  private nextConstructionId = 1;
   private rng: () => number;
   private pathCache = new Map<string, PathCacheEntry>();
 
@@ -1019,6 +1083,131 @@ export class WorldEngine {
     }
   }
 
+  planStructure(type: StructureType, anchor: Vec2) {
+    const blueprint = STRUCTURE_BLUEPRINTS[type];
+    if (!blueprint) {
+      return { ok: false as const, reason: "Estructura desconocida." };
+    }
+    const occupiedCells = blueprint.footprint.map((offset) => ({
+      x: anchor.x + offset.x,
+      y: anchor.y + offset.y,
+    }));
+
+    const seen = new Set<string>();
+    for (const pos of occupiedCells) {
+      const key = this.coordKey(pos.x, pos.y);
+      if (seen.has(key)) {
+        return { ok: false as const, reason: "Plano inválido." };
+      }
+      seen.add(key);
+      const cell = this.getCell(pos.x, pos.y);
+      if (!cell) {
+        return { ok: false as const, reason: "Fuera de los límites." };
+      }
+      if (!this.isWalkable(pos.x, pos.y)) {
+        return { ok: false as const, reason: "Terreno no apto." };
+      }
+      if (cell.structure || cell.constructionSiteId) {
+        return { ok: false as const, reason: "Ya ocupado." };
+      }
+    }
+
+    const site: ConstructionSite = {
+      id: this.nextConstructionId++,
+      type,
+      footprint: occupiedCells,
+      anchor: { ...anchor },
+      workRequired: blueprint.workRequired,
+      workDone: 0,
+      stoneRequired: blueprint.costs.stone ?? 0,
+      stoneDelivered: 0,
+      state: "planned",
+    };
+    this.constructionSites.set(site.id, site);
+
+    occupiedCells.forEach(({ x, y }) => {
+      const cell = this.getCell(x, y);
+      if (cell) {
+        cell.constructionSiteId = site.id;
+        cell.priority = "build";
+      }
+    });
+
+    return { ok: true as const, site };
+  }
+
+  cancelConstruction(siteId: number) {
+    const site = this.constructionSites.get(siteId);
+    if (!site) {
+      return false;
+    }
+    site.footprint.forEach(({ x, y }) => {
+      const cell = this.getCell(x, y);
+      if (cell?.constructionSiteId === siteId) {
+        cell.constructionSiteId = undefined;
+      }
+    });
+    this.constructionSites.delete(siteId);
+    return true;
+  }
+
+  applyConstructionWork(siteId: number, labor: number, stoneDelivered: number) {
+    const site = this.constructionSites.get(siteId);
+    if (!site || site.state !== "planned") {
+      return { applied: false as const };
+    }
+    let acceptedStone = 0;
+    if (stoneDelivered > 0) {
+      const neededStone = Math.max(site.stoneRequired - site.stoneDelivered, 0);
+      acceptedStone = Math.min(neededStone, stoneDelivered);
+      site.stoneDelivered += acceptedStone;
+    }
+    if (labor > 0) {
+      site.workDone = clamp(site.workDone + labor, 0, site.workRequired);
+    }
+
+    if (site.workDone >= site.workRequired && site.stoneDelivered >= site.stoneRequired) {
+      this.completeConstruction(site);
+      return { applied: true as const, completed: true as const, site, stoneUsed: acceptedStone };
+    }
+    return { applied: true as const, completed: false as const, site, stoneUsed: acceptedStone };
+  }
+
+  getConstructionSite(siteId: number) {
+    return this.constructionSites.get(siteId);
+  }
+
+  getActiveConstructionSites() {
+    return Array.from(this.constructionSites.values()).filter((site) => site.state === "planned");
+  }
+
+  findClosestConstructionCell(origin: Vec2) {
+    let best: { site: ConstructionSite; cell: Vec2; distance: number } | null = null;
+    for (const site of this.getActiveConstructionSites()) {
+      for (const cell of site.footprint) {
+        const distance = this.heuristic(origin, cell);
+        if (!best || distance < best.distance) {
+          best = { site, cell, distance };
+        }
+      }
+    }
+    return best;
+  }
+
+  private completeConstruction(site: ConstructionSite) {
+    site.state = "completed";
+    site.footprint.forEach(({ x, y }) => {
+      const cell = this.getCell(x, y);
+      if (cell) {
+        cell.structure = site.type;
+        cell.constructionSiteId = undefined;
+        cell.priority = cell.priority === "build" ? "none" : cell.priority;
+      }
+    });
+    this.structures.push({ type: site.type, x: site.anchor.x, y: site.anchor.y });
+    this.constructionSites.delete(site.id);
+  }
+
   getCitizenIdsNear(cells: Vec2[]) {
     const ids = new Set<number>();
     cells.forEach(({ x, y }) => {
@@ -1038,12 +1227,15 @@ export class WorldEngine {
         const y = origin.y + dy;
         const cell = this.getCell(x, y);
         if (!cell) continue;
+        const isFarmPlot = cell.priority === "farm" || cell.cropProgress > 0;
+        const hasStandingCrop =
+          isFarmPlot && cell.resource?.type === "food" && (cell.resource.amount ?? 0) > 0;
         const viewCell: (typeof cells)[number] = {
           x,
           y,
           priority: cell.priority,
           terrain: cell.terrain,
-          cropReady: cell.cropProgress >= 1,
+          cropReady: cell.cropProgress >= 1 || hasStandingCrop,
         };
         if (cell.resource) {
           viewCell.resource = cell.resource;
