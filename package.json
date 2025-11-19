@@ -13,11 +13,13 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "vitest": "^2.1.4",
     "typescript": "^5.9.3",
-    "vite": "^7.2.2"
+    "vite": "^7.2.2",
+    "vitest": "^2.1.4"
   },
   "dependencies": {
+    "@iconify/json": "^2.2.408",
+    "@iconify/utils": "^3.0.2",
     "@reown/appkit": "^1.8.14",
     "@reown/appkit-adapter-wagmi": "^1.8.14",
     "viem": "^2.39.0",
