@@ -611,6 +611,79 @@ body {
   line-height: 1.4;
 }
 
+.planning-hint-text {
+  display: block;
+}
+
+.planning-hint-structure {
+  margin-top: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid rgba(233, 204, 152, 0.3);
+  background: rgba(6, 8, 13, 0.75);
+  box-shadow: inset 0 0 12px rgba(247, 200, 125, 0.08);
+}
+
+.planning-hint-structure-title {
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #f7c87d;
+}
+
+.planning-hint-structure-summary {
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.planning-hint-structure-meta {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.78);
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.planning-hint-structure-meta span {
+  color: rgba(247, 200, 125, 0.95);
+  font-weight: 600;
+}
+
+.build-details {
+  margin-top: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid rgba(233, 204, 152, 0.3);
+  background: rgba(6, 8, 13, 0.85);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.build-details-summary {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.build-details-meta {
+  margin: 0;
+  font-size: 0.76rem;
+  color: rgba(255, 255, 255, 0.75);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.build-details-label {
+  color: rgba(247, 200, 125, 0.95);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.7rem;
+}
+
 #status-text {
   margin: 0 0 0.6rem;
   font-size: 0.85rem;

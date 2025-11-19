@@ -3,6 +3,7 @@ import { InputHandler } from "./core/InputHandler";
 import { clamp } from "./core/utils";
 import type { Citizen, PriorityMark, Role, StructureType, ToastNotification, Vec2 } from "./core/types";
 import { SimulationSession } from "./core/SimulationSession";
+import { getStructureDefinition } from "./data/structures";
 import { CameraController } from "./core/CameraController";
 import { HUDController, type HUDSnapshot } from "./ui/HUDController";
 import { CitizenPanelController } from "./ui/CitizenPanel";
@@ -54,7 +55,11 @@ export class Game {
   private structureNextButton = document.querySelector<HTMLButtonElement>("#build-next");
   private structureLabel = document.querySelector<HTMLSpanElement>("#build-name");
   private structureStatusLabel = document.querySelector<HTMLSpanElement>("#build-status");
-  private planningHintLabel = document.querySelector<HTMLParagraphElement>("#planning-hint");
+  private buildDetailsContainer = document.querySelector<HTMLDivElement>("#build-details");
+  private buildDetailsSummary = document.querySelector<HTMLParagraphElement>("#build-details-summary");
+  private buildDetailsCost = document.querySelector<HTMLSpanElement>("#build-details-cost");
+  private buildDetailsRequirements = document.querySelector<HTMLSpanElement>("#build-details-requirements");
+  private planningHintLabel = document.querySelector<HTMLDivElement>("#planning-hint");
 
   private zoom = 1;
   private readonly minZoom = 0.75;
@@ -504,6 +509,7 @@ export class Game {
   private updatePlanningUI() {
     const available = this.simulation?.getAvailableStructures() ?? [];
     const hasStructures = available.length > 0;
+    const structureDetails = this.planningPriority === "build" ? this.getStructureDetailsData() : null;
     this.planningButtons.forEach((button) => {
       const mode = button.dataset.planningMode as PriorityMark | undefined;
       if (!mode) return;
@@ -551,29 +557,84 @@ export class Game {
     }
 
     if (this.planningHintLabel) {
-      this.planningHintLabel.textContent = this.planningPriority
+      const baseHint = this.planningPriority
         ? `Planificando ${this.getPlanningLabel(this.planningPriority)}. Haz clic izquierdo para aplicar y arrastra para pintar.`
         : "Selecciona un modo para empezar a marcar zonas.";
+      if (structureDetails) {
+        this.planningHintLabel.innerHTML = `
+          <span class="planning-hint-text">${baseHint}</span>
+          <div class="planning-hint-structure">
+            <div class="planning-hint-structure-title">${structureDetails.label}</div>
+            <div class="planning-hint-structure-summary">${structureDetails.summary}</div>
+            <div class="planning-hint-structure-meta"><span>Coste:</span> ${structureDetails.cost}</div>
+            <div class="planning-hint-structure-meta"><span>Requisitos:</span> ${structureDetails.requirements}</div>
+          </div>
+        `;
+      } else {
+        this.planningHintLabel.textContent = baseHint;
+      }
+    }
+
+    if (
+      this.buildDetailsContainer &&
+      this.buildDetailsSummary &&
+      this.buildDetailsCost &&
+      this.buildDetailsRequirements
+    ) {
+      if (structureDetails) {
+        this.buildDetailsContainer.hidden = false;
+        this.buildDetailsSummary.textContent = structureDetails.summary;
+        this.buildDetailsCost.textContent = structureDetails.cost;
+        this.buildDetailsRequirements.textContent = structureDetails.requirements;
+      } else {
+        this.buildDetailsContainer.hidden = true;
+      }
     }
   }
 
   private getStructureDisplayName(type: StructureType) {
-    switch (type) {
-      case "campfire":
-        return "🔥 Hoguera";
-      case "house":
-        return "🏠 Casa comunal";
-      case "granary":
-        return "🏪 Granero";
-      case "tower":
-        return "🗼 Torre vigía";
-      case "temple":
-        return "⛪ Templo";
-      case "village":
-        return "🏛️ Aldea";
-      default:
-        return type;
+    const definition = getStructureDefinition(type);
+    if (definition) {
+      return `${definition.icon} ${definition.displayName}`;
     }
+    return type;
+  }
+
+  private getStructureDetailsData():
+    | { label: string; summary: string; cost: string; requirements: string }
+    | null {
+    if (!this.selectedStructureType) {
+      return null;
+    }
+    const definition = getStructureDefinition(this.selectedStructureType);
+    if (!definition) {
+      return null;
+    }
+
+    const costParts: string[] = [];
+    if (definition.costs.food) {
+      costParts.push(`🌾 ${definition.costs.food} comida`);
+    }
+    if (definition.costs.stone) {
+      costParts.push(`🪨 ${definition.costs.stone} piedra`);
+    }
+    costParts.push(`⚒️ ${definition.workRequired} trabajo`);
+
+    const requirementsParts: string[] = [];
+    if (definition.requirements.population) {
+      requirementsParts.push(`👥 ${definition.requirements.population}+ habitantes`);
+    }
+    if (definition.requirements.structures && definition.requirements.structures.length > 0) {
+      const structures = definition.requirements.structures.map((structure) => this.getStructureDisplayName(structure));
+      requirementsParts.push(`🏗️ ${structures.join(", ")}`);
+    }
+
+    return {
+      label: this.getStructureDisplayName(definition.type),
+      summary: definition.summary,
+      cost: costParts.join(" · "),
+      requirements: requirementsParts.length > 0 ? requirementsParts.join(" · ") : "Sin requisitos adicionales.",
+    };
   }
 
   private cycleStructureSelection(direction: number) {

@@ -214,8 +214,8 @@ export class GameRenderer {
     const progress = clamp(cell.cropProgress, 0, 1);
     if (progress <= 0) return;
 
-    const stage = progress < 0.34 ? 1 : progress < 0.67 ? 2 : 3;
-    const sizeByStage: Record<number, number> = {
+    const stage: 1 | 2 | 3 = progress < 0.34 ? 1 : progress < 0.67 ? 2 : 3;
+    const sizeByStage: Record<1 | 2 | 3, number> = {
       1: 0.4,
       2: 0.65,
       3: 0.95,

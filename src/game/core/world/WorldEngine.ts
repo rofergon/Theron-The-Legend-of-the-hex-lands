@@ -7,13 +7,13 @@ import type {
   PriorityMark,
   ResourceNode,
   ResourceType,
-  StructureBlueprint,
   StructureType,
   Terrain,
   Vec2,
   WorldCell,
   WorldView,
 } from "../types";
+import { STRUCTURE_DEFINITIONS } from "../../data/structures";
 
 type BiomeRegion = {
   id: number;
@@ -46,66 +46,6 @@ const PATH_NEIGHBOR_OFFSETS: Vec2[] = [
   { x: -1, y: 1 },
   { x: -1, y: -1 },
 ];
-
-const STRUCTURE_BLUEPRINTS: Record<StructureType, StructureBlueprint> = {
-  village: {
-    type: "village",
-    footprint: [
-      { x: 0, y: 0 },
-      { x: 1, y: 0 },
-      { x: 0, y: 1 },
-      { x: 1, y: 1 },
-    ],
-    workRequired: 60,
-    costs: { stone: 30, food: 10 },
-  },
-  granary: {
-    type: "granary",
-    footprint: [
-      { x: 0, y: 0 },
-      { x: 1, y: 0 },
-      { x: 0, y: 1 },
-    ],
-    workRequired: 35,
-    costs: { stone: 15 },
-  },
-  house: {
-    type: "house",
-    footprint: [
-      { x: 0, y: 0 },
-      { x: 1, y: 0 },
-    ],
-    workRequired: 18,
-    costs: { stone: 6 },
-  },
-  tower: {
-    type: "tower",
-    footprint: [
-      { x: 0, y: 0 },
-      { x: 0, y: 1 },
-    ],
-    workRequired: 28,
-    costs: { stone: 18 },
-  },
-  temple: {
-    type: "temple",
-    footprint: [
-      { x: 0, y: 0 },
-      { x: 1, y: 0 },
-      { x: -1, y: 0 },
-      { x: 0, y: 1 },
-      { x: 0, y: -1 },
-    ],
-    workRequired: 48,
-    costs: { stone: 25, food: 5 },
-  },
-  campfire: {
-    type: "campfire",
-    footprint: [{ x: 0, y: 0 }],
-    workRequired: 10,
-    costs: { food: 2 },
-  },
-};
 
 export class WorldEngine {
   readonly size: number;
@@ -1084,7 +1024,7 @@ export class WorldEngine {
   }
 
   planStructure(type: StructureType, anchor: Vec2) {
-    const blueprint = STRUCTURE_BLUEPRINTS[type];
+    const blueprint = STRUCTURE_DEFINITIONS[type];
     if (!blueprint) {
       return { ok: false as const, reason: "Estructura desconocida." };
     }
