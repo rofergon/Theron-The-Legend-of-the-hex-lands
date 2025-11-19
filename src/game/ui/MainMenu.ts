@@ -30,7 +30,7 @@ export class MainMenu {
   // Opciones configurables
   private config: WorldGenerationConfig = {
     seed: Math.floor(Math.random() * 1000000),
-    worldSize: 120,
+    worldSize: 60,
     difficulty: "normal",
     startingCitizens: 5
   };
@@ -118,17 +118,17 @@ export class MainMenu {
         break;
       
       case "sizeSmall":
-        this.config.worldSize = 80;
+        this.config.worldSize = 40;
         this.requestPreviewUpdate();
         break;
       
       case "sizeNormal":
-        this.config.worldSize = 120;
+        this.config.worldSize = 60;
         this.requestPreviewUpdate();
         break;
       
       case "sizeLarge":
-        this.config.worldSize = 160;
+        this.config.worldSize = 80;
         this.requestPreviewUpdate();
         break;
       
@@ -432,9 +432,9 @@ export class MainMenu {
     y += 28;
 
     const sizeOptions: Array<{ label: string; value: number; key: MenuButtonKey }> = [
-      { label: "Pequeño", value: 80, key: "sizeSmall" },
-      { label: "Normal", value: 120, key: "sizeNormal" },
-      { label: "Grande", value: 160, key: "sizeLarge" }
+      { label: "Pequeño", value: 40, key: "sizeSmall" },
+      { label: "Normal", value: 60, key: "sizeNormal" },
+      { label: "Grande", value: 80, key: "sizeLarge" }
     ];
     
     this.renderOptionButtons(sizeOptions, y, this.config.worldSize, centerX);
