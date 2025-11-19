@@ -13,7 +13,7 @@ export type Terrain =
   | "river";
 export type ResourceType = "food" | "stone" | "waterSpring";
 export type StructureType = "village" | "granary" | "house" | "tower" | "temple" | "campfire";
-export type PriorityMark = "none" | "explore" | "defend" | "farm" | "mine";
+export type PriorityMark = "none" | "explore" | "defend" | "farm" | "mine" | "gather" | "build";
 export type Role = "worker" | "farmer" | "warrior" | "scout" | "child" | "elder";
 export type GathererPhase = "idle" | "goingToResource" | "gathering" | "goingToStorage";
 
@@ -32,10 +32,33 @@ export interface WorldCell {
   moisture: number;
   resource?: ResourceNode;
   structure?: StructureType;
+  constructionSiteId?: number;
   inhabitants: number[];
   priority: PriorityMark;
   cropProgress: number;
 }
+
+export type StructureBlueprint = {
+  type: StructureType;
+  footprint: Vec2[];
+  workRequired: number;
+  costs: {
+    stone?: number;
+    food?: number;
+  };
+};
+
+export type ConstructionSite = {
+  id: number;
+  type: StructureType;
+  footprint: Vec2[];
+  anchor: Vec2;
+  workRequired: number;
+  workDone: number;
+  stoneRequired: number;
+  stoneDelivered: number;
+  state: "planned" | "completed";
+};
 
 export interface GathererBrain {
   kind: "gatherer";
@@ -97,7 +120,8 @@ export type CitizenAction =
   | { type: "idle" }
   | { type: "storeResources" }
   | { type: "mate"; partnerId: number }
-  | { type: "tendCrops"; x: number; y: number };
+  | { type: "tendCrops"; x: number; y: number }
+  | { type: "construct"; siteId: number };
 
 export type CitizenAI = (citizen: Citizen, view: WorldView) => CitizenAction;
 
