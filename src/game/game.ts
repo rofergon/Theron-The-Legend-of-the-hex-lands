@@ -65,8 +65,8 @@ export class Game {
   private availableStructures: StructureType[] = [];
 
   private zoom = 1;
-  private readonly minZoom = 0.75;
-  private readonly maxZoom = 2.5;
+  private readonly minZoom = 1;
+  private readonly maxZoom = 5;
   private viewTarget: Vec2 = { x: (WORLD_SIZE - 1) / 2, y: (WORLD_SIZE - 1) / 2 };
   private zoomInButton = document.querySelector<HTMLButtonElement>("#zoom-in");
   private zoomOutButton = document.querySelector<HTMLButtonElement>("#zoom-out");
@@ -75,7 +75,7 @@ export class Game {
 
   constructor(private canvas: HTMLCanvasElement) {
     this.renderer = new GameRenderer(canvas);
-    this.camera = new CameraController({ canvas }, () => this.simulation?.getWorld() ?? null);
+    this.camera = new CameraController({ canvas, minZoom: this.minZoom, maxZoom: this.maxZoom }, () => this.simulation?.getWorld() ?? null);
     this.mainMenu = new MainMenu(canvas);
     this.camera.setViewTarget({ x: WORLD_SIZE / 2, y: WORLD_SIZE / 2 });
 
