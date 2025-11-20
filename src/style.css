@@ -1156,3 +1156,4 @@ body.is-mobile #mobile-action-bar {
     font-size: 1rem;
   }
 }
+.btn-label { display: none; }
