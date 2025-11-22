@@ -214,14 +214,14 @@ export class MainMenu {
       const available = canvasHeight - margin * 2;
       const gap = 12;
 
-      // Alturas fijas para componentes móviles
-      const titleHeight = 50;
-      const configPanelHeight = 260; // Más compacto
-      const startButtonHeight = 56;
+      // Alturas fijas para componentes móviles (reducidas)
+      const titleHeight = 35;
+      const configPanelHeight = 180;
+      const startButtonHeight = 48;
 
       // El preview ocupa el espacio restante, pero con un mínimo
       let previewHeight = available - titleHeight - configPanelHeight - startButtonHeight - gap * 3;
-      previewHeight = Math.max(100, previewHeight);
+      previewHeight = Math.max(60, previewHeight);
 
       const contentWidth = canvasWidth - margin * 2;
 
@@ -229,6 +229,25 @@ export class MainMenu {
       const previewY = margin + titleHeight + gap;
       const configPanelY = previewY + previewHeight + gap;
       const startButtonY = configPanelY + configPanelHeight + gap;
+
+      // Check for overflow
+      const totalHeight = startButtonY + startButtonHeight + margin;
+      if (totalHeight > canvasHeight) {
+        const overflow = totalHeight - canvasHeight;
+        previewHeight = Math.max(0, previewHeight - overflow);
+
+        const newConfigPanelY = previewY + previewHeight + gap;
+        const newStartButtonY = newConfigPanelY + configPanelHeight + gap;
+
+        return {
+          centerX,
+          useColumns: false,
+          preview: { x: margin, y: previewY, width: contentWidth, height: previewHeight },
+          infoPanel: { x: 0, y: 0, width: 0, height: 0 },
+          startButton: { x: margin, y: newStartButtonY, width: contentWidth, height: startButtonHeight },
+          configPanel: { x: margin, y: newConfigPanelY, width: contentWidth, height: configPanelHeight }
+        };
+      }
 
       return {
         centerX,
@@ -246,7 +265,7 @@ export class MainMenu {
     const previewX = previewMargin;
     const previewY = previewMargin;
 
-    const headerHeight = 227; // 200 + ~27px (aproximadamente 7mm)
+    const headerHeight = 227;
     const configPanelHeight = 360;
     const configPanelWidth = Math.min(500, canvasWidth - margin * 2);
     const configPanelX = centerX - configPanelWidth / 2;
@@ -286,12 +305,11 @@ export class MainMenu {
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
-
   private renderTitle(centerX: number) {
     const ctx = this.ctx;
-    const titleSize = this.useMobileLayout ? 28 : 48;
-    const subtitleSize = this.useMobileLayout ? 14 : 18;
-    const yPos = this.useMobileLayout ? 40 : 90;
+    const titleSize = this.useMobileLayout ? 24 : 48;
+    const subtitleSize = this.useMobileLayout ? 12 : 18;
+    const yPos = this.useMobileLayout ? 28 : 90;
 
     ctx.fillStyle = "#f0e7dc";
     ctx.font = `bold ${titleSize}px "Space Grotesk", Arial`;
@@ -383,18 +401,18 @@ export class MainMenu {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    const padding = this.useMobileLayout ? 16 : 24;
-    let currentY = bounds.y + padding + 10;
+    const padding = this.useMobileLayout ? 12 : 24;
+    let currentY = bounds.y + padding + 6;
     const contentX = bounds.x + padding;
     const contentWidth = bounds.width - padding * 2;
 
     // Sección: Semilla
     currentY = this.renderSeedSection(contentX, currentY, contentWidth);
-    currentY += this.useMobileLayout ? 20 : 40;
+    currentY += this.useMobileLayout ? 14 : 40;
 
     // Sección: Tamaño del mundo
     currentY = this.renderWorldSizeSection(contentX, currentY, bounds.x + bounds.width / 2);
-    currentY += this.useMobileLayout ? 20 : 70;
+    currentY += this.useMobileLayout ? 14 : 70;
 
     // Sección: Dificultad
     this.renderDifficultySection(contentX, currentY, bounds.x + bounds.width / 2);
@@ -405,14 +423,14 @@ export class MainMenu {
 
     // Título
     ctx.fillStyle = "#e9cc98";
-    ctx.font = "bold 14px Arial";
+    ctx.font = this.useMobileLayout ? "bold 12px Arial" : "bold 14px Arial";
     ctx.textAlign = "left";
     ctx.fillText("SEMILLA", x, y);
 
-    y += 15;
+    y += this.useMobileLayout ? 12 : 15;
 
-    const inputHeight = 44;
-    const randomWidth = 50; // Botón cuadrado para aleatorio
+    const inputHeight = this.useMobileLayout ? 36 : 44;
+    const randomWidth = this.useMobileLayout ? 42 : 50; // Botón cuadrado para aleatorio
     const spacing = 10;
     const inputWidth = width - randomWidth - spacing;
 
@@ -430,7 +448,7 @@ export class MainMenu {
     ctx.stroke();
 
     ctx.fillStyle = "#f0e7dc";
-    ctx.font = "18px 'Courier New'";
+    ctx.font = this.useMobileLayout ? "15px 'Courier New'" : "18px 'Courier New'";
     ctx.textAlign = "left";
     ctx.fillText(this.seedInputValue || "0", x + 12, y + 28);
 
@@ -456,7 +474,7 @@ export class MainMenu {
     ctx.stroke();
 
     ctx.fillStyle = "#c4b5fd";
-    ctx.font = "20px Arial";
+    ctx.font = this.useMobileLayout ? "16px Arial" : "20px Arial";
     ctx.textAlign = "center";
     ctx.fillText("🎲", randomX + randomWidth / 2, y + 29);
 
@@ -467,11 +485,11 @@ export class MainMenu {
     const ctx = this.ctx;
 
     ctx.fillStyle = "#e9cc98";
-    ctx.font = "bold 14px Arial";
+    ctx.font = this.useMobileLayout ? "bold 12px Arial" : "bold 14px Arial";
     ctx.textAlign = "left";
     ctx.fillText("TAMAÑO", x, y);
 
-    y += 15;
+    y += this.useMobileLayout ? 12 : 15;
 
     const sizeOptions: Array<{ label: string; value: number; key: MenuButtonKey; icon: string }> = [
       { label: "S", value: 24, key: "sizeSmall", icon: "🟩" },
@@ -481,18 +499,18 @@ export class MainMenu {
 
     this.renderOptionButtons(sizeOptions, y, this.config.worldSize, centerX);
 
-    return y + 50;
+    return y + (this.useMobileLayout ? 40 : 50);
   }
 
   private renderDifficultySection(x: number, y: number, centerX: number) {
     const ctx = this.ctx;
 
     ctx.fillStyle = "#e9cc98";
-    ctx.font = "bold 14px Arial";
+    ctx.font = this.useMobileLayout ? "bold 12px Arial" : "bold 14px Arial";
     ctx.textAlign = "left";
     ctx.fillText("DIFICULTAD", x, y);
 
-    y += 15;
+    y += this.useMobileLayout ? 12 : 15;
 
     const difficultyOptions: Array<{ label: string; value: "easy" | "normal" | "hard"; key: MenuButtonKey; icon: string }> = [
       { label: "Fácil", value: "easy", key: "difficultyEasy", icon: "😌" },
@@ -503,13 +521,7 @@ export class MainMenu {
     this.renderOptionButtons(difficultyOptions, y, this.config.difficulty, centerX, true);
   }
 
-  private renderFooter(centerX: number, canvasHeight: number) {
-    const ctx = this.ctx;
-    ctx.fillStyle = "#64748b";
-    ctx.font = "12px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("Presiona ESC durante el juego para pausar", centerX, canvasHeight - 30);
-  }
+
 
 
   private renderWorldPreview(x: number, y: number, width: number, height: number): void {
@@ -632,9 +644,12 @@ export class MainMenu {
     const centerX = centerXOverride ?? this.canvas.width / 2;
 
     // Botones más compactos
-    const buttonWidth = this.useMobileLayout ? 80 : 100;
-    const buttonHeight = 50;
-    const spacing = 12;
+    // Botones más compactos
+    // Calculate button width based on available space if needed
+    const maxButtonWidth = this.useMobileLayout ? (this.canvas.width - 40) / options.length - 10 : 100;
+    const buttonWidth = Math.min(this.useMobileLayout ? 70 : 100, maxButtonWidth);
+    const buttonHeight = this.useMobileLayout ? 42 : 50;
+    const spacing = 8; // Reduced spacing
 
     const totalWidth = options.length * buttonWidth + (options.length - 1) * spacing;
     let startX = centerX - totalWidth / 2;
@@ -663,14 +678,14 @@ export class MainMenu {
 
       // Icono
       if (option.icon) {
-        ctx.font = "20px Arial";
+        ctx.font = this.useMobileLayout ? "16px Arial" : "20px Arial";
         ctx.textAlign = "center";
         ctx.fillText(option.icon, startX + buttonWidth / 2, y + 24);
       }
 
       // Etiqueta
       ctx.fillStyle = isSelected ? "#bfdbfe" : "#94a3b8";
-      ctx.font = isSelected ? "bold 11px Arial" : "11px Arial";
+      ctx.font = this.useMobileLayout ? (isSelected ? "bold 10px Arial" : "10px Arial") : (isSelected ? "bold 11px Arial" : "11px Arial");
       ctx.textAlign = "center";
       ctx.fillText(option.label, startX + buttonWidth / 2, y + 42);
 
@@ -705,5 +720,12 @@ export class MainMenu {
 
   hide() {
     this.isVisible = false;
+  }
+  private renderFooter(centerX: number, canvasHeight: number) {
+    const ctx = this.ctx;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.font = "11px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("v1.0.0 - Alpha Build", centerX, canvasHeight - 20);
   }
 }

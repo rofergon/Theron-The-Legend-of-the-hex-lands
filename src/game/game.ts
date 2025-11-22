@@ -1027,10 +1027,6 @@ export class Game {
 
     this.showCellTooltip(cell, event);
 
-    const worldPoint = this.camera.getWorldPosition(event);
-    if (worldPoint) {
-      this.camera.focusOn(worldPoint);
-    }
     this.updateCitizenPanel();
   };
 
@@ -1256,9 +1252,8 @@ export class Game {
     }
     event.preventDefault();
     this.cellTooltip.hide(); // Ocultar tooltip al hacer zoom
-    const anchor = this.camera.getWorldPosition(event);
     const delta = event.deltaY < 0 ? 0.2 : -0.2;
-    this.camera.adjustZoom(delta, anchor ?? undefined);
+    this.camera.adjustZoom(delta);
   };
 
   private handleMouseDown = (event: MouseEvent) => {
