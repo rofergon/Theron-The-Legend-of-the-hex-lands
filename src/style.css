@@ -125,6 +125,29 @@ body {
   transform: translateY(0);
 }
 
+.header-btn-wallet {
+  background: linear-gradient(135deg, rgba(30, 45, 60, 0.8), rgba(20, 35, 50, 0.9));
+  border-color: rgba(100, 200, 255, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.header-btn-wallet:hover {
+  background: linear-gradient(135deg, rgba(40, 60, 80, 0.9), rgba(30, 50, 70, 1));
+  border-color: rgba(100, 200, 255, 0.7);
+  box-shadow: 0 4px 12px rgba(100, 200, 255, 0.3);
+}
+
+#wallet-icon {
+  font-size: 1.1rem;
+}
+
+#wallet-text {
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+}
+
 #layout {
   flex: 1;
   display: flex;

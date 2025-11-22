@@ -20,6 +20,8 @@
   "dependencies": {
     "@iconify/json": "^2.2.408",
     "@iconify/utils": "^3.0.2",
+    "@mysten/wallet-standard": "^0.19.7",
+    "@onelabs/sui": "^1.26.2",
     "@reown/appkit": "^1.8.14",
     "@reown/appkit-adapter-wagmi": "^1.8.14",
     "viem": "^2.39.0",

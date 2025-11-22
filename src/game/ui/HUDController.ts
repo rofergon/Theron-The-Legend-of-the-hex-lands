@@ -122,6 +122,9 @@ export class HUDController {
     const btnLoad = document.querySelector("#btn-load");
     const btnSettings = document.querySelector("#btn-settings");
     const btnHelp = document.querySelector("#btn-help");
+    const btnWallet = document.querySelector("#btn-wallet");
+    const walletIcon = document.querySelector<HTMLSpanElement>("#wallet-icon");
+    const walletText = document.querySelector<HTMLSpanElement>("#wallet-text");
 
     btnNewGame?.addEventListener("click", () => {
       if (confirm("¿Iniciar una nueva partida? Se perderá el progreso actual.")) {
@@ -144,6 +147,13 @@ export class HUDController {
     btnHelp?.addEventListener("click", () => {
       this.showNotification("Usa F/M/G/B para planificar áreas, [ y ] para cambiar estructuras", "info", 6000);
     });
+
+    btnWallet?.addEventListener("click", () => {
+      this.handleWalletConnection(walletIcon, walletText);
+    });
+
+    // Verificar estado inicial de la wallet
+    this.updateWalletButton(walletIcon, walletText);
 
     this.pauseButton?.addEventListener("click", onPauseToggle);
     this.setPauseButtonState(false);
@@ -180,5 +190,89 @@ export class HUDController {
 
   showOverlay() {
     this.overlay?.removeAttribute("hidden");
+  }
+
+  private async handleWalletConnection(
+    iconEl: HTMLSpanElement | null,
+    textEl: HTMLSpanElement | null
+  ) {
+    // Importar dinámicamente para evitar errores en build
+    try {
+      const walletConfig = await import("../wallet/walletConfig");
+      
+      if (!walletConfig.isOneWalletInstalled()) {
+        this.showNotification(
+          "OneWallet no está instalada. Por favor instálala para conectar con OneChain.",
+          "warning",
+          5000
+        );
+        // Link a la página de OneChain para descargar OneWallet
+        window.open(
+          "https://docs.onelabs.cc/",
+          "_blank"
+        );
+        return;
+      }
+
+      if (walletConfig.isWalletConnected()) {
+        // Desconectar
+        await walletConfig.disconnectOneWallet();
+        this.updateWalletButton(iconEl, textEl);
+        this.showNotification("Billetera desconectada", "info");
+      } else {
+        // Conectar
+        const result = await walletConfig.connectOneWallet();
+        
+        if (result.success && result.account) {
+          this.updateWalletButton(iconEl, textEl);
+          this.showNotification(
+            `Conectado: ${this.shortenAddress(result.account.address)} | Balance: ${result.account.balance?.toFixed(4) || '0'} OCT`,
+            "success",
+            6000
+          );
+        } else {
+          this.showNotification(
+            `Error: ${result.error || "No se pudo conectar"}`,
+            "warning"
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error al cargar configuración de wallet:", error);
+      this.showNotification("Error al cargar módulo de wallet", "warning");
+    }
+  }
+
+  private async updateWalletButton(
+    iconEl: HTMLSpanElement | null,
+    textEl: HTMLSpanElement | null
+  ) {
+    try {
+      const walletConfig = await import("../wallet/walletConfig");
+      
+      if (walletConfig.isWalletConnected()) {
+        const accountInfo = await walletConfig.getCurrentAccountInfo();
+        if (iconEl) iconEl.textContent = "✅";
+        if (textEl && accountInfo) {
+          textEl.textContent = this.shortenAddress(accountInfo.address);
+          textEl.title = `Balance: ${accountInfo.balance?.toFixed(4) || '0'} OCT`;
+        }
+      } else {
+        if (iconEl) iconEl.textContent = "🔗";
+        if (textEl) {
+          textEl.textContent = "Conectar";
+          textEl.title = "Conectar OneWallet";
+        }
+      }
+    } catch (error) {
+      // Wallet config no disponible
+      if (iconEl) iconEl.textContent = "🔗";
+      if (textEl) textEl.textContent = "Conectar";
+    }
+  }
+
+  private shortenAddress(address: string): string {
+    if (address.length <= 12) return address;
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
   }
 }
