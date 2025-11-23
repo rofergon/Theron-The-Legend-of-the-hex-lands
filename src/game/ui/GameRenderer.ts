@@ -46,10 +46,10 @@ export class GameRenderer {
 
   private loadTextures() {
     const cacheBuster = `?v=${Date.now()}`;
-    
+
 
     // Terrenos con texturas simples (sin variantes múltiples)
-    const simpleTerrains = ["river", "snow", "tundra"];
+    const simpleTerrains = ["snow", "tundra"];
     simpleTerrains.forEach((terrain) => {
       const img = new Image();
       img.src = `/assets/textures/${terrain}.png${cacheBuster}`;
@@ -66,6 +66,7 @@ export class GameRenderer {
       { name: "desert", folder: "extracted_desert_hexes", prefix: "desert_hex_Desert" },
       { name: "beach", folder: "extracted_beach_hexes", prefix: "beach_hex_Beach_Beach_variants" },
       { name: "ocean", folder: "extracted_ocean_hexes", prefix: "ocean_hex_Ocean_Ocean_variants" },
+      { name: "river", folder: "extracted_river_hexes", prefix: "river_hex_Rivers_Rivers2" },
     ];
 
     variantTerrains.forEach(({ name, folder, prefix }) => {
