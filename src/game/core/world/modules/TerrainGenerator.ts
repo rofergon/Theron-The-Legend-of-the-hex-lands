@@ -116,6 +116,8 @@ export class TerrainGenerator {
             }
             rows.push(row);
         }
+        this.processOceans(rows);
+        this.processBeaches(rows);
         this.resourceGenerator.placeWoodClusters(rows);
         this.resourceGenerator.placeStoneClusters(rows);
         return rows;
@@ -167,7 +169,8 @@ export class TerrainGenerator {
 
         // Océanos - umbrales más estrictos para evitar dispersión
         if (elevation < 0.08) return "ocean";
-        if (elevation < 0.12) return "beach";
+        // Beach generation is now handled in post-processing
+
 
         // Montañas altas (frío) - transiciones más suaves
         if (elevation > 0.85) {
@@ -452,9 +455,8 @@ export class TerrainGenerator {
         if (elevation < 0.06) {
             return "ocean";
         }
-        if (elevation < 0.1 && (terrain === "ocean" || terrain === "beach")) {
-            return "beach";
-        }
+        // Beach forcing removed to rely on adjacency
+
 
         // Montañas con transiciones más naturales
         if (elevation > 0.9) {
@@ -585,5 +587,102 @@ export class TerrainGenerator {
         }
 
         return riverCells;
+    }
+
+    private processOceans(rows: WorldCell[][]) {
+        const visited = new Set<string>();
+        const oceanGroups: { cells: Vec2[]; isValid: boolean }[] = [];
+        const minOceanSize = 100; // Minimum size to be considered an ocean
+
+        // Identify all ocean groups
+        for (let y = 0; y < this.size; y++) {
+            for (let x = 0; x < this.size; x++) {
+                const cell = rows[y]?.[x];
+                if (cell && cell.terrain === "ocean" && !visited.has(`${x},${y}`)) {
+                    const group: Vec2[] = [];
+                    const queue: Vec2[] = [{ x, y }];
+                    visited.add(`${x},${y}`);
+
+                    while (queue.length > 0) {
+                        const current = queue.shift()!;
+                        group.push(current);
+
+                        const neighbors = [
+                            { x: current.x + 1, y: current.y },
+                            { x: current.x - 1, y: current.y },
+                            { x: current.x, y: current.y + 1 },
+                            { x: current.x, y: current.y - 1 },
+                        ];
+
+                        for (const n of neighbors) {
+                            const neighborCell = rows[n.y]?.[n.x];
+                            if (
+                                neighborCell &&
+                                neighborCell.terrain === "ocean" &&
+                                !visited.has(`${n.x},${n.y}`)
+                            ) {
+                                visited.add(`${n.x},${n.y}`);
+                                queue.push(n);
+                            }
+                        }
+                    }
+
+                    oceanGroups.push({ cells: group, isValid: group.length >= minOceanSize });
+                }
+            }
+        }
+
+        // Convert small ocean groups to rivers
+        for (const group of oceanGroups) {
+            if (!group.isValid) {
+                for (const pos of group.cells) {
+                    const cell = rows[pos.y]?.[pos.x];
+                    if (cell) {
+                        cell.terrain = "river";
+                    }
+                }
+            }
+        }
+    }
+
+    private processBeaches(rows: WorldCell[][]) {
+        // Iterate through all cells to find land cells adjacent to ocean
+        for (let y = 0; y < this.size; y++) {
+            for (let x = 0; x < this.size; x++) {
+                const cell = rows[y]?.[x];
+                if (!cell) continue;
+
+                // Skip if already water
+                if (cell.terrain === "ocean" || cell.terrain === "river") continue;
+
+                let hasOceanNeighbor = false;
+                const neighbors = [
+                    { x: x + 1, y: y },
+                    { x: x - 1, y: y },
+                    { x: x, y: y + 1 },
+                    { x: x, y: y - 1 },
+                    // Check diagonals for smoother beaches
+                    { x: x + 1, y: y + 1 },
+                    { x: x - 1, y: y - 1 },
+                    { x: x + 1, y: y - 1 },
+                    { x: x - 1, y: y + 1 },
+                ];
+
+                for (const n of neighbors) {
+                    const neighborCell = rows[n.y]?.[n.x];
+                    if (
+                        neighborCell &&
+                        neighborCell.terrain === "ocean"
+                    ) {
+                        hasOceanNeighbor = true;
+                        break;
+                    }
+                }
+
+                if (hasOceanNeighbor) {
+                    cell.terrain = "beach";
+                }
+            }
+        }
     }
 }
