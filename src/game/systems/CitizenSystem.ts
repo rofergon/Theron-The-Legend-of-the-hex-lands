@@ -88,6 +88,9 @@ export class CitizenSystem {
       });
     }
 
+    // Apply any pending role changes for citizens who are no longer busy
+    this.applyPendingRoleChanges();
+
     this.repository.pruneDeadCitizens();
   }
 
@@ -187,38 +190,113 @@ export class CitizenSystem {
   rebalanceRoles(targets: Partial<Record<AssignableRole, number>>, tribeId?: number) {
     const pool = this.repository.getAssignableCitizens(tribeId);
     if (pool.length === 0) return;
-    const assigned = new Set<number>();
-    const assignCitizen = (citizen: Citizen, role: AssignableRole) => {
-      if (citizen.role !== role) {
-        citizen.role = role;
-      }
-      assigned.add(citizen.id);
+
+    // Normalize targets to ensure we have a value for each role
+    const normalizedTargets: Record<AssignableRole, number> = {
+      farmer: Math.max(0, Math.floor(targets.farmer ?? 0)),
+      worker: Math.max(0, Math.floor(targets.worker ?? 0)),
+      warrior: Math.max(0, Math.floor(targets.warrior ?? 0)),
+      scout: Math.max(0, Math.floor(targets.scout ?? 0)),
     };
 
-    for (const role of ASSIGNABLE_ROLES) {
-      if (assigned.size >= pool.length) break;
-      const desiredRaw = Math.max(0, Math.floor(targets[role] ?? 0));
-      if (desiredRaw <= 0) continue;
-      const availableSlots = pool.length - assigned.size;
-      if (availableSlots <= 0) break;
-      const targetCount = Math.min(desiredRaw, availableSlots);
-      let assignedForRole = 0;
-      for (const citizen of pool) {
-        if (assigned.has(citizen.id)) continue;
-        if (citizen.role === role) {
-          assignCitizen(citizen, role);
-          assignedForRole += 1;
-          if (assignedForRole >= targetCount) break;
+    // Calculate total requested
+    const totalRequested = Object.values(normalizedTargets).reduce((sum, count) => sum + count, 0);
+
+    // If total requested exceeds pool, we need to scale down proportionally
+    let finalTargets = { ...normalizedTargets };
+    if (totalRequested > pool.length) {
+      const scale = pool.length / totalRequested;
+      for (const role of ASSIGNABLE_ROLES) {
+        finalTargets[role] = Math.floor(normalizedTargets[role] * scale);
+      }
+      // Distribute remaining slots to maintain total
+      let assigned = Object.values(finalTargets).reduce((sum, count) => sum + count, 0);
+      for (const role of ASSIGNABLE_ROLES) {
+        if (assigned >= pool.length) break;
+        if (normalizedTargets[role] > finalTargets[role]) {
+          finalTargets[role]++;
+          assigned++;
         }
       }
-      if (assignedForRole >= targetCount) continue;
-      for (const citizen of pool) {
-        if (assigned.has(citizen.id)) continue;
-        assignCitizen(citizen, role);
-        assignedForRole += 1;
-        if (assignedForRole >= targetCount) {
-          break;
+    }
+
+    // Assign roles in order of priority
+    const assignments: Map<number, AssignableRole> = new Map();
+
+    for (const role of ASSIGNABLE_ROLES) {
+      const targetCount = finalTargets[role];
+      if (targetCount <= 0) continue;
+
+      // First pass: keep citizens who already have this role
+      const alreadyInRole = pool.filter(c => c.role === role && !assignments.has(c.id));
+      const toKeep = alreadyInRole.slice(0, targetCount);
+      toKeep.forEach(c => assignments.set(c.id, role));
+
+      // Second pass: assign from other roles if we need more
+      const stillNeeded = targetCount - toKeep.length;
+      if (stillNeeded > 0) {
+        const available = pool.filter(c => !assignments.has(c.id));
+        const toAssign = available.slice(0, stillNeeded);
+        toAssign.forEach(c => assignments.set(c.id, role));
+      }
+    }
+
+    // Assign remaining citizens to "worker" by default
+    const unassigned = pool.filter(c => !assignments.has(c.id));
+    unassigned.forEach(c => assignments.set(c.id, "worker"));
+
+    // Apply assignments, respecting busy status
+    for (const citizen of pool) {
+      const targetRole = assignments.get(citizen.id);
+      if (!targetRole || targetRole === citizen.role) {
+        // Clear any pending role change if the target matches current role
+        if (citizen.pendingRoleChange) {
+          delete citizen.pendingRoleChange;
         }
+        continue;
+      }
+
+      // Check if citizen is busy with an active task
+      if (this.isCitizenBusy(citizen)) {
+        // Defer the role change until the task is complete
+        citizen.pendingRoleChange = targetRole;
+      } else {
+        // Apply immediately if not busy
+        citizen.role = targetRole;
+        delete citizen.pendingRoleChange;
+      }
+    }
+  }
+
+  private isCitizenBusy(citizen: Citizen): boolean {
+    // Check if citizen has an active goal that indicates they're performing a task
+    if (!citizen.currentGoal) return false;
+
+    // List of goals that indicate the citizen is actively working
+    const busyGoals = [
+      "construct",
+      "sow",
+      "fertilize",
+      "harvest",
+      "gather",
+      "mining",
+      "attack",
+      "mate",
+    ];
+
+    // Check if current goal matches any busy state
+    return busyGoals.some(goal => citizen.currentGoal?.toLowerCase().includes(goal));
+  }
+
+  applyPendingRoleChanges() {
+    // Called each tick to apply pending role changes for citizens who are no longer busy
+    for (const citizen of this.repository.getCitizens()) {
+      if (!citizen.pendingRoleChange) continue;
+
+      // Check if citizen is still busy
+      if (!this.isCitizenBusy(citizen)) {
+        citizen.role = citizen.pendingRoleChange;
+        delete citizen.pendingRoleChange;
       }
     }
   }

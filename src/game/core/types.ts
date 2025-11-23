@@ -1,6 +1,6 @@
 export type Vec2 = { x: number; y: number };
 
-export type Terrain = 
+export type Terrain =
   | "ocean"
   | "beach"
   | "grassland"
@@ -111,6 +111,7 @@ export interface Citizen {
   path?: Vec2[];
   pathTarget?: Vec2 | null;
   pathCacheKey?: string;
+  pendingRoleChange?: Role;
 }
 
 export interface WorldView {
