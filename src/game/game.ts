@@ -6,7 +6,7 @@ import { SimulationSession } from "./core/SimulationSession";
 import { CameraController } from "./core/CameraController";
 import { HUDController, type HUDSnapshot } from "./ui/HUDController";
 import { CitizenPortraitBarController } from "./ui/CitizenPortraitBar";
-import { CitizenDetailModalController } from "./ui/CitizenDetailModal";
+import { CitizenControlPanelController } from "./ui/CitizenControlPanel";
 import { GameRenderer, type RenderState, type ViewMetrics } from "./ui/GameRenderer";
 import { MainMenu } from "./ui/MainMenu";
 import { CellTooltipController } from "./ui/CellTooltip";
@@ -27,10 +27,7 @@ export class Game {
   private readonly renderer: GameRenderer;
   private readonly hud = new HUDController();
   private readonly portraitBar = new CitizenPortraitBarController({ onSelectCitizen: (id) => this.handleCitizenSelection(id) });
-  private readonly detailModal = new CitizenDetailModalController({
-    onClose: () => this.handleModalClose(),
-    onNavigate: (direction) => this.handleModalNavigate(direction),
-  });
+  private readonly citizenPanel = new CitizenControlPanelController({ onClose: () => this.handlePanelClose() });
   private readonly cellTooltip = new CellTooltipController();
   private readonly playerTribeId = 1;
   private simulation: SimulationSession | null = null;
@@ -195,7 +192,7 @@ export class Game {
     this.updateRoleControls(true);
     this.refreshStructureSelection();
     this.updatePlanningHint();
-    this.updateCitizenPanel();
+    this.updateCitizenControlPanel();
 
     this.hud.setPauseButtonState(true);
     this.hud.updateStatus("▶️ Simulación en curso.");
@@ -895,7 +892,7 @@ export class Game {
     this.hud.tickNotifications();
     this.updateRoleControls();
     this.updateHUD();
-    this.updateCitizenPanel();
+    this.updateCitizenControlPanel();
     this.refreshStructureSelection();
   }
 
@@ -934,16 +931,15 @@ export class Game {
     this.hud.updateHUD(hudSnapshot);
   }
 
-  private updateCitizenPanel() {
+  private updateCitizenControlPanel() {
     if (!this.simulation) return;
     const citizens = this.simulation.getCitizenSystem().getCitizens();
     const selectedId = this.selectedCitizen?.id ?? null;
     this.portraitBar.update(citizens, selectedId);
 
-    // Update modal if it's open
-    if (this.detailModal.isVisible() && this.selectedCitizen) {
-      const aliveCitizens = citizens.filter((c) => c.state === "alive");
-      this.detailModal.show(this.selectedCitizen, aliveCitizens.length);
+    // Update panel if it's visible and we have a selected citizen
+    if (this.selectedCitizen) {
+      this.citizenPanel.update();
     }
   }
 
@@ -1040,7 +1036,7 @@ export class Game {
 
     this.showCellTooltip(cell, event);
 
-    this.updateCitizenPanel();
+    this.updateCitizenControlPanel();
   };
 
   private handleTouchStart = (event: TouchEvent) => {
@@ -1219,7 +1215,7 @@ export class Game {
     if (citizen) {
       this.camera.focusOn({ x: citizen.x + 0.5, y: citizen.y + 0.5 });
     }
-    this.updateCitizenPanel();
+    this.updateCitizenControlPanel();
   };
 
   private handleCanvasHover = (event: MouseEvent) => {
@@ -1367,44 +1363,13 @@ export class Game {
     if (!citizen) return;
 
     this.selectedCitizen = citizen;
-    const aliveCitizens = this.simulation.getCitizenSystem().getCitizens().filter((c) => c.state === "alive");
-    this.detailModal.show(citizen, aliveCitizens.length);
-    this.updateCitizenPanel();
+    this.citizenPanel.show(citizen);
+    this.updateCitizenControlPanel();
   }
 
-  private handleModalClose() {
+  private handlePanelClose() {
     this.selectedCitizen = null;
-    this.detailModal.hide();
-    this.updateCitizenPanel();
-  }
-
-  private handleModalNavigate(direction: "prev" | "next") {
-    if (!this.simulation || !this.selectedCitizen) return;
-
-    const aliveCitizens = this.simulation
-      .getCitizenSystem()
-      .getCitizens()
-      .filter((c) => c.state === "alive")
-      .sort((a, b) => {
-        if (a.tribeId !== b.tribeId) {
-          return a.tribeId === 1 ? -1 : b.tribeId === 1 ? 1 : a.tribeId - b.tribeId;
-        }
-        return a.id - b.id;
-      });
-
-    const currentIndex = aliveCitizens.findIndex((c) => c.id === this.selectedCitizen?.id);
-    if (currentIndex === -1) return;
-
-    const nextIndex = direction === "next"
-      ? (currentIndex + 1) % aliveCitizens.length
-      : (currentIndex - 1 + aliveCitizens.length) % aliveCitizens.length;
-
-    const nextCitizen = aliveCitizens[nextIndex];
-    if (nextCitizen) {
-      this.selectedCitizen = nextCitizen;
-      this.detailModal.show(nextCitizen, aliveCitizens.length);
-      this.updateCitizenPanel();
-    }
+    this.updateCitizenControlPanel();
   }
 
   destroy() {
