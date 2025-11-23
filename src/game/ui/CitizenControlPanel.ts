@@ -5,6 +5,22 @@ export class CitizenControlPanelController {
     private currentCitizen: Citizen | null = null;
     private isVisible = false;
     private lastRenderSignature: string | null = null;
+    private panelBuilt = false;
+
+    private roleIconEl: HTMLSpanElement | null = null;
+    private nameLabelEl: HTMLSpanElement | null = null;
+    private stateEl: HTMLSpanElement | null = null;
+    private roleEl: HTMLDivElement | null = null;
+    private statFills: Record<"health" | "hunger" | "energy" | "morale", HTMLDivElement | null> = {
+        health: null,
+        hunger: null,
+        energy: null,
+        morale: null,
+    };
+    private invFoodEl: HTMLSpanElement | null = null;
+    private invStoneEl: HTMLSpanElement | null = null;
+    private invWoodEl: HTMLSpanElement | null = null;
+    private actionTextEl: HTMLDivElement | null = null;
 
     constructor(private options?: { onClose?: () => void }) {
         this.container = document.querySelector<HTMLDivElement>("#citizen-control-panel");
@@ -37,6 +53,7 @@ export class CitizenControlPanelController {
 
     private render() {
         if (!this.container || !this.currentCitizen) return;
+        this.buildPanel();
 
         const signature = this.getCitizenSignature(this.currentCitizen);
         if (signature === this.lastRenderSignature) return;
@@ -53,45 +70,21 @@ export class CitizenControlPanelController {
         const energyPct = Math.floor(100 - c.fatigue);
         const moralePct = Math.floor(c.morale);
 
-        this.container.innerHTML = `
-            <div class="panel-header">
-                <div class="panel-portrait">
-                    <span class="panel-role-icon">${roleIcon}</span>
-                </div>
-                <div class="panel-info">
-                    <div class="panel-name">Aldeano #${c.id} <span class="panel-state">${stateIcon}</span></div>
-                    <div class="panel-role">${roleLabel} · ${Math.floor(c.age)} años</div>
-                </div>
-                <button class="panel-close-btn" title="Cerrar panel">✕</button>
-            </div>
+        if (this.roleIconEl) this.roleIconEl.textContent = roleIcon;
+        if (this.nameLabelEl) this.nameLabelEl.textContent = `Aldeano #${c.id} `;
+        if (this.stateEl) this.stateEl.textContent = stateIcon;
+        if (this.roleEl) this.roleEl.textContent = `${roleLabel} · ${Math.floor(c.age)} años`;
 
-            <div class="panel-stats">
-                ${this.renderStatBar("Salud", healthPct, "#ef4444", "❤️")}
-                ${this.renderStatBar("Hambre", hungerPct, "#f97316", "🍖")}
-                ${this.renderStatBar("Energía", energyPct, "#8b5cf6", "⚡")}
-                ${this.renderStatBar("Moral", moralePct, "#3b82f6", "😊")}
-            </div>
+        this.updateStatBar(this.statFills.health, healthPct, "#ef4444");
+        this.updateStatBar(this.statFills.hunger, hungerPct, "#f97316");
+        this.updateStatBar(this.statFills.energy, energyPct, "#8b5cf6");
+        this.updateStatBar(this.statFills.morale, moralePct, "#3b82f6");
 
-            <div class="panel-inventory">
-                <div class="inv-item" title="Comida">
-                    <span>🌾</span> ${Math.floor(c.carrying.food)}
-                </div>
-                <div class="inv-item" title="Piedra">
-                    <span>🪨</span> ${Math.floor(c.carrying.stone)}
-                </div>
-                <div class="inv-item" title="Madera">
-                    <span>🌲</span> ${Math.floor(c.carrying.wood)}
-                </div>
-            </div>
+        if (this.invFoodEl) this.invFoodEl.textContent = `${Math.floor(c.carrying.food)}`;
+        if (this.invStoneEl) this.invStoneEl.textContent = `${Math.floor(c.carrying.stone)}`;
+        if (this.invWoodEl) this.invWoodEl.textContent = `${Math.floor(c.carrying.wood)}`;
 
-            <div class="panel-action">
-                <div class="action-label">Actividad actual:</div>
-                <div class="action-text">${this.getActivityText(c)}</div>
-            </div>
-        `;
-
-        // Re-attach close listener
-        this.container.querySelector(".panel-close-btn")?.addEventListener("click", () => this.hide());
+        if (this.actionTextEl) this.actionTextEl.textContent = this.getActivityText(c);
     }
 
     private getCitizenSignature(c: Citizen): string {
@@ -112,15 +105,113 @@ export class CitizenControlPanelController {
         ].join("|");
     }
 
-    private renderStatBar(label: string, value: number, color: string, icon: string): string {
-        return `
-            <div class="stat-row" title="${label}: ${value}%">
-                <span class="stat-icon">${icon}</span>
-                <div class="stat-bar-bg">
-                    <div class="stat-bar-fill" style="width: ${Math.max(0, Math.min(100, value))}%; background-color: ${color};"></div>
-                </div>
-            </div>
-        `;
+    private updateStatBar(fillEl: HTMLDivElement | null, value: number, color: string) {
+        if (!fillEl) return;
+        const clamped = Math.max(0, Math.min(100, value));
+        fillEl.style.width = `${clamped}%`;
+        fillEl.style.backgroundColor = color;
+        fillEl.parentElement?.parentElement?.setAttribute("title", `${clamped}%`);
+    }
+
+    private buildPanel() {
+        if (!this.container || this.panelBuilt) return;
+        this.container.innerHTML = "";
+
+        const header = document.createElement("div");
+        header.className = "panel-header";
+
+        const portrait = document.createElement("div");
+        portrait.className = "panel-portrait";
+        this.roleIconEl = document.createElement("span");
+        this.roleIconEl.className = "panel-role-icon";
+        portrait.appendChild(this.roleIconEl);
+
+        const info = document.createElement("div");
+        info.className = "panel-info";
+        const name = document.createElement("div");
+        name.className = "panel-name";
+        this.nameLabelEl = document.createElement("span");
+        this.stateEl = document.createElement("span");
+        this.stateEl.className = "panel-state";
+        name.appendChild(this.nameLabelEl);
+        name.appendChild(this.stateEl);
+        this.roleEl = document.createElement("div");
+        this.roleEl.className = "panel-role";
+        info.appendChild(name);
+        info.appendChild(this.roleEl);
+
+        const closeBtn = document.createElement("button");
+        closeBtn.className = "panel-close-btn";
+        closeBtn.title = "Cerrar panel";
+        closeBtn.textContent = "✕";
+        closeBtn.addEventListener("click", () => this.hide());
+
+        header.appendChild(portrait);
+        header.appendChild(info);
+        header.appendChild(closeBtn);
+
+        const stats = document.createElement("div");
+        stats.className = "panel-stats";
+
+        const makeStat = (label: string, icon: string, key: keyof CitizenControlPanelController["statFills"]) => {
+            const row = document.createElement("div");
+            row.className = "stat-row";
+            const iconEl = document.createElement("span");
+            iconEl.className = "stat-icon";
+            iconEl.textContent = icon;
+            const bg = document.createElement("div");
+            bg.className = "stat-bar-bg";
+            const fill = document.createElement("div");
+            fill.className = "stat-bar-fill";
+            bg.appendChild(fill);
+            row.appendChild(iconEl);
+            row.appendChild(bg);
+            row.setAttribute("title", `${label}: 0%`);
+            stats.appendChild(row);
+            this.statFills[key] = fill;
+        };
+
+        makeStat("Salud", "❤️", "health");
+        makeStat("Hambre", "🍖", "hunger");
+        makeStat("Energía", "⚡", "energy");
+        makeStat("Moral", "😊", "morale");
+
+        const inventory = document.createElement("div");
+        inventory.className = "panel-inventory";
+
+        const makeInv = (title: string, icon: string, setter: (el: HTMLSpanElement) => void) => {
+            const item = document.createElement("div");
+            item.className = "inv-item";
+            item.title = title;
+            const iconSpan = document.createElement("span");
+            iconSpan.textContent = icon;
+            const valueSpan = document.createElement("span");
+            valueSpan.className = "inv-value";
+            item.appendChild(iconSpan);
+            item.appendChild(valueSpan);
+            inventory.appendChild(item);
+            setter(valueSpan);
+        };
+
+        makeInv("Comida", "🌾", (el) => (this.invFoodEl = el));
+        makeInv("Piedra", "🪨", (el) => (this.invStoneEl = el));
+        makeInv("Madera", "🌲", (el) => (this.invWoodEl = el));
+
+        const action = document.createElement("div");
+        action.className = "panel-action";
+        const actionLabel = document.createElement("div");
+        actionLabel.className = "action-label";
+        actionLabel.textContent = "Actividad actual:";
+        this.actionTextEl = document.createElement("div");
+        this.actionTextEl.className = "action-text";
+        action.appendChild(actionLabel);
+        action.appendChild(this.actionTextEl);
+
+        this.container.appendChild(header);
+        this.container.appendChild(stats);
+        this.container.appendChild(inventory);
+        this.container.appendChild(action);
+        this.panelBuilt = true;
     }
 
     private getRoleIcon(role: Citizen["role"]): string {
