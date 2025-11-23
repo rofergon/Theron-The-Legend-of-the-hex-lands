@@ -44,6 +44,22 @@ export class MainMenu {
   private readonly previewThrottleMs = 220;
   private buttonRegions: Partial<Record<MenuButtonKey, ButtonRegion>> = {};
   private useMobileLayout: boolean;
+  private keyListenerAttached = false;
+  private keydownHandler = (e: KeyboardEvent) => {
+    if (!this.isVisible) return;
+    if (this.focusedInput === "seed") {
+      if (e.key === "Backspace") {
+        this.seedInputValue = this.seedInputValue.slice(0, -1);
+      } else if (e.key === "Enter") {
+        this.focusedInput = null;
+        this.applySeedInput();
+      } else if (e.key >= "0" && e.key <= "9" && this.seedInputValue.length < 10) {
+        this.seedInputValue += e.key;
+      } else if (e.key === "-" && this.seedInputValue.length === 0) {
+        this.seedInputValue = "-";
+      }
+    }
+  };
 
   constructor(canvas: HTMLCanvasElement, options?: { isMobile?: boolean }) {
     this.canvas = canvas;
@@ -61,21 +77,20 @@ export class MainMenu {
     this.canvas.addEventListener("mousemove", (e) => this.handleMouseMove(e));
     this.canvas.addEventListener("click", (e) => this.handleClick(e));
 
-    // Capturar entrada de teclado para el input de semilla
-    window.addEventListener("keydown", (e) => {
-      if (this.focusedInput === "seed") {
-        if (e.key === "Backspace") {
-          this.seedInputValue = this.seedInputValue.slice(0, -1);
-        } else if (e.key === "Enter") {
-          this.focusedInput = null;
-          this.applySeedInput();
-        } else if (e.key >= "0" && e.key <= "9" && this.seedInputValue.length < 10) {
-          this.seedInputValue += e.key;
-        } else if (e.key === "-" && this.seedInputValue.length === 0) {
-          this.seedInputValue = "-";
-        }
-      }
-    });
+    // Capturar entrada de teclado para el input de semilla mientras el menú está visible
+    this.attachKeyListener();
+  }
+
+  private attachKeyListener() {
+    if (this.keyListenerAttached) return;
+    window.addEventListener("keydown", this.keydownHandler);
+    this.keyListenerAttached = true;
+  }
+
+  private detachKeyListener() {
+    if (!this.keyListenerAttached) return;
+    window.removeEventListener("keydown", this.keydownHandler);
+    this.keyListenerAttached = false;
   }
 
   private applySeedInput() {
@@ -707,10 +722,12 @@ export class MainMenu {
 
   show() {
     this.isVisible = true;
+    this.attachKeyListener();
   }
 
   hide() {
     this.isVisible = false;
+    this.detachKeyListener();
   }
   private renderFooter(centerX: number, canvasHeight: number) {
     const ctx = this.ctx;
