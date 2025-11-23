@@ -69,6 +69,12 @@ const ensureSharedTextures = (cacheTag: string): TextureResources => {
   textures["structure_warehouse"] = [loadImage(`/assets/extracted_icons/warehouse.png${cacheTag}`, "structure_warehouse")];
   textures["structure_granary"] = [loadImage(`/assets/extracted_icons/barn.png${cacheTag}`, "structure_granary")];
 
+  // Load resource icons
+  textures["resource_food"] = [loadImage(`/assets/extracted_icons/wheat.png${cacheTag}`, "resource_food")];
+  textures["resource_tree_1"] = [loadImage(`/assets/extracted_icons/tree_1.png${cacheTag}`, "resource_tree_1")];
+  textures["resource_tree_2"] = [loadImage(`/assets/extracted_icons/tree_2.png${cacheTag}`, "resource_tree_2")];
+  textures["construction_site"] = [loadImage(`/assets/extracted_icons/construction_site.png${cacheTag}`, "construction_site")];
+
   const resources: TextureResources = { textures, hexFrame, cacheTag };
   sharedTextureState.resources = resources;
   return resources;
@@ -378,7 +384,19 @@ export class GameRenderer {
     const ctx = this.ctx;
     switch (resource.type) {
       case "food":
-        drawFood(ctx, center.x, center.y, cellSize);
+        // Try to draw wheat icon
+        const wheatTextures = this.textures["resource_food"];
+        if (wheatTextures && wheatTextures.length > 0) {
+          const texture = wheatTextures[0];
+          if (texture && texture.complete) {
+            const size = cellSize * 1.0;
+            ctx.drawImage(texture, center.x - size / 2, center.y - size / 2, size, size);
+          } else {
+            drawFood(ctx, center.x, center.y, cellSize);
+          }
+        } else {
+          drawFood(ctx, center.x, center.y, cellSize);
+        }
         break;
       case "stone":
         drawStone(ctx, center.x, center.y, cellSize);
@@ -404,7 +422,22 @@ export class GameRenderer {
       const y = center.y + offset.y * cellSize;
       // Vary tree size slightly
       const sizeVar = 1 + (Math.sin(x * y) * 0.1);
-      drawTree(this.ctx, x, y, cellSize * sizeVar);
+
+      // Use tree icons if available
+      const treeType = (Math.abs(Math.floor(x * y * 100)) % 2) + 1; // 1 or 2
+      const treeTextures = this.textures[`resource_tree_${treeType}`];
+
+      if (treeTextures && treeTextures.length > 0) {
+        const texture = treeTextures[0];
+        if (texture && texture.complete) {
+          const size = cellSize * sizeVar * 1.2; // Slightly larger for icons
+          this.ctx.drawImage(texture, x - size / 2, y - size / 2, size, size);
+        } else {
+          drawTree(this.ctx, x, y, cellSize * sizeVar);
+        }
+      } else {
+        drawTree(this.ctx, x, y, cellSize * sizeVar);
+      }
     }
   }
 
@@ -442,9 +475,30 @@ export class GameRenderer {
     const size = cellSize * sizeByStage[stage];
 
     // Draw multiple small crops
-    drawFood(ctx, center.x - size * 0.2, center.y, size * 0.8);
-    if (stage > 1) drawFood(ctx, center.x + size * 0.2, center.y - size * 0.1, size * 0.8);
-    if (stage > 2) drawFood(ctx, center.x, center.y + size * 0.2, size * 0.8);
+    const wheatTextures = this.textures["resource_food"];
+    let useIcon = false;
+    let icon: HTMLImageElement | undefined;
+
+    if (wheatTextures && wheatTextures.length > 0) {
+      icon = wheatTextures[0];
+      if (icon && icon.complete) {
+        useIcon = true;
+      }
+    }
+
+    if (useIcon && icon) {
+      const currentIcon = icon; // Capture for closure
+      const drawIcon = (x: number, y: number, s: number) => {
+        ctx.drawImage(currentIcon, x - s / 2, y - s / 2, s, s);
+      };
+      drawIcon(center.x - size * 0.2, center.y, size * 0.8);
+      if (stage > 1) drawIcon(center.x + size * 0.2, center.y - size * 0.1, size * 0.8);
+      if (stage > 2) drawIcon(center.x, center.y + size * 0.2, size * 0.8);
+    } else {
+      drawFood(ctx, center.x - size * 0.2, center.y, size * 0.8);
+      if (stage > 1) drawFood(ctx, center.x + size * 0.2, center.y - size * 0.1, size * 0.8);
+      if (stage > 2) drawFood(ctx, center.x, center.y + size * 0.2, size * 0.8);
+    }
   }
   private drawStructure(type: StructureType, center: Vec2, cellSize: number) {
     // Check for specialized texture
@@ -519,11 +573,27 @@ export class GameRenderer {
     }
 
     // Dibujar icono
-    ctx.font = `${hex.size * 0.6}px serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "white";
-    ctx.fillText(icon, center.x, center.y - hex.size * 0.2);
+    const constructionTextures = this.textures["construction_site"];
+    if (constructionTextures && constructionTextures.length > 0) {
+      const texture = constructionTextures[0];
+      if (texture && texture.complete) {
+        const size = hex.size * 1.5;
+        ctx.drawImage(texture, center.x - size / 2, center.y - size / 2, size, size);
+      } else {
+        // Fallback if texture not ready
+        ctx.font = `${hex.size * 0.6}px serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "white";
+        ctx.fillText(icon, center.x, center.y - hex.size * 0.2);
+      }
+    } else {
+      ctx.font = `${hex.size * 0.6}px serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "white";
+      ctx.fillText(icon, center.x, center.y - hex.size * 0.2);
+    }
 
     // Dibujar barra de progreso
     const pct = site.workRequired > 0 ? clamp(site.workDone / site.workRequired, 0, 1) : 0;
