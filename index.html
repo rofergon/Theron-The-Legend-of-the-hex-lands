@@ -1,178 +1,174 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Espíritu Guardián - Simulación Tribal</title>
-  </head>
-  <body>
-    <div id="app">
-      <header id="game-header">
-        <div class="header-left">
-          <h1 class="game-title">🌟 Espíritu Guardián</h1>
-        </div>
-        <div class="header-stats" aria-label="Indicadores de tribu">
-          <div class="hud-pill" data-stat="faith">
-            <span class="hud-pill-icon" aria-hidden="true">✨</span>
-            <span class="hud-pill-value" id="score" aria-label="Fe">0</span>
-          </div>
-          <div class="hud-pill" data-stat="population">
-            <span class="hud-pill-icon" aria-hidden="true">👥</span>
-            <span class="hud-pill-value" id="energy" aria-label="Población">0</span>
-          </div>
-          <div class="hud-pill" data-stat="climate">
-            <span class="hud-pill-value" id="time" aria-label="Clima" title="Clima templado">⛅</span>
-          </div>
-          <div class="hud-pill" data-stat="food">
-            <span class="hud-pill-icon" aria-hidden="true">🌾</span>
-            <span class="hud-pill-value" id="food" aria-label="Comida">0</span>
-          </div>
-          <div class="hud-pill" data-stat="stone">
-            <span class="hud-pill-icon" aria-hidden="true">🪨</span>
-            <span class="hud-pill-value" id="stone" aria-label="Piedra">0</span>
-          </div>
-          <div class="hud-pill" data-stat="wood">
-            <span class="hud-pill-icon" aria-hidden="true">🌲</span>
-            <span class="hud-pill-value" id="wood" aria-label="Madera">0</span>
-          </div>
-          <div class="hud-pill" data-stat="water">
-            <span class="hud-pill-icon" aria-hidden="true">💧</span>
-            <span class="hud-pill-value" id="water" aria-label="Agua">0</span>
-          </div>
-        </div>
-        <nav class="header-nav">
-          <button class="header-btn" id="btn-new-game" title="Nueva Partida">🔄 Nueva</button>
-          <button class="header-btn" id="btn-save" title="Guardar Partida">💾 Guardar</button>
-          <button class="header-btn" id="btn-load" title="Cargar Partida">📂 Cargar</button>
-          <button class="header-btn" id="btn-settings" title="Configuración">⚙️ Config</button>
-          <button class="header-btn" id="btn-help" title="Ayuda">❓ Ayuda</button>
-          <button class="header-btn header-btn-wallet" id="btn-wallet" title="Conectar OneWallet">
-            <span id="wallet-icon">🔗</span>
-            <span id="wallet-text">Conectar</span>
-          </button>
-        </nav>
-      </header>
-      <div id="layout">
-        <aside id="left-panel">
-          <section class="panel-block" id="citizen-panel">
-            <h2>Aldeanos</h2>
-            <div class="citizen-panel">
-              <div class="citizen-list" id="citizen-list"></div>
-              <div class="citizen-detail" id="citizen-detail">
-                <p class="citizen-detail-empty">Selecciona un habitante para ver sus detalles.</p>
-              </div>
-            </div>
-          </section>
-        </aside>
 
-        <div id="game-wrapper">
-          <canvas id="game"></canvas>
-          <div id="zoom-controls" role="group" aria-label="Controles de zoom">
-            <button type="button" class="zoom-btn" id="zoom-out" title="Alejar mapa">−</button>
-            <button type="button" class="zoom-btn" id="zoom-in" title="Acercar mapa">+</button>
-          </div>
-        </div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Espíritu Guardián - Simulación Tribal</title>
+</head>
 
-        <aside id="ui-panel">
-          <section class="panel-block" id="roles-panel">
-            <h2>Oficios</h2>
-            <div class="role-control" data-role="farmer">
-              <label for="role-farmer">Granjero</label>
-              <input type="range" id="role-farmer" min="0" max="10" value="2" step="1" />
-              <span class="role-value" id="role-value-farmer">2</span>
-            </div>
-            <div class="role-control" data-role="worker">
-              <label for="role-worker">Trabajador</label>
-              <input type="range" id="role-worker" min="0" max="10" value="2" step="1" />
-              <span class="role-value" id="role-value-worker">2</span>
-            </div>
-            <div class="role-control" data-role="warrior">
-              <label for="role-warrior">Guerrero</label>
-              <input type="range" id="role-warrior" min="0" max="10" value="2" step="1" />
-              <span class="role-value" id="role-value-warrior">2</span>
-            </div>
-            <div class="role-control" data-role="scout">
-              <label for="role-scout">Explorador</label>
-              <input type="range" id="role-scout" min="0" max="10" value="1" step="1" />
-              <span class="role-value" id="role-value-scout">1</span>
-            </div>
-            <p class="role-note">Los niños y ancianos no se reasignan automáticamente.</p>
-          </section>
-
-          <section class="panel-block" id="planning-panel">
-            <h2>Planificación</h2>
-            <div class="planning-modes" role="group" aria-label="Modos de planificación">
-              <button type="button" class="planning-button" data-planning-mode="farm" title="Planificar cultivos (F)">
-                🌾 Cultivos
-              </button>
-              <button type="button" class="planning-button" data-planning-mode="mine" title="Planificar canteras (M)">
-                🪨 Minería
-              </button>
-              <button type="button" class="planning-button" data-planning-mode="gather" title="Planificar recolección (G)">
-                🍃 Recolección
-              </button>
-              <button
-                type="button"
-                class="planning-button"
-                data-planning-mode="build"
-                title="Modo construcción (B) · usa [ ] para cambiar edificio"
-              >
-                🧱 Construcción
-              </button>
-            </div>
-            <div class="planning-build-selector collapsed" id="build-selector" aria-hidden="true">
-              <div class="planning-selector-row">
-                <span class="selector-label">Edificio:</span>
-                <div class="planning-selector-controls">
-                  <button type="button" class="planning-cycle-btn" id="build-prev" title="Edificio anterior ([)">
-                    ◀
-                  </button>
-                  <span class="planning-selector-name" id="build-name">Ninguno</span>
-                  <button type="button" class="planning-cycle-btn" id="build-next" title="Edificio siguiente (])">
-                    ▶
-                  </button>
-                </div>
-              </div>
-              <small class="planning-status" id="build-status">Aumenta la población para desbloquear edificios.</small>
-              <div class="build-details" id="build-details" hidden>
-                <p class="build-details-summary" id="build-details-summary">Selecciona un edificio para ver detalles.</p>
-                <p class="build-details-meta">
-                  <span class="build-details-label">Coste:</span>
-                  <span id="build-details-cost">-</span>
-                </p>
-                <p class="build-details-meta">
-                  <span class="build-details-label">Requisitos:</span>
-                  <span id="build-details-requirements">-</span>
-                </p>
-              </div>
-            </div>
-            <div class="planning-hint" id="planning-hint">Selecciona un modo para empezar a marcar zonas.</div>
-          </section>
-
-          <section class="panel-block" id="instructions">
-            <h2>Simulación</h2>
-            <p id="status-text">Simulación en curso.</p>
-            <div id="speed-controls" class="speed-controls" role="group" aria-label="Velocidad de simulación">
-              <span class="speed-label">Velocidad:</span>
-              <div class="speed-button-group">
-                <button type="button" class="panel-button speed-button" data-speed="1">1× Normal</button>
-                <button type="button" class="panel-button speed-button" data-speed="2">2×</button>
-                <button type="button" class="panel-button speed-button" data-speed="5">5×</button>
-              </div>
-            </div>
-            <div class="panel-actions">
-              <button id="pause-button" class="panel-button">⏸️ Pausar</button>
-              <button id="debug-export" class="panel-button" disabled>⬇️ Descargar debug</button>
-            </div>
-          </section>
-
-          <section class="panel-block" id="history-panel">
-            <h2>Crónica</h2>
-            <ul id="history"></ul>
-          </section>
-        </aside>
+<body>
+  <div id="app">
+    <header id="game-header">
+      <div class="header-left">
+        <h1 class="game-title">🌟 Espíritu Guardián</h1>
       </div>
+      <div class="header-stats" aria-label="Indicadores de tribu">
+        <div class="hud-pill" data-stat="faith">
+          <span class="hud-pill-icon" aria-hidden="true">✨</span>
+          <span class="hud-pill-value" id="score" aria-label="Fe">0</span>
+        </div>
+        <div class="hud-pill" data-stat="population">
+          <span class="hud-pill-icon" aria-hidden="true">👥</span>
+          <span class="hud-pill-value" id="energy" aria-label="Población">0</span>
+        </div>
+        <div class="hud-pill" data-stat="climate">
+          <span class="hud-pill-value" id="time" aria-label="Clima" title="Clima templado">⛅</span>
+        </div>
+        <div class="hud-pill" data-stat="food">
+          <span class="hud-pill-icon" aria-hidden="true">🌾</span>
+          <span class="hud-pill-value" id="food" aria-label="Comida">0</span>
+        </div>
+        <div class="hud-pill" data-stat="stone">
+          <span class="hud-pill-icon" aria-hidden="true">🪨</span>
+          <span class="hud-pill-value" id="stone" aria-label="Piedra">0</span>
+        </div>
+        <div class="hud-pill" data-stat="wood">
+          <span class="hud-pill-icon" aria-hidden="true">🌲</span>
+          <span class="hud-pill-value" id="wood" aria-label="Madera">0</span>
+        </div>
+        <div class="hud-pill" data-stat="water">
+          <span class="hud-pill-icon" aria-hidden="true">💧</span>
+          <span class="hud-pill-value" id="water" aria-label="Agua">0</span>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <button class="header-btn" id="btn-new-game" title="Nueva Partida">🔄 Nueva</button>
+        <button class="header-btn" id="btn-save" title="Guardar Partida">💾 Guardar</button>
+        <button class="header-btn" id="btn-load" title="Cargar Partida">📂 Cargar</button>
+        <button class="header-btn" id="btn-settings" title="Configuración">⚙️ Config</button>
+        <button class="header-btn" id="btn-help" title="Ayuda">❓ Ayuda</button>
+        <button class="header-btn header-btn-wallet" id="btn-wallet" title="Conectar OneWallet">
+          <span id="wallet-icon">🔗</span>
+          <span id="wallet-text">Conectar</span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- Citizen Portrait Bar (RimWorld-style) -->
+    <div id="citizen-portrait-bar" class="citizen-portrait-bar"></div>
+
+    <div id="layout">
+      <div id="game-wrapper">
+        <canvas id="game"></canvas>
+        <div id="zoom-controls" role="group" aria-label="Controles de zoom">
+          <button type="button" class="zoom-btn" id="zoom-out" title="Alejar mapa">−</button>
+          <button type="button" class="zoom-btn" id="zoom-in" title="Acercar mapa">+</button>
+        </div>
+      </div>
+
+      <aside id="ui-panel">
+        <section class="panel-block" id="roles-panel">
+          <h2>Oficios</h2>
+          <div class="role-control" data-role="farmer">
+            <label for="role-farmer">Granjero</label>
+            <input type="range" id="role-farmer" min="0" max="10" value="2" step="1" />
+            <span class="role-value" id="role-value-farmer">2</span>
+          </div>
+          <div class="role-control" data-role="worker">
+            <label for="role-worker">Trabajador</label>
+            <input type="range" id="role-worker" min="0" max="10" value="2" step="1" />
+            <span class="role-value" id="role-value-worker">2</span>
+          </div>
+          <div class="role-control" data-role="warrior">
+            <label for="role-warrior">Guerrero</label>
+            <input type="range" id="role-warrior" min="0" max="10" value="2" step="1" />
+            <span class="role-value" id="role-value-warrior">2</span>
+          </div>
+          <div class="role-control" data-role="scout">
+            <label for="role-scout">Explorador</label>
+            <input type="range" id="role-scout" min="0" max="10" value="1" step="1" />
+            <span class="role-value" id="role-value-scout">1</span>
+          </div>
+          <p class="role-note">Los niños y ancianos no se reasignan automáticamente.</p>
+        </section>
+
+        <section class="panel-block" id="planning-panel">
+          <h2>Planificación</h2>
+          <div class="planning-modes" role="group" aria-label="Modos de planificación">
+            <button type="button" class="planning-button" data-planning-mode="farm" title="Planificar cultivos (F)">
+              🌾 Cultivos
+            </button>
+            <button type="button" class="planning-button" data-planning-mode="mine" title="Planificar canteras (M)">
+              🪨 Minería
+            </button>
+            <button type="button" class="planning-button" data-planning-mode="gather"
+              title="Planificar recolección (G)">
+              🍃 Recolección
+            </button>
+            <button type="button" class="planning-button" data-planning-mode="build"
+              title="Modo construcción (B) · usa [ ] para cambiar edificio">
+              🧱 Construcción
+            </button>
+          </div>
+          <div class="planning-build-selector collapsed" id="build-selector" aria-hidden="true">
+            <div class="planning-selector-row">
+              <span class="selector-label">Edificio:</span>
+              <div class="planning-selector-controls">
+                <button type="button" class="planning-cycle-btn" id="build-prev" title="Edificio anterior ([)">
+                  ◀
+                </button>
+                <span class="planning-selector-name" id="build-name">Ninguno</span>
+                <button type="button" class="planning-cycle-btn" id="build-next" title="Edificio siguiente (])">
+                  ▶
+                </button>
+              </div>
+            </div>
+            <small class="planning-status" id="build-status">Aumenta la población para desbloquear edificios.</small>
+            <div class="build-details" id="build-details" hidden>
+              <p class="build-details-summary" id="build-details-summary">Selecciona un edificio para ver detalles.</p>
+              <p class="build-details-meta">
+                <span class="build-details-label">Coste:</span>
+                <span id="build-details-cost">-</span>
+              </p>
+              <p class="build-details-meta">
+                <span class="build-details-label">Requisitos:</span>
+                <span id="build-details-requirements">-</span>
+              </p>
+            </div>
+          </div>
+          <div class="planning-hint" id="planning-hint">Selecciona un modo para empezar a marcar zonas.</div>
+        </section>
+
+        <section class="panel-block" id="instructions">
+          <h2>Simulación</h2>
+          <p id="status-text">Simulación en curso.</p>
+          <div id="speed-controls" class="speed-controls" role="group" aria-label="Velocidad de simulación">
+            <span class="speed-label">Velocidad:</span>
+            <div class="speed-button-group">
+              <button type="button" class="panel-button speed-button" data-speed="1">1× Normal</button>
+              <button type="button" class="panel-button speed-button" data-speed="2">2×</button>
+              <button type="button" class="panel-button speed-button" data-speed="5">5×</button>
+            </div>
+          </div>
+          <div class="panel-actions">
+            <button id="pause-button" class="panel-button">⏸️ Pausar</button>
+            <button id="debug-export" class="panel-button" disabled>⬇️ Descargar debug</button>
+          </div>
+        </section>
+
+        <section class="panel-block" id="history-panel">
+          <h2>Crónica</h2>
+          <ul id="history"></ul>
+        </section>
+      </aside>
     </div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+  </div>
+
+  <!-- Citizen Detail Modal -->
+  <div id="citizen-detail-modal" class="modal hidden"></div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
 </html>
