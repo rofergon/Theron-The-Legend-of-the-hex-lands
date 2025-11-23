@@ -5,7 +5,8 @@ import type { Citizen, PriorityMark, Role, StructureType, ToastNotification, Vec
 import { SimulationSession } from "./core/SimulationSession";
 import { CameraController } from "./core/CameraController";
 import { HUDController, type HUDSnapshot } from "./ui/HUDController";
-import { CitizenPanelController } from "./ui/CitizenPanel";
+import { CitizenPortraitBarController } from "./ui/CitizenPortraitBar";
+import { CitizenDetailModalController } from "./ui/CitizenDetailModal";
 import { GameRenderer, type RenderState, type ViewMetrics } from "./ui/GameRenderer";
 import { MainMenu } from "./ui/MainMenu";
 import { CellTooltipController } from "./ui/CellTooltip";
@@ -25,7 +26,11 @@ export class Game {
   private mainMenu: MainMenu;
   private readonly renderer: GameRenderer;
   private readonly hud = new HUDController();
-  private readonly citizenPanel = new CitizenPanelController({ onSelect: (id) => this.handleCitizenPanelSelection(id) });
+  private readonly portraitBar = new CitizenPortraitBarController({ onSelectCitizen: (id) => this.handleCitizenSelection(id) });
+  private readonly detailModal = new CitizenDetailModalController({
+    onClose: () => this.handleModalClose(),
+    onNavigate: (direction) => this.handleModalNavigate(direction),
+  });
   private readonly cellTooltip = new CellTooltipController();
   private readonly playerTribeId = 1;
   private simulation: SimulationSession | null = null;
@@ -931,7 +936,15 @@ export class Game {
 
   private updateCitizenPanel() {
     if (!this.simulation) return;
-    this.citizenPanel.update(this.simulation.getCitizenSystem().getCitizens(), this.selectedCitizen);
+    const citizens = this.simulation.getCitizenSystem().getCitizens();
+    const selectedId = this.selectedCitizen?.id ?? null;
+    this.portraitBar.update(citizens, selectedId);
+
+    // Update modal if it's open
+    if (this.detailModal.isVisible() && this.selectedCitizen) {
+      const aliveCitizens = citizens.filter((c) => c.state === "alive");
+      this.detailModal.show(this.selectedCitizen, aliveCitizens.length);
+    }
   }
 
   private handleExtinction = () => {
@@ -1347,6 +1360,52 @@ export class Game {
     // Ocultar tooltip al redimensionar
     this.cellTooltip.hide();
   };
+
+  private handleCitizenSelection(citizenId: number) {
+    if (!this.simulation) return;
+    const citizen = this.simulation.getCitizenSystem().getCitizens().find((c) => c.id === citizenId);
+    if (!citizen) return;
+
+    this.selectedCitizen = citizen;
+    const aliveCitizens = this.simulation.getCitizenSystem().getCitizens().filter((c) => c.state === "alive");
+    this.detailModal.show(citizen, aliveCitizens.length);
+    this.updateCitizenPanel();
+  }
+
+  private handleModalClose() {
+    this.selectedCitizen = null;
+    this.detailModal.hide();
+    this.updateCitizenPanel();
+  }
+
+  private handleModalNavigate(direction: "prev" | "next") {
+    if (!this.simulation || !this.selectedCitizen) return;
+
+    const aliveCitizens = this.simulation
+      .getCitizenSystem()
+      .getCitizens()
+      .filter((c) => c.state === "alive")
+      .sort((a, b) => {
+        if (a.tribeId !== b.tribeId) {
+          return a.tribeId === 1 ? -1 : b.tribeId === 1 ? 1 : a.tribeId - b.tribeId;
+        }
+        return a.id - b.id;
+      });
+
+    const currentIndex = aliveCitizens.findIndex((c) => c.id === this.selectedCitizen?.id);
+    if (currentIndex === -1) return;
+
+    const nextIndex = direction === "next"
+      ? (currentIndex + 1) % aliveCitizens.length
+      : (currentIndex - 1 + aliveCitizens.length) % aliveCitizens.length;
+
+    const nextCitizen = aliveCitizens[nextIndex];
+    if (nextCitizen) {
+      this.selectedCitizen = nextCitizen;
+      this.detailModal.show(nextCitizen, aliveCitizens.length);
+      this.updateCitizenPanel();
+    }
+  }
 
   destroy() {
     this.cellTooltip.destroy();
