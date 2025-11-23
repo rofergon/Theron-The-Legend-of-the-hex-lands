@@ -3,6 +3,7 @@ import type { Citizen } from "../../core/types";
 import type { WorldEngine } from "../../core/world/WorldEngine";
 
 const GAME_HOURS_PER_YEAR = 24; // 1 in-game day equals 1 citizen year for balance pacing
+type RandomFn = () => number;
 
 type NeedsHooks = {
   inflictDamage: (citizen: Citizen, amount: number, cause: string) => void;
@@ -14,11 +15,12 @@ export interface NeedSimulationResult {
 }
 
 /**
- * Applies deterministic needs simulation (edad, hambre, fatiga, moral, etc.)
- * keeping the logic isolated from the main system loop.
+ * Applies needs simulation (edad, hambre, fatiga, moral, etc.) keeping the
+ * logic isolated from the main system loop. RNG can be injected to keep
+ * reproducibility (e.g. seeded tests) instead of relying on global Math.random.
  */
 export class CitizenNeedsSimulator {
-  constructor(private world: WorldEngine, private hooks: NeedsHooks) {}
+  constructor(private world: WorldEngine, private hooks: NeedsHooks, private rng: RandomFn = Math.random) {}
 
   advance(citizen: Citizen, tickHours: number): NeedSimulationResult {
     const cell = this.world.getCell(citizen.x, citizen.y);
@@ -32,7 +34,7 @@ export class CitizenNeedsSimulator {
     if (citizen.fatigue > 80) this.hooks.inflictDamage(citizen, 2, "agotamiento");
     if (citizen.morale < 20) citizen.currentGoal = "passive";
 
-    if (citizen.age > 70 && Math.random() < tickHours * 0.02) this.hooks.inflictDamage(citizen, 5, "vejez");
+    if (citizen.age > 70 && this.rng() < tickHours * 0.02) this.hooks.inflictDamage(citizen, 5, "vejez");
 
     if (citizen.health <= 0) {
       return { died: true };

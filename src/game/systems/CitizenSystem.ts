@@ -14,6 +14,16 @@ export type CitizenSystemEvent =
 
 type AssignableRole = Extract<Role, "farmer" | "worker" | "warrior" | "scout">;
 const ASSIGNABLE_ROLES: AssignableRole[] = ["farmer", "worker", "warrior", "scout"];
+const BUSY_GOALS = new Set([
+  "construct",
+  "sow",
+  "fertilize",
+  "harvest",
+  "gather",
+  "mining",
+  "attack",
+  "mate",
+]);
 export class CitizenSystem {
   private readonly repository: CitizenRepository;
   private readonly needsSimulator: CitizenNeedsSimulator;
@@ -272,20 +282,9 @@ export class CitizenSystem {
     // Check if citizen has an active goal that indicates they're performing a task
     if (!citizen.currentGoal) return false;
 
-    // List of goals that indicate the citizen is actively working
-    const busyGoals = [
-      "construct",
-      "sow",
-      "fertilize",
-      "harvest",
-      "gather",
-      "mining",
-      "attack",
-      "mate",
-    ];
-
-    // Check if current goal matches any busy state
-    return busyGoals.some(goal => citizen.currentGoal?.toLowerCase().includes(goal));
+    // Normalize once per call and compare against a set to avoid repeated lowercase conversions
+    const goal = citizen.currentGoal.toLowerCase();
+    return BUSY_GOALS.has(goal);
   }
 
   applyPendingRoleChanges() {

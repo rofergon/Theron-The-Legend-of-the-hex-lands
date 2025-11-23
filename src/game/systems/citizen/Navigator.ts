@@ -21,10 +21,14 @@ export class Navigator {
   private tryFollowPath(citizen: Citizen, target: Vec2): boolean {
     if (citizen.x === target.x && citizen.y === target.y) {
       this.clearCitizenPath(citizen);
+      this.clearUnreachable(citizen);
       return true;
     }
 
     const cacheKey = this.getPathCacheKey(target);
+    if (this.isTemporarilyUnreachable(citizen, target, cacheKey)) {
+      return false;
+    }
     const needsPath =
       !citizen.path ||
       !citizen.pathTarget ||
@@ -36,6 +40,7 @@ export class Navigator {
     if (needsPath) {
       const nextPath = this.world.findPath({ x: citizen.x, y: citizen.y }, target, cacheKey ? { cacheKey } : undefined);
       if (!nextPath) {
+        this.markTemporarilyUnreachable(citizen, target, cacheKey);
         return false;
       }
       citizen.path = [...nextPath];
@@ -69,6 +74,7 @@ export class Navigator {
       if (!citizen.path || citizen.path.length === 0) {
         this.clearCitizenPath(citizen);
       }
+      this.clearUnreachable(citizen);
       return true;
     }
 
@@ -178,5 +184,37 @@ export class Navigator {
     }
 
     citizen.lastPosition = { x: citizen.x, y: citizen.y };
+  }
+
+  private isTemporarilyUnreachable(citizen: Citizen, target: Vec2, cacheKey?: string): boolean {
+    if (!citizen.unreachableCooldown || !citizen.unreachableTarget) {
+      return false;
+    }
+    const sameTarget =
+      citizen.unreachableTarget.x === target.x &&
+      citizen.unreachableTarget.y === target.y &&
+      citizen.unreachableCacheKey === cacheKey;
+    if (!sameTarget) {
+      this.clearUnreachable(citizen);
+      return false;
+    }
+    citizen.unreachableCooldown = Math.max(0, citizen.unreachableCooldown - 1);
+    if (citizen.unreachableCooldown === 0) {
+      this.clearUnreachable(citizen);
+      return false;
+    }
+    return true;
+  }
+
+  private markTemporarilyUnreachable(citizen: Citizen, target: Vec2, cacheKey?: string) {
+    citizen.unreachableTarget = { x: target.x, y: target.y };
+    citizen.unreachableCacheKey = cacheKey;
+    citizen.unreachableCooldown = 4; // skip a few ticks before retrying to avoid hammering pathfinder
+  }
+
+  private clearUnreachable(citizen: Citizen) {
+    delete citizen.unreachableTarget;
+    delete citizen.unreachableCacheKey;
+    delete citizen.unreachableCooldown;
   }
 }

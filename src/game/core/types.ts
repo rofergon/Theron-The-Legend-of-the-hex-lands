@@ -111,6 +111,9 @@ export interface Citizen {
   path?: Vec2[];
   pathTarget?: Vec2 | null;
   pathCacheKey?: string;
+  unreachableTarget?: Vec2 | null;
+  unreachableCacheKey?: string;
+  unreachableCooldown?: number;
   pendingRoleChange?: Role;
 }
 
