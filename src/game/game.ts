@@ -484,8 +484,23 @@ export class Game {
       if (!mode) return;
       button.addEventListener("click", () => this.togglePlanningMode(mode));
     });
-    this.structurePrevButton?.addEventListener("click", () => this.cycleStructure(-1));
-    this.structureNextButton?.addEventListener("click", () => this.cycleStructure(1));
+
+    // Setup hexagonal construction button event listeners
+    const hexButtons = document.querySelectorAll<HTMLButtonElement>(".construction-hex-button");
+    hexButtons.forEach((button) => {
+      const structureType = button.dataset.structure as StructureType | undefined;
+      if (!structureType) return;
+      button.addEventListener("click", () => {
+        // Activate build mode
+        this.activatePlanningMode("build");
+        // Set the selected structure
+        this.selectedStructureType = structureType;
+        // Update UI
+        this.updateStructureDetails();
+        this.updatePlanningHint();
+      });
+    });
+
     this.updatePlanningButtons();
     this.updatePlanningHint();
     this.updateBuildSelectorVisibility();
@@ -672,6 +687,21 @@ export class Game {
     if (this.structureNextButton) {
       this.structureNextButton.disabled = disableCyclers;
     }
+
+    // Update hexagonal button states
+    const hexButtons = document.querySelectorAll<HTMLButtonElement>(".construction-hex-button");
+    hexButtons.forEach((button) => {
+      const structureType = button.dataset.structure as StructureType | undefined;
+      if (!structureType) return;
+
+      // Enable/disable based on availability
+      const isAvailable = this.availableStructures.includes(structureType);
+      button.disabled = !isAvailable;
+
+      // Add/remove selected class
+      const isSelected = structureType === this.selectedStructureType;
+      button.classList.toggle("selected", isSelected);
+    });
 
     if (!this.selectedStructureType) {
       if (this.structureLabel) this.structureLabel.textContent = "Ninguno";

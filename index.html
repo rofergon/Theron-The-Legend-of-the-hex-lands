@@ -5,6 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Espíritu Guardián - Simulación Tribal</title>
+  <link rel="stylesheet" href="/style_construction_panel.css" />
 </head>
 
 <body>
@@ -106,39 +107,76 @@
               title="Planificar recolección (G)">
               🍃 Recolección
             </button>
-            <button type="button" class="planning-button" data-planning-mode="build"
-              title="Modo construcción (B) · usa [ ] para cambiar edificio">
+            <button type="button" class="planning-button" data-planning-mode="build" title="Modo construcción (B)">
               🧱 Construcción
             </button>
           </div>
-          <div class="planning-build-selector collapsed" id="build-selector" aria-hidden="true">
-            <div class="planning-selector-row">
-              <span class="selector-label">Edificio:</span>
-              <div class="planning-selector-controls">
-                <button type="button" class="planning-cycle-btn" id="build-prev" title="Edificio anterior ([)">
-                  ◀
-                </button>
-                <span class="planning-selector-name" id="build-name">Ninguno</span>
-                <button type="button" class="planning-cycle-btn" id="build-next" title="Edificio siguiente (])">
-                  ▶
-                </button>
-              </div>
-            </div>
-            <small class="planning-status" id="build-status">Aumenta la población para desbloquear
-              edificios.</small>
-            <div class="build-details" id="build-details" hidden>
-              <p class="build-details-summary" id="build-details-summary">Selecciona un edificio para ver
-                detalles.</p>
-              <p class="build-details-meta">
-                <span class="build-details-label">Coste:</span>
-                <span id="build-details-cost">-</span>
-              </p>
-              <p class="build-details-meta">
-                <span class="build-details-label">Requisitos:</span>
-                <span id="build-details-requirements">-</span>
-              </p>
-            </div>
+
+          <!-- Permanent Hexagonal Construction Panel -->
+          <div class="construction-panel" id="construction-panel">
+            <!-- Campfire -->
+            <button type="button" class="construction-hex-button" data-structure="campfire" title="Hoguera">
+              <div class="hex-background"></div>
+              <img src="/assets/extracted_icons/bonfire.png" alt="Hoguera" class="hex-icon" />
+              <div class="hex-frame"></div>
+            </button>
+
+            <!-- House -->
+            <button type="button" class="construction-hex-button" data-structure="house" title="Casa comunal">
+              <div class="hex-background"></div>
+              <img src="/assets/extracted_icons/house.png" alt="Casa" class="hex-icon" />
+              <div class="hex-frame"></div>
+            </button>
+
+            <!-- Village -->
+            <button type="button" class="construction-hex-button" data-structure="village" title="Plaza central">
+              <div class="hex-background"></div>
+              <img src="/assets/extracted_icons/barn.png" alt="Villa" class="hex-icon" />
+              <div class="hex-frame"></div>
+            </button>
+
+            <!-- Granary -->
+            <button type="button" class="construction-hex-button" data-structure="granary" title="Granero">
+              <div class="hex-background"></div>
+              <img src="/assets/extracted_icons/barn.png" alt="Granero" class="hex-icon" />
+              <div class="hex-frame"></div>
+            </button>
+
+            <!-- Warehouse -->
+            <button type="button" class="construction-hex-button" data-structure="warehouse" title="Almacén">
+              <div class="hex-background"></div>
+              <img src="/assets/extracted_icons/warehouse.png" alt="Almacén" class="hex-icon" />
+              <div class="hex-frame"></div>
+            </button>
+
+            <!-- Tower -->
+            <button type="button" class="construction-hex-button" data-structure="tower" title="Torre vigía">
+              <div class="hex-background"></div>
+              <img src="/assets/extracted_icons/Tower_defense.png" alt="Torre" class="hex-icon" />
+              <div class="hex-frame"></div>
+            </button>
+
+            <!-- Temple -->
+            <button type="button" class="construction-hex-button" data-structure="temple" title="Templo ancestral">
+              <div class="hex-background"></div>
+              <img src="/assets/extracted_icons/Temple.png" alt="Templo" class="hex-icon" />
+              <div class="hex-frame"></div>
+            </button>
           </div>
+
+          <!-- Build details info (shown below hexagons when a structure is selected) -->
+          <div class="build-details" id="build-details" style="margin-top: 8px;">
+            <p class="build-details-summary" id="build-details-summary">Selecciona un edificio para ver detalles.</p>
+            <p class="build-details-meta">
+              <span class="build-details-label">Coste:</span>
+              <span id="build-details-cost">-</span>
+            </p>
+            <p class="build-details-meta">
+              <span class="build-details-label">Requisitos:</span>
+              <span id="build-details-requirements">-</span>
+            </p>
+          </div>
+
           <div class="planning-hint" id="planning-hint">Selecciona un modo para empezar a marcar zonas.
           </div>
         </section>
