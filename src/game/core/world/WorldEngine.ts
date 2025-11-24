@@ -59,11 +59,11 @@ export class WorldEngine {
     const cell = this.cells[y]?.[x];
     if (!cell) return false;
 
-    // Terrenos no caminables
-    const unwalkable: Terrain[] = ["ocean", "mountain", "snow"];
+    // Terrenos no caminables (solo océano y nieve)
+    const unwalkable: Terrain[] = ["ocean", "snow"];
     if (unwalkable.includes(cell.terrain)) return false;
 
-    // Los ríos son caminables pero lentos
+    // Las montañas y ríos son caminables pero con costo adicional de fatiga
     return true;
   }
 
