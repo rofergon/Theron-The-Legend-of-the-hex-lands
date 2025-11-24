@@ -91,6 +91,15 @@
             <input type="range" id="role-scout" min="0" max="10" value="1" step="1" />
             <span class="role-value" id="role-value-scout">1</span>
           </div>
+          <div class="role-control" data-role="devotee">
+            <div class="role-control-header">
+              <label for="role-devotee" title="Asigna devotos a los templos para generar Fe">Devotos</label>
+              <span class="role-slot-badge" id="role-devotee-slots" title="Espacios de devotos ocupados/total">0/0</span>
+            </div>
+            <input type="range" id="role-devotee" min="0" max="0" value="0" step="1" disabled />
+            <span class="role-value" id="role-value-devotee">0</span>
+            <p class="role-note" id="role-devotee-help">Construye un templo para habilitar devotos.</p>
+          </div>
           <p class="role-note">Los niños y ancianos no se reasignan automáticamente.</p>
         </section>
 
