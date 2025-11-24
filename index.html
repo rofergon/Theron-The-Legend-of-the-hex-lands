@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Espíritu Guardián - Simulación Tribal</title>
+  <title>Guardian Spirit - Tribal Simulation</title>
   <link rel="stylesheet" href="/style_construction_panel.css" />
 </head>
 
@@ -12,56 +12,56 @@
   <div id="app">
     <header id="game-header">
       <div class="header-left">
-        <h1 class="game-title">🌟 Espíritu Guardián</h1>
+        <h1 class="game-title">🌟 Guardian Spirit</h1>
       </div>
-      <div class="header-stats" aria-label="Indicadores de tribu">
+      <div class="header-stats" aria-label="Tribe indicators">
         <div class="hud-pill" data-stat="faith">
           <span class="hud-pill-icon" aria-hidden="true">✨</span>
-          <span class="hud-pill-value" id="score" aria-label="Fe">0</span>
+          <span class="hud-pill-value" id="score" aria-label="Faith">0</span>
         </div>
         <div class="hud-pill token-pill" data-stat="token1" id="token1-pill" role="button" tabindex="0"
-          title="Convertir Fe en Token1">
+          title="Convert Faith to Token1">
           <span class="hud-pill-icon" aria-hidden="true">🪙</span>
           <span class="hud-pill-value" id="token1-value" aria-label="Token1">0</span>
         </div>
-        <div class="hud-pill token-pill" data-stat="token2" id="token2-pill" title="Saldo de Token2">
+        <div class="hud-pill token-pill" data-stat="token2" id="token2-pill" title="Token2 balance">
           <span class="hud-pill-icon" aria-hidden="true">💠</span>
           <span class="hud-pill-value" id="token2-value" aria-label="Token2">0</span>
         </div>
         <div class="hud-pill" data-stat="population">
           <span class="hud-pill-icon" aria-hidden="true">👥</span>
-          <span class="hud-pill-value" id="energy" aria-label="Población">0</span>
+          <span class="hud-pill-value" id="energy" aria-label="Population">0</span>
         </div>
         <div class="hud-pill" data-stat="climate">
-          <span class="hud-pill-value" id="time" aria-label="Clima" title="Clima templado">⛅</span>
+          <span class="hud-pill-value" id="time" aria-label="Climate" title="Temperate climate">⛅</span>
         </div>
         <div class="hud-pill" data-stat="food">
           <span class="hud-pill-icon" aria-hidden="true">🌾</span>
-          <span class="hud-pill-value" id="food" aria-label="Comida">0</span>
+          <span class="hud-pill-value" id="food" aria-label="Food">0</span>
         </div>
         <div class="hud-pill" data-stat="stone">
           <span class="hud-pill-icon" aria-hidden="true">🪨</span>
-          <span class="hud-pill-value" id="stone" aria-label="Piedra">0</span>
+          <span class="hud-pill-value" id="stone" aria-label="Stone">0</span>
         </div>
         <div class="hud-pill" data-stat="wood">
           <span class="hud-pill-icon" aria-hidden="true">🌲</span>
-          <span class="hud-pill-value" id="wood" aria-label="Madera">0</span>
+          <span class="hud-pill-value" id="wood" aria-label="Wood">0</span>
         </div>
         <div class="hud-pill" data-stat="water">
           <span class="hud-pill-icon" aria-hidden="true">💧</span>
-          <span class="hud-pill-value" id="water" aria-label="Agua">0</span>
+          <span class="hud-pill-value" id="water" aria-label="Water">0</span>
         </div>
       </div>
-      <div class="header-controls" aria-label="Controles de simulación">
-        <div class="speed-controls-header" role="group" aria-label="Velocidad">
+      <div class="header-controls" aria-label="Simulation controls">
+        <div class="speed-controls-header" role="group" aria-label="Speed">
           <button type="button" class="header-control-btn speed-button" data-speed="1"
-            title="Velocidad normal (1x)">1×</button>
+            title="Normal speed (1x)">1×</button>
           <button type="button" class="header-control-btn speed-button" data-speed="2"
-            title="Velocidad rápida (2x)">2×</button>
+            title="Fast speed (2x)">2×</button>
           <button type="button" class="header-control-btn speed-button" data-speed="5"
-            title="Velocidad muy rápida (5x)">5×</button>
+            title="Very fast speed (5x)">5×</button>
         </div>
-        <button id="pause-button" class="header-control-btn pause-btn" title="Pausar/Reanudar">⏸️</button>
+        <button id="pause-button" class="header-control-btn pause-btn" title="Pause/Resume">⏸️</button>
       </div>
     </header>
 
@@ -71,136 +71,141 @@
     <div id="layout">
       <div id="game-wrapper">
         <canvas id="game"></canvas>
-        <div id="zoom-controls" role="group" aria-label="Controles de zoom">
-          <button type="button" class="zoom-btn" id="zoom-out" title="Alejar mapa">−</button>
-          <button type="button" class="zoom-btn" id="zoom-in" title="Acercar mapa">+</button>
+        <div id="zoom-controls" role="group" aria-label="Zoom controls">
+          <button type="button" class="zoom-btn" id="zoom-out" title="Zoom out">−</button>
+          <button type="button" class="zoom-btn" id="zoom-in" title="Zoom in">+</button>
         </div>
       </div>
 
       <aside id="ui-panel">
         <section class="panel-block" id="roles-panel">
-          <h2>Oficios</h2>
+          <h2>Professions</h2>
           <div class="role-control" data-role="farmer">
-            <label for="role-farmer">Granjero</label>
+            <label for="role-farmer">Farmer</label>
             <input type="range" id="role-farmer" min="0" max="10" value="2" step="1" />
             <span class="role-value" id="role-value-farmer">2</span>
           </div>
           <div class="role-control" data-role="worker">
-            <label for="role-worker">Trabajador</label>
+            <label for="role-worker">Worker</label>
             <input type="range" id="role-worker" min="0" max="10" value="2" step="1" />
             <span class="role-value" id="role-value-worker">2</span>
           </div>
           <div class="role-control" data-role="warrior">
-            <label for="role-warrior">Guerrero</label>
+            <label for="role-warrior">Warrior</label>
             <input type="range" id="role-warrior" min="0" max="10" value="2" step="1" />
             <span class="role-value" id="role-value-warrior">2</span>
           </div>
           <div class="role-control" data-role="scout">
-            <label for="role-scout">Explorador</label>
+            <label for="role-scout">Scout</label>
             <input type="range" id="role-scout" min="0" max="10" value="1" step="1" />
             <span class="role-value" id="role-value-scout">1</span>
           </div>
           <div class="role-control" data-role="devotee">
             <div class="role-control-header">
-              <label for="role-devotee" title="Asigna devotos a los templos para generar Fe">Devotos</label>
-              <span class="role-slot-badge" id="role-devotee-slots" title="Espacios de devotos ocupados/total">0/0</span>
+              <label for="role-devotee" title="Assign devotees to temples to generate Faith">Devotees</label>
+              <span class="role-slot-badge" id="role-devotee-slots" title="Devotee slots filled/total">0/0</span>
             </div>
             <input type="range" id="role-devotee" min="0" max="0" value="0" step="1" disabled />
             <span class="role-value" id="role-value-devotee">0</span>
-            <p class="role-note" id="role-devotee-help">Construye un templo para habilitar devotos.</p>
+            <p class="role-note" id="role-devotee-help">Build a temple to enable devotees.</p>
           </div>
-          <p class="role-note">Los niños y ancianos no se reasignan automáticamente.</p>
+          <p class="role-note">Children and elders are not reassigned automatically.</p>
         </section>
 
         <section class="panel-block" id="planning-panel">
-          <h2>Planificación</h2>
-          <div class="planning-modes" role="group" aria-label="Modos de planificación">
-            <button type="button" class="planning-button" data-planning-mode="farm" title="Planificar cultivos (F)">
-              🌾 Cultivos
+          <h2>Planning</h2>
+          <div class="planning-modes" role="group" aria-label="Planning modes">
+            <button type="button" class="planning-hex-button" data-planning-mode="farm" title="Plan crops (F)"
+              aria-label="Plan crops (F)">
+              <div class="hex-background"></div>
+              <img src="/assets/extracted_icons/wheat.png" alt="Crops" class="hex-icon" />
+              <div class="hex-frame"></div>
             </button>
-            <button type="button" class="planning-button" data-planning-mode="mine" title="Planificar canteras (M)">
-              🪨 Minería
+            <button type="button" class="planning-hex-button" data-planning-mode="mine" title="Plan mining (M)"
+              aria-label="Plan mining (M)">
+              <div class="hex-background"></div>
+              <span class="hex-icon hex-icon-emoji" aria-hidden="true">🪨</span>
+              <div class="hex-frame"></div>
             </button>
-            <button type="button" class="planning-button" data-planning-mode="gather"
-              title="Planificar recolección (G)">
-              🍃 Recolección
-            </button>
-            <button type="button" class="planning-button" data-planning-mode="build" title="Modo construcción (B)">
-              🧱 Construcción
+            <button type="button" class="planning-hex-button" data-planning-mode="gather"
+              title="Plan gathering (G)" aria-label="Plan gathering (G)">
+              <div class="hex-background"></div>
+              <span class="hex-icon hex-icon-emoji" aria-hidden="true">🍃</span>
+              <div class="hex-frame"></div>
             </button>
           </div>
 
           <!-- Permanent Hexagonal Construction Panel -->
           <div class="construction-panel" id="construction-panel">
             <!-- Campfire -->
-            <button type="button" class="construction-hex-button" data-structure="campfire" title="Hoguera">
+            <button type="button" class="construction-hex-button" data-structure="campfire" title="Campfire">
               <div class="hex-background"></div>
-              <img src="/assets/extracted_icons/bonfire.png" alt="Hoguera" class="hex-icon" />
+              <img src="/assets/extracted_icons/bonfire.png" alt="Campfire" class="hex-icon" />
               <div class="hex-frame"></div>
             </button>
 
             <!-- House -->
-            <button type="button" class="construction-hex-button" data-structure="house" title="Casa comunal">
+            <button type="button" class="construction-hex-button" data-structure="house" title="Communal house">
               <div class="hex-background"></div>
-              <img src="/assets/extracted_icons/house.png" alt="Casa" class="hex-icon" />
+              <img src="/assets/extracted_icons/house.png" alt="House" class="hex-icon" />
               <div class="hex-frame"></div>
             </button>
 
             <!-- Village -->
-            <button type="button" class="construction-hex-button" data-structure="village" title="Plaza central">
+            <button type="button" class="construction-hex-button" data-structure="village" title="Central plaza">
               <div class="hex-background"></div>
-              <img src="/assets/extracted_icons/barn.png" alt="Villa" class="hex-icon" />
+              <img src="/assets/extracted_icons/barn.png" alt="Central plaza" class="hex-icon" />
               <div class="hex-frame"></div>
             </button>
 
             <!-- Granary -->
-            <button type="button" class="construction-hex-button" data-structure="granary" title="Granero">
+            <button type="button" class="construction-hex-button" data-structure="granary" title="Granary">
               <div class="hex-background"></div>
-              <img src="/assets/extracted_icons/barn.png" alt="Granero" class="hex-icon" />
+              <img src="/assets/extracted_icons/barn.png" alt="Granary" class="hex-icon" />
               <div class="hex-frame"></div>
             </button>
 
             <!-- Warehouse -->
-            <button type="button" class="construction-hex-button" data-structure="warehouse" title="Almacén">
+            <button type="button" class="construction-hex-button" data-structure="warehouse" title="Warehouse">
               <div class="hex-background"></div>
-              <img src="/assets/extracted_icons/warehouse.png" alt="Almacén" class="hex-icon" />
+              <img src="/assets/extracted_icons/warehouse.png" alt="Warehouse" class="hex-icon" />
               <div class="hex-frame"></div>
             </button>
 
             <!-- Tower -->
-            <button type="button" class="construction-hex-button" data-structure="tower" title="Torre vigía">
+            <button type="button" class="construction-hex-button" data-structure="tower" title="Watchtower">
               <div class="hex-background"></div>
-              <img src="/assets/extracted_icons/Tower_defense.png" alt="Torre" class="hex-icon" />
+              <img src="/assets/extracted_icons/Tower_defense.png" alt="Watchtower" class="hex-icon" />
               <div class="hex-frame"></div>
             </button>
 
             <!-- Temple -->
-            <button type="button" class="construction-hex-button" data-structure="temple" title="Templo ancestral">
+            <button type="button" class="construction-hex-button" data-structure="temple" title="Ancestral temple">
               <div class="hex-background"></div>
-              <img src="/assets/extracted_icons/Temple.png" alt="Templo" class="hex-icon" />
+              <img src="/assets/extracted_icons/Temple.png" alt="Temple" class="hex-icon" />
               <div class="hex-frame"></div>
             </button>
           </div>
 
           <!-- Build details info (shown below hexagons when a structure is selected) -->
           <div class="build-details" id="build-details" style="margin-top: 8px;">
-            <p class="build-details-summary" id="build-details-summary">Selecciona un edificio para ver detalles.</p>
+            <p class="build-details-summary" id="build-details-summary">Select a building to view details.</p>
             <p class="build-details-meta">
-              <span class="build-details-label">Coste:</span>
+              <span class="build-details-label">Cost:</span>
               <span id="build-details-cost">-</span>
             </p>
             <p class="build-details-meta">
-              <span class="build-details-label">Requisitos:</span>
+              <span class="build-details-label">Requirements:</span>
               <span id="build-details-requirements">-</span>
             </p>
           </div>
 
-          <div class="planning-hint" id="planning-hint">Selecciona un modo para empezar a marcar zonas.
+          <div class="planning-hint" id="planning-hint">Select a mode to start marking zones.
           </div>
         </section>
 
         <section class="panel-block" id="history-panel">
-          <h2>Crónica</h2>
+          <h2>Chronicle</h2>
           <ul id="history"></ul>
         </section>
       </aside>
@@ -215,23 +220,23 @@
   <div id="token-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="token-modal-title">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="token-modal-title">Convertir Fe a Token1</h3>
-        <button type="button" class="modal-close" id="token-modal-close" aria-label="Cerrar">✕</button>
+        <h3 id="token-modal-title">Convert Faith to Token1</h3>
+        <button type="button" class="modal-close" id="token-modal-close" aria-label="Close">✕</button>
       </div>
       <div class="modal-body">
-        <p id="token-modal-status">Selecciona cuánto convertir.</p>
+        <p id="token-modal-status">Select how much to convert.</p>
         <div class="modal-row">
-          <span>Fe disponible</span>
+          <span>Available Faith</span>
           <strong id="token-modal-faith">0</strong>
         </div>
         <div class="modal-row">
-          <span>Tasa</span>
-          <strong id="token-modal-rate">1 Fe → 1 Token1</strong>
+          <span>Rate</span>
+          <strong id="token-modal-rate">1 Faith → 1 Token1</strong>
         </div>
       </div>
       <div class="modal-actions">
-        <button type="button" id="token-convert-all" class="primary">Convertir todo</button>
-        <button type="button" id="token-modal-cancel">Cancelar</button>
+        <button type="button" id="token-convert-all" class="primary">Convert all</button>
+        <button type="button" id="token-modal-cancel">Cancel</button>
       </div>
     </div>
   </div>

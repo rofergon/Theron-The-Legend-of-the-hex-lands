@@ -119,7 +119,7 @@ export class Game {
     this.camera.setViewTarget({ x: WORLD_SIZE / 2, y: WORLD_SIZE / 2 });
 
     this.hud.setupHeaderButtons(this.handlePauseToggle);
-    this.hud.hideOverlay(); // Ocultar el overlay inmediatamente
+    this.hud.hideOverlay(); // Hide the overlay immediately
     this.hud.updateStatus("🎮 Configure your world and press START");
     this.hud.setPauseButtonState(false); // Show button as if paused
 
@@ -376,7 +376,7 @@ export class Game {
   }
 
   start() {
-    // Ya no se necesita porque el juego empieza automáticamente mostrando el menú
+    // No longer needed because the game starts by showing the menu automatically
   }
 
   pause() {
@@ -503,7 +503,7 @@ export class Game {
   }
 
   private setupPlanningControls() {
-    this.planningButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".planning-button"));
+    this.planningButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".planning-hex-button"));
     this.planningButtons.forEach((button) => {
       const mode = button.dataset.planningMode as PlanningMode | undefined;
       if (!mode) return;
@@ -574,11 +574,11 @@ export class Game {
     this.updateDevoteeControl(true);
 
     if (input.disabled) {
-      this.hud.updateStatus("Construye un templo para habilitar devotos.");
+      this.hud.updateStatus("Build a temple to enable devotees.");
       return;
     }
     const maxSlots = Number.parseInt(input.max ?? "0", 10) || 0;
-    this.hud.updateStatus(`Devotos asignados: ${assigned}/${Math.max(maxSlots, this.devoteeTarget)}`);
+    this.hud.updateStatus(`Devotees assigned: ${assigned}/${Math.max(maxSlots, this.devoteeTarget)}`);
   };
 
   private collectRoleTargets() {
@@ -947,10 +947,10 @@ export class Game {
     if (help) {
       help.textContent =
         maxSlots === 0
-          ? "Construye un templo para habilitar devotos."
+          ? "Build a temple to enable devotees."
           : assignable === 0
-            ? "No hay habitantes asignables disponibles."
-            : `Espacios de devotos disponibles: ${maxSlots}`;
+            ? "No assignable inhabitants available."
+            : `Available devotee slots: ${maxSlots}`;
     }
   }
 
@@ -976,10 +976,10 @@ export class Game {
       this.tokenModalFaithValue.textContent = Math.floor(faith).toString();
     }
     if (this.tokenModalRate) {
-      this.tokenModalRate.textContent = `${rate} Fe → ${rate} Token1`;
+      this.tokenModalRate.textContent = `${rate} Faith → ${rate} Token1`;
     }
     if (this.tokenModalStatus) {
-      this.tokenModalStatus.textContent = faith <= 0 ? "No hay Fe acumulada para convertir." : "Convierte tu Fe a Token1.";
+      this.tokenModalStatus.textContent = faith <= 0 ? "No stored Faith to convert." : "Convert your Faith to Token1.";
     }
   }
 
@@ -989,11 +989,11 @@ export class Game {
     }
     const result = this.simulation.convertFaithToToken1();
     if (result.faithSpent <= 0) {
-      this.hud.updateStatus("No hay Fe disponible para convertir.");
+      this.hud.updateStatus("No Faith available to convert.");
       this.closeTokenModal();
       return;
     }
-    this.logEvent(`Has convertido ${result.faithSpent.toFixed(1)} Fe en ${result.token1Gained.toFixed(1)} Token1.`);
+    this.logEvent(`You converted ${result.faithSpent.toFixed(1)} Faith into ${result.token1Gained.toFixed(1)} Token1.`);
     this.updateHUD();
     this.closeTokenModal();
   };
@@ -1164,7 +1164,7 @@ export class Game {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `espiritu-debug-${timestamp}.txt`;
+    link.download = `guardian-spirit-debug-${timestamp}.txt`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -1178,15 +1178,17 @@ export class Game {
       return;
     }
 
+    const normalizedMessage = message.toLowerCase();
+
     this.hud.appendHistory(message);
 
     if (notificationType) {
       this.hud.showNotification(message, notificationType);
-    } else if (message.includes("muerto") || message.includes("Bestias") || message.includes("hostil")) {
+    } else if (normalizedMessage.includes("dead") || normalizedMessage.includes("beast") || normalizedMessage.includes("hostile")) {
       this.hud.showNotification(message, "critical");
-    } else if (message.includes("hambruna") || message.includes("sequía") || message.includes("Sin")) {
+    } else if (normalizedMessage.includes("famine") || normalizedMessage.includes("drought") || normalizedMessage.includes("without")) {
       this.hud.showNotification(message, "warning");
-    } else if (message.includes("nacido") || message.includes("bendecido") || message.includes("lluvia")) {
+    } else if (normalizedMessage.includes("born") || normalizedMessage.includes("blessed") || normalizedMessage.includes("rain")) {
       this.hud.showNotification(message, "success");
     }
   }

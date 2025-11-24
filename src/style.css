@@ -706,39 +706,62 @@ body {
 }
 
 #planning-panel .planning-modes {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.45rem;
-  margin-bottom: 0.6rem;
-}
-
-.planning-button {
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 0.4rem 0.5rem;
-  background: rgba(30, 20, 15, 0.9);
-  color: var(--color-text-primary);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-size: 0.75rem;
   display: flex;
-  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
   justify-content: center;
-  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.planning-hex-button {
+  position: relative;
+  width: 76px;
+  height: 86px;
+  background: none;
+  border: none;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+  padding: 0;
+  opacity: 0.78;
+  transition: opacity 0.2s ease, transform 0.15s ease, filter 0.2s ease;
 }
 
-.planning-button:hover {
-  background: var(--color-btn-hover);
-  border-color: var(--color-accent-fire);
+.planning-hex-button:hover {
+  opacity: 1;
+  transform: scale(1.04);
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.35));
 }
 
-.planning-button.active {
-  background: rgba(255, 107, 53, 0.25);
-  border-color: var(--color-accent-fire);
-  box-shadow: 0 0 18px rgba(255, 107, 53, 0.25);
+.planning-hex-button.active {
+  opacity: 1;
+  transform: scale(1.06);
+}
+
+.planning-hex-button.active::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  background: radial-gradient(ellipse at center, rgba(255, 107, 53, 0.4) 0%, transparent 70%);
+  clip-path: polygon(50% 0%,
+      100% 25%,
+      100% 75%,
+      50% 100%,
+      0% 75%,
+      0% 25%);
+  z-index: -1;
+}
+
+.planning-hex-button .hex-icon {
+  width: 44px;
+  height: 44px;
+}
+
+.hex-icon-emoji {
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+  line-height: 1;
+  width: 44px;
+  height: 44px;
 }
 
 .planning-build-selector {
