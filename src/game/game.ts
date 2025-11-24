@@ -38,6 +38,19 @@ export class Game {
     warrior: { input: null, value: null },
     scout: { input: null, value: null },
   };
+  private devoteeControl: {
+    input: HTMLInputElement | null;
+    value: HTMLSpanElement | null;
+    slots: HTMLSpanElement | null;
+    help: HTMLParagraphElement | null;
+  } = {
+    input: document.querySelector<HTMLInputElement>("#role-devotee"),
+    value: document.querySelector<HTMLSpanElement>("#role-value-devotee"),
+    slots: document.querySelector<HTMLSpanElement>("#role-devotee-slots"),
+    help: document.querySelector<HTMLParagraphElement>("#role-devotee-help"),
+  };
+  private readonly devoteeSlotsPerTemple = 3;
+  private devoteeTarget = 0;
   private debugExportButton = document.querySelector<HTMLButtonElement>("#debug-export");
   private extinctionAnnounced = false;
   private gameInitialized = false;
@@ -429,6 +442,8 @@ export class Game {
       this.roleControls[role].input?.addEventListener("input", this.handleRoleSliderInput);
     }
 
+    this.devoteeControl.input?.addEventListener("input", this.handleDevoteeSliderInput);
+
     this.updateRoleControls(true);
   }
 
@@ -514,6 +529,29 @@ export class Game {
     const targets = this.collectRoleTargets();
     this.simulation.getCitizenSystem().rebalanceRoles(targets, this.playerTribeId);
     this.updateRoleControls(true);
+  };
+
+  private handleDevoteeSliderInput = () => {
+    if (!this.simulation) {
+      this.updateDevoteeControl(true);
+      return;
+    }
+    const input = this.devoteeControl.input;
+    if (!input) return;
+
+    const requested = Number.parseInt(input.value ?? "0", 10) || 0;
+    this.devoteeTarget = Math.max(0, requested);
+    const assigned = this.simulation.getCitizenSystem().setDevoteeTarget(this.devoteeTarget, this.playerTribeId);
+
+    this.updateRoleControls(true);
+    this.updateDevoteeControl(true);
+
+    if (input.disabled) {
+      this.hud.updateStatus("Construye un templo para habilitar devotos.");
+      return;
+    }
+    const maxSlots = Number.parseInt(input.max ?? "0", 10) || 0;
+    this.hud.updateStatus(`Devotos asignados: ${assigned}/${Math.max(maxSlots, this.devoteeTarget)}`);
   };
 
   private collectRoleTargets() {
@@ -825,8 +863,8 @@ export class Game {
       return;
     }
     const citizenSystem = this.simulation.getCitizenSystem();
-    const assignable = citizenSystem.getAssignablePopulationCount(this.playerTribeId);
-    const counts = citizenSystem.getRoleCounts(this.playerTribeId);
+    const assignable = citizenSystem.getAssignablePopulationCount(this.playerTribeId, true);
+    const counts = citizenSystem.getRoleCounts(this.playerTribeId, true);
     for (const role of this.assignableRoles) {
       const control = this.roleControls[role];
       if (control.value) {
@@ -838,6 +876,54 @@ export class Game {
           control.input.value = counts[role]?.toString() ?? "0";
         }
       }
+    }
+    this.updateDevoteeControl(force);
+  }
+
+  private updateDevoteeControl(force = false) {
+    if (!this.simulation) {
+      return;
+    }
+    const { input, value, slots, help } = this.devoteeControl;
+    if (!input) {
+      return;
+    }
+    const world = this.simulation.getWorld();
+    const citizenSystem = this.simulation.getCitizenSystem();
+    const templeCount = typeof world.getStructureCount === "function" ? world.getStructureCount("temple") : 0;
+    const maxSlots = Math.max(templeCount * this.devoteeSlotsPerTemple, 0);
+    const assignable = citizenSystem.getAssignablePopulationCount(this.playerTribeId);
+    const effectiveMax = Math.min(maxSlots, assignable);
+    const currentRaw = Number.parseInt(input.value ?? "0", 10);
+    const desired = Math.max(0, Math.min(Number.isFinite(currentRaw) ? currentRaw : 0, effectiveMax));
+    this.devoteeTarget = desired;
+
+    const assigned = citizenSystem.setDevoteeTarget(desired, this.playerTribeId);
+
+    input.max = maxSlots.toString();
+    input.disabled = maxSlots === 0 || assignable === 0;
+    const displayValue = input.disabled ? 0 : desired;
+    if (input.disabled) {
+      input.value = "0";
+    } else if (force || displayValue !== currentRaw) {
+      input.value = displayValue.toString();
+    }
+
+    if (value) {
+      value.textContent = input.value;
+    }
+
+    if (slots) {
+      slots.textContent = `${assigned}/${maxSlots}`;
+    }
+
+    if (help) {
+      help.textContent =
+        maxSlots === 0
+          ? "Construye un templo para habilitar devotos."
+          : assignable === 0
+            ? "No hay habitantes asignables disponibles."
+            : `Espacios de devotos disponibles: ${maxSlots}`;
     }
   }
 
@@ -937,6 +1023,7 @@ export class Game {
     const citizens = citizenSystem.getCitizens();
     const livingPopulation = citizens.filter((citizen) => citizen.state === "alive").length;
     const hudSnapshot: HUDSnapshot = {
+      faith: this.simulation.getFaithSnapshot(),
       population: {
         value: livingPopulation,
         trend: this.simulation.getResourceTrendAverage("population"),
