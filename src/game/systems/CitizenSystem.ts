@@ -23,6 +23,7 @@ const BUSY_GOALS = new Set([
   "mining",
   "attack",
   "mate",
+  "worship",
 ]);
 export class CitizenSystem {
   private readonly repository: CitizenRepository;
@@ -34,6 +35,7 @@ export class CitizenSystem {
   private debugLogging = true;
   private elapsedHours = 0;
   private playerTribeId = 1;
+  private devoteeAssignments: Set<number> = new Set();
 
   constructor(private world: WorldEngine, private emit: (event: CitizenSystemEvent) => void = () => { }) {
     this.repository = new CitizenRepository(world);
@@ -189,16 +191,35 @@ export class CitizenSystem {
     return this.repository.getPopulationCount(filter);
   }
 
-  getAssignablePopulationCount(tribeId?: number) {
-    return this.repository.getAssignablePopulationCount(tribeId);
+  getAssignablePopulationCount(tribeId?: number, excludeDevotees = false) {
+    const assignable = this.repository.getAssignablePopulationCount(tribeId);
+    if (!excludeDevotees) {
+      return assignable;
+    }
+    return Math.max(0, assignable - this.getDevoteeCount(tribeId));
   }
 
-  getRoleCounts(tribeId?: number) {
-    return this.repository.getRoleCounts(tribeId);
+  getRoleCounts(tribeId?: number, excludeDevotees = false) {
+    const counts = this.repository.getRoleCounts(tribeId);
+    if (!excludeDevotees || this.devoteeAssignments.size === 0) {
+      return counts;
+    }
+    for (const id of this.devoteeAssignments) {
+      const citizen = this.repository.getCitizenById(id);
+      if (!citizen || citizen.state !== "alive") continue;
+      if (tribeId !== undefined && citizen.tribeId !== tribeId) continue;
+      const role = citizen.role;
+      if (typeof counts[role] === "number" && counts[role] > 0) {
+        counts[role] -= 1;
+      }
+    }
+    return counts;
   }
 
   rebalanceRoles(targets: Partial<Record<AssignableRole, number>>, tribeId?: number) {
-    const pool = this.repository.getAssignableCitizens(tribeId);
+    const pool = this.repository
+      .getAssignableCitizens(tribeId)
+      .filter((citizen) => !this.devoteeAssignments.has(citizen.id));
     if (pool.length === 0) return;
 
     // Normalize targets to ensure we have a value for each role
@@ -307,6 +328,69 @@ export class CitizenSystem {
     }
   }
 
+  setDevoteeTarget(targetCount: number, tribeId?: number) {
+    const slots = this.world.getStructureCount("temple") * 3;
+    const clampedTarget = Math.max(0, Math.min(Math.floor(targetCount), slots));
+    const eligible = this.repository.getAssignableCitizens(tribeId);
+    const eligibleIds = new Set(eligible.map((c) => c.id));
+
+    // Drop invalid or dead devotees
+    for (const id of Array.from(this.devoteeAssignments)) {
+      if (!eligibleIds.has(id)) {
+        this.devoteeAssignments.delete(id);
+      }
+    }
+
+    const current: Citizen[] = [];
+    eligible.forEach((citizen) => {
+      if (this.devoteeAssignments.has(citizen.id)) {
+        current.push(citizen);
+      }
+    });
+
+    const target = Math.min(clampedTarget, eligible.length);
+
+    if (current.length > target) {
+      const toRemove = current.slice(target);
+      toRemove.forEach((citizen) => {
+        this.devoteeAssignments.delete(citizen.id);
+        if (citizen.currentGoal === "worship") {
+          delete citizen.currentGoal;
+        }
+      });
+    } else if (current.length < target) {
+      const needed = target - current.length;
+      const pool = eligible
+        .filter((citizen) => !this.devoteeAssignments.has(citizen.id))
+        .sort((a, b) => Number(this.isCitizenBusy(a)) - Number(this.isCitizenBusy(b)));
+      pool.slice(0, needed).forEach((citizen) => {
+        this.devoteeAssignments.add(citizen.id);
+      });
+    }
+
+    // Ensure goals are set or cleared
+    for (const citizen of eligible) {
+      if (this.devoteeAssignments.has(citizen.id)) {
+        citizen.currentGoal = "worship";
+      } else if (citizen.currentGoal === "worship") {
+        delete citizen.currentGoal;
+      }
+    }
+
+    return this.getDevoteeCount(tribeId);
+  }
+
+  getDevoteeCount(tribeId?: number) {
+    let count = 0;
+    for (const id of this.devoteeAssignments) {
+      const citizen = this.repository.getCitizenById(id);
+      if (!citizen || citizen.state !== "alive") continue;
+      if (tribeId !== undefined && citizen.tribeId !== tribeId) continue;
+      count += 1;
+    }
+    return count;
+  }
+
   private findSpawnNearVillage() {
     const { villageCenter } = this.world;
     for (let radius = 0; radius < 6; radius += 1) {
@@ -332,6 +416,7 @@ export class CitizenSystem {
     citizen.state = "dead";
     this.world.removeCitizen(citizen.id, { x: citizen.x, y: citizen.y });
     this.repository.removeLookup(citizen);
+    this.devoteeAssignments.delete(citizen.id);
     const reason = citizen.lastDamageCause ?? "causa desconocida";
     this.emit({
       type: "log",
