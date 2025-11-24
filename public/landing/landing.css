@@ -316,6 +316,92 @@ body {
   line-height: 1.6;
 }
 
+.how {
+  background: linear-gradient(180deg, rgba(12, 17, 25, 0.85), rgba(12, 17, 25, 0.6));
+}
+
+.how-grid {
+  display: grid;
+  gap: 1.2rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.how-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.1rem;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.how-card h3 {
+  margin: 0.75rem 0 0.35rem;
+}
+
+.how-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.economy {
+  background: radial-gradient(circle at 15% 20%, rgba(255, 107, 53, 0.08), transparent 30%),
+    radial-gradient(circle at 85% 10%, rgba(110, 231, 255, 0.08), transparent 25%),
+    rgba(8, 12, 19, 0.85);
+}
+
+.economy-grid {
+  display: grid;
+  gap: 1.2rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.economy-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.2rem 1.3rem;
+  box-shadow: var(--shadow);
+}
+
+.economy-card h3 {
+  margin: 0.6rem 0 0.4rem;
+}
+
+.economy-card ul {
+  margin: 0.4rem 0 0.8rem;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.economy-card li + li {
+  margin-top: 0.35rem;
+}
+
+.flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.flow__item {
+  padding: 0.35rem 0.6rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+}
+
+.flow__arrow {
+  color: var(--accent);
+  font-weight: 800;
+}
+
 .cta {
   padding-bottom: clamp(2.2rem, 5vw, 3.8rem);
 }
