@@ -46,6 +46,12 @@ export class MainMenu {
   private useMobileLayout: boolean;
   private readonly onStartCallback?: (config: WorldGenerationConfig) => void;
   private keyListenerAttached = false;
+
+  // Animation and visual effects
+  private particles: Array<{ x: number, y: number, vx: number, vy: number, life: number, maxLife: number, size: number, opacity: number }> = [];
+  private animationFrame: number = 0;
+  private menuOpenTime: number = 0;
+  private lastAnimationTime: number = 0;
   private keydownHandler = (e: KeyboardEvent) => {
     if (!this.isVisible) return;
     if (this.focusedInput === "seed") {
@@ -71,6 +77,10 @@ export class MainMenu {
     this.useMobileLayout = options?.isMobile ?? false;
     this.onStartCallback = options?.onStart;
 
+    this.menuOpenTime = performance.now();
+    this.lastAnimationTime = this.menuOpenTime;
+    this.initParticles();
+
     this.setupEventListeners();
     this.requestPreviewUpdate();
   }
@@ -81,6 +91,78 @@ export class MainMenu {
 
     // Capturar entrada de teclado para el input de semilla mientras el menú está visible
     this.attachKeyListener();
+  }
+
+  private initParticles() {
+    const particleCount = this.useMobileLayout ? 20 : 40;
+    this.particles = [];
+
+    for (let i = 0; i < particleCount; i++) {
+      this.particles.push(this.createParticle());
+    }
+  }
+
+  private createParticle() {
+    const maxLife = 3000 + Math.random() * 4000;
+    return {
+      x: Math.random() * this.canvas.width,
+      y: Math.random() * this.canvas.height,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: -0.2 - Math.random() * 0.5, // Float upward
+      life: Math.random() * maxLife,
+      maxLife,
+      size: 1 + Math.random() * 2,
+      opacity: 0.3 + Math.random() * 0.4
+    };
+  }
+
+  private updateParticles(deltaTime: number) {
+    this.particles.forEach(particle => {
+      particle.x += particle.vx * deltaTime * 0.06;
+      particle.y += particle.vy * deltaTime * 0.06;
+      particle.life += deltaTime;
+
+      // Reset particle if it goes off screen or dies
+      if (particle.life > particle.maxLife || particle.y < -10 || particle.x < -10 || particle.x > this.canvas.width + 10) {
+        const newParticle = this.createParticle();
+        newParticle.y = this.canvas.height + 10; // Start from bottom
+        Object.assign(particle, newParticle);
+        particle.life = 0;
+      }
+    });
+  }
+
+  private renderParticles() {
+    const ctx = this.ctx;
+
+    this.particles.forEach(particle => {
+      const lifeFactor = particle.life / particle.maxLife;
+      const fadeIn = Math.min(1, lifeFactor * 4);
+      const fadeOut = Math.max(0, 1 - (lifeFactor - 0.7) / 0.3);
+      const alpha = particle.opacity * fadeIn * fadeOut;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      // Create glow effect
+      const gradient = ctx.createRadialGradient(particle.x, particle.y, 0, particle.x, particle.y, particle.size * 3);
+      gradient.addColorStop(0, "#ff6b35");
+      gradient.addColorStop(0.5, "#f4d03f");
+      gradient.addColorStop(1, "rgba(244, 208, 63, 0)");
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, particle.size * 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Core particle
+      ctx.fillStyle = "#ffecb3";
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    });
   }
 
   private attachKeyListener() {
@@ -190,14 +272,25 @@ export class MainMenu {
 
   render() {
     if (!this.isVisible) return;
+
+    // Update animation frame and particles
+    const currentTime = performance.now();
+    const deltaTime = currentTime - this.lastAnimationTime;
+    this.lastAnimationTime = currentTime;
+    this.animationFrame++;
+    this.updateParticles(deltaTime);
+
     this.clearButtonRegions();
 
     const ctx = this.ctx;
     const canvasWidth = this.canvas.width;
     const canvasHeight = this.canvas.height;
 
-    // Fondo con gradiente
+    // Fondo con gradiente animado
     this.renderBackground();
+
+    // Render particles
+    this.renderParticles();
 
     // Layout principal
     const layout = this.calculateLayout(canvasWidth, canvasHeight);
@@ -317,10 +410,32 @@ export class MainMenu {
 
   private renderBackground() {
     const ctx = this.ctx;
+
+    // Animated gradient background
+    const time = (performance.now() - this.menuOpenTime) * 0.0003;
+    const offset = Math.sin(time) * 30;
+
     const gradient = ctx.createLinearGradient(0, 0, 0, this.canvas.height);
-    gradient.addColorStop(0, "#1a120b");
-    gradient.addColorStop(1, "#2c1e14");
+    gradient.addColorStop(0, `rgb(${26 + offset * 0.3}, ${18 + offset * 0.2}, ${11 + offset * 0.1})`);
+    gradient.addColorStop(0.5, "#1a120b");
+    gradient.addColorStop(1, `rgb(${44 + offset * 0.2}, ${30 + offset * 0.15}, ${20 + offset * 0.1})`);
+
     ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // Vignette effect
+    const vignetteGradient = ctx.createRadialGradient(
+      this.canvas.width / 2,
+      this.canvas.height / 2,
+      this.canvas.height * 0.3,
+      this.canvas.width / 2,
+      this.canvas.height / 2,
+      this.canvas.height * 0.9
+    );
+    vignetteGradient.addColorStop(0, "rgba(0, 0, 0, 0)");
+    vignetteGradient.addColorStop(1, "rgba(0, 0, 0, 0.5)");
+
+    ctx.fillStyle = vignetteGradient;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
@@ -330,15 +445,31 @@ export class MainMenu {
     const subtitleSize = this.useMobileLayout ? 12 : 18;
     const yPos = this.useMobileLayout ? 28 : 70;
 
+    // Animated glow effect
+    const glowIntensity = 0.3 + Math.sin((performance.now() - this.menuOpenTime) * 0.002) * 0.2;
+
+    // Title with glow
+    ctx.save();
+    ctx.shadowColor = `rgba(255, 107, 53, ${glowIntensity})`;
+    ctx.shadowBlur = 30;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+
     ctx.fillStyle = "#e8dcc5";
     ctx.font = `bold ${titleSize}px "Space Grotesk", Arial`;
     ctx.textAlign = "center";
     ctx.fillText("🏛️ MUNDO", centerX, yPos);
+    ctx.restore();
 
     if (!this.useMobileLayout) {
+      // Fade in subtitle
+      const fadeInProgress = Math.min(1, (performance.now() - this.menuOpenTime) / 1000);
+      ctx.save();
+      ctx.globalAlpha = fadeInProgress;
       ctx.font = `${subtitleSize}px Arial`;
       ctx.fillStyle = "#a89f91";
       ctx.fillText("Configura tu civilización antes de comenzar", centerX, yPos + 40);
+      ctx.restore();
     }
   }
 
@@ -374,6 +505,9 @@ export class MainMenu {
 
     const isHovered = this.hoveredButton === "start";
 
+    // Pulsing glow animation
+    const pulseIntensity = 0.2 + Math.sin((performance.now() - this.menuOpenTime) * 0.003) * 0.15;
+
     // Gradiente del botón
     const gradient = ctx.createLinearGradient(bounds.x, bounds.y, bounds.x, bounds.y + bounds.height);
     if (isHovered) {
@@ -384,9 +518,10 @@ export class MainMenu {
       gradient.addColorStop(1, "#bf360c");
     }
 
-    // Sombra suave
-    ctx.shadowColor = "rgba(255, 107, 53, 0.4)";
-    ctx.shadowBlur = 20;
+    // Enhanced shadow with pulse
+    ctx.save();
+    ctx.shadowColor = `rgba(255, 107, 53, ${isHovered ? 0.6 : pulseIntensity + 0.2})`;
+    ctx.shadowBlur = isHovered ? 30 : 20;
     ctx.shadowOffsetY = 5;
 
     ctx.fillStyle = gradient;
@@ -399,16 +534,32 @@ export class MainMenu {
     ctx.strokeStyle = isHovered ? "#ff8a65" : "#ff6b35";
     ctx.lineWidth = 2;
     ctx.stroke();
+    ctx.restore();
 
-    // Texto del botón
+    // Texto del botón con scale effect on hover
+    ctx.save();
+    if (isHovered) {
+      const scale = 1.05;
+      ctx.translate(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      ctx.scale(scale, scale);
+      ctx.translate(-(bounds.x + bounds.width / 2), -(bounds.y + bounds.height / 2));
+    }
+
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 20px Arial";
     ctx.textAlign = "center";
     ctx.fillText("🚀 JUGAR", bounds.x + bounds.width / 2, bounds.y + bounds.height / 2 + 7);
+    ctx.restore();
   }
 
   private renderConfigPanel(bounds: { x: number; y: number; width: number; height: number }) {
     const ctx = this.ctx;
+
+    // Enhanced shadow for depth
+    ctx.save();
+    ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+    ctx.shadowBlur = 40;
+    ctx.shadowOffsetY = 10;
 
     // Fondo del panel
     ctx.fillStyle = "rgba(44, 30, 20, 0.95)";
@@ -416,7 +567,12 @@ export class MainMenu {
     ctx.roundRect(bounds.x, bounds.y, bounds.width, bounds.height, 16);
     ctx.fill();
 
-    ctx.strokeStyle = "rgba(93, 64, 55, 0.5)";
+    ctx.shadowColor = "transparent";
+    ctx.restore();
+
+    // Subtle border glow
+    const borderGlow = 0.3 + Math.sin((performance.now() - this.menuOpenTime) * 0.002) * 0.1;
+    ctx.strokeStyle = `rgba(93, 64, 55, ${borderGlow + 0.3})`;
     ctx.lineWidth = 1;
     ctx.stroke();
 
@@ -546,9 +702,22 @@ export class MainMenu {
 
   private renderWorldPreview(x: number, y: number, width: number, height: number): void {
     const ctx = this.ctx;
+
+    // Background with subtle shadow
+    ctx.save();
+    ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetY = 5;
+
     ctx.fillStyle = "rgba(26, 18, 11, 0.8)";
     ctx.fillRect(x, y, width, height);
-    ctx.strokeStyle = "rgba(93, 64, 55, 0.5)";
+
+    ctx.shadowColor = "transparent";
+    ctx.restore();
+
+    // Animated border glow
+    const borderPulse = 0.3 + Math.sin((performance.now() - this.menuOpenTime) * 0.0025) * 0.2;
+    ctx.strokeStyle = `rgba(93, 64, 55, ${borderPulse + 0.3})`;
     ctx.lineWidth = 1.5;
     ctx.strokeRect(x, y, width, height);
 
@@ -567,9 +736,14 @@ export class MainMenu {
     const availableHeight = height - gridTopOffset - 16;
 
     if (!previewWorld) {
+      // Animated loading text
+      const loadingAlpha = 0.5 + Math.sin((performance.now() - this.menuOpenTime) * 0.005) * 0.3;
+      ctx.save();
+      ctx.globalAlpha = loadingAlpha;
       ctx.fillStyle = "#94a3b8";
       ctx.font = "13px Arial";
       ctx.fillText("Generando vista previa...", x + 12, y + gridTopOffset + 30);
+      ctx.restore();
       return;
     }
 
@@ -595,11 +769,17 @@ export class MainMenu {
       }),
     );
 
+    // Pulsing village center marker
+    const villagePulse = 0.6 + Math.sin((performance.now() - this.menuOpenTime) * 0.004) * 0.4;
+    ctx.save();
+    ctx.shadowColor = `rgba(249, 115, 22, ${villagePulse})`;
+    ctx.shadowBlur = 15;
     ctx.strokeStyle = "#f97316";
     ctx.lineWidth = Math.max(1, cellSize * 0.18);
     const villageCenter = getHexCenter(previewWorld.villageCenter.x, previewWorld.villageCenter.y, hex, offsetX, offsetY);
     traceHexPath(ctx, villageCenter, hex);
     ctx.stroke();
+    ctx.restore();
 
     ctx.fillStyle = "rgba(26, 18, 11, 0.6)";
     ctx.fillRect(x + 10, y + height - 26, width - 20, 18);
@@ -679,6 +859,13 @@ export class MainMenu {
 
       this.setButtonRegion(option.key, startX, y, buttonWidth, buttonHeight);
 
+      // Add subtle glow for selected buttons
+      if (isSelected) {
+        ctx.save();
+        ctx.shadowColor = "rgba(255, 107, 53, 0.3)";
+        ctx.shadowBlur = 15;
+      }
+
       // Fondo
       ctx.fillStyle = isSelected
         ? "rgba(255, 107, 53, 0.25)"
@@ -690,8 +877,13 @@ export class MainMenu {
       ctx.roundRect(startX, y, buttonWidth, buttonHeight, 10);
       ctx.fill();
 
+      if (isSelected) {
+        ctx.shadowColor = "transparent";
+        ctx.restore();
+      }
+
       // Borde
-      ctx.strokeStyle = isSelected ? "#ff6b35" : "rgba(168, 159, 145, 0.2)";
+      ctx.strokeStyle = isSelected ? "#ff6b35" : isHovered ? "rgba(255, 107, 53, 0.4)" : "rgba(168, 159, 145, 0.2)";
       ctx.lineWidth = isSelected ? 2 : 1;
       ctx.stroke();
 
@@ -703,7 +895,7 @@ export class MainMenu {
       }
 
       // Etiqueta
-      ctx.fillStyle = isSelected ? "#ffccbc" : "#a89f91";
+      ctx.fillStyle = isSelected ? "#ffccbc" : isHovered ? "#c9bfb3" : "#a89f91";
       ctx.font = this.useMobileLayout ? (isSelected ? "bold 10px Arial" : "10px Arial") : (isSelected ? "bold 11px Arial" : "11px Arial");
       ctx.textAlign = "center";
       ctx.fillText(option.label, startX + buttonWidth / 2, y + 42);
@@ -727,6 +919,9 @@ export class MainMenu {
 
   show() {
     this.isVisible = true;
+    this.menuOpenTime = performance.now();
+    this.lastAnimationTime = this.menuOpenTime;
+    this.initParticles();
     this.attachKeyListener();
   }
 
