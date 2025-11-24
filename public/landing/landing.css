@@ -521,6 +521,12 @@ body {
   font-weight: 700;
 }
 
+.token-cta-row {
+  margin-top: 0.8rem;
+  display: flex;
+  justify-content: flex-start;
+}
+
 .cta {
   padding-bottom: clamp(2.2rem, 5vw, 3.8rem);
 }
