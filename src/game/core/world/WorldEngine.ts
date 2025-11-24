@@ -134,8 +134,8 @@ export class WorldEngine {
     return this.structureManager.getStructures();
   }
 
-  cancelConstruction(siteId: number) {
-    return this.structureManager.cancelConstruction(siteId);
+  cancelConstruction(siteId: number, options?: { refundMaterials?: boolean; clearPriority?: boolean }) {
+    return this.structureManager.cancelConstruction(siteId, options);
   }
 
   applyConstructionWork(siteId: number, labor: number, delivered: { stone: number; wood: number }) {

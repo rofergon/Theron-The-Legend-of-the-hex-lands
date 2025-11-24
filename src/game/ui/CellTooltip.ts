@@ -1,16 +1,25 @@
-import type { WorldCell, Citizen, ResourceNode } from "../core/types";
+import type { WorldCell, Citizen, ResourceNode, ConstructionSite, Vec2 } from "../core/types";
 
 export interface TooltipData {
   cell: WorldCell;
   citizens: Citizen[];
   position: { x: number; y: number };
+  constructionSite?: ConstructionSite | null;
 }
+
+export type TooltipActionHandlers = {
+  onCancelConstruction?: (siteId: number) => void;
+  onClearPriority?: (cell: Vec2) => void;
+};
 
 export class CellTooltipController {
   private tooltipElement: HTMLElement | null = null;
   private isVisible = false;
+  private handlers: TooltipActionHandlers;
+  private currentData: TooltipData | null = null;
 
-  constructor() {
+  constructor(handlers: TooltipActionHandlers = {}) {
+    this.handlers = handlers;
     this.createTooltipElement();
   }
 
@@ -32,18 +41,20 @@ export class CellTooltipController {
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(10px);
       z-index: 1000;
-      pointer-events: none;
+      pointer-events: auto;
       opacity: 0;
       transform: translateY(-10px);
       transition: opacity 0.2s ease, transform 0.2s ease;
       line-height: 1.4;
     `;
     document.body.appendChild(this.tooltipElement);
+    this.tooltipElement.addEventListener("click", this.handleActionClick);
   }
 
   show(data: TooltipData) {
     if (!this.tooltipElement) return;
 
+    this.currentData = data;
     this.tooltipElement.innerHTML = this.generateTooltipContent(data);
     this.updatePosition(data.position);
 
@@ -56,6 +67,7 @@ export class CellTooltipController {
     if (!this.tooltipElement || !this.isVisible) return;
 
     this.isVisible = false;
+    this.currentData = null;
     this.tooltipElement.style.opacity = "0";
     this.tooltipElement.style.transform = "translateY(-10px)";
   }
@@ -89,8 +101,31 @@ export class CellTooltipController {
     this.tooltipElement.style.top = `${y}px`;
   }
 
+  private handleActionClick = (event: MouseEvent) => {
+    if (!this.currentData) return;
+    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-tooltip-action]");
+    if (!target) return;
+    const action = target.dataset.tooltipAction;
+    if (!action) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (action === "cancel-construction") {
+      const siteId = Number(target.dataset.siteId ?? "-1");
+      if (Number.isFinite(siteId) && siteId >= 0) {
+        this.handlers.onCancelConstruction?.(siteId);
+      }
+      return;
+    }
+
+    if (action === "clear-priority") {
+      this.handlers.onClearPriority?.({ x: this.currentData.cell.x, y: this.currentData.cell.y });
+      return;
+    }
+  };
+
   private generateTooltipContent(data: TooltipData): string {
-    const { cell, citizens } = data;
+    const { cell, citizens, constructionSite } = data;
 
     let html = `
       <div style="border-bottom: 1px solid rgba(233, 204, 152, 0.3); padding-bottom: 0.5rem; margin-bottom: 0.75rem;">
@@ -121,6 +156,23 @@ export class CellTooltipController {
           <div><strong>${this.getStructureIcon(cell.structure)} ${this.getStructureName(cell.structure)}</strong></div>
         </div>
       `;
+    } else if (constructionSite) {
+      const progress = Math.round((constructionSite.workDone / constructionSite.workRequired) * 100);
+      const stone = `${constructionSite.stoneDelivered}/${constructionSite.stoneRequired}`;
+      const wood = `${constructionSite.woodDelivered}/${constructionSite.woodRequired}`;
+      html += `
+        <div style="margin-bottom: 0.75rem; padding: 0.6rem; background: rgba(255, 170, 65, 0.08); border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <strong>${this.getStructureIcon(constructionSite.type)} ${this.getStructureName(constructionSite.type)}</strong>
+            <span style="font-size: 0.8rem; color: #facc15;">${progress}%</span>
+          </div>
+          <div style="margin-top: 0.35rem; font-size: 0.82rem; color: #f8fafc;">Fase: ${this.getConstructionPhase(constructionSite.phase)}</div>
+          <div style="margin-top: 0.35rem; font-size: 0.82rem; color: #94a3b8;">Piedra: ${stone} • Madera: ${wood}</div>
+          <div style="display:flex; gap: 0.5rem; margin-top: 0.6rem; flex-wrap: wrap;">
+            <button data-tooltip-action="cancel-construction" data-site-id="${constructionSite.id}" style="background: #b91c1c; color: #fff; border: none; padding: 0.45rem 0.6rem; border-radius: 6px; cursor: pointer; font-weight: 700; letter-spacing: 0.02em;">Cancelar obra</button>
+          </div>
+        </div>
+      `;
     }
 
     const isFarmCell = cell.priority === "farm" || cell.cropStage > 0 || Boolean(cell.farmTask);
@@ -148,6 +200,9 @@ export class CellTooltipController {
       html += `
         <div style="margin-bottom: 0.75rem; padding: 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
           <div><strong>🎯 Prioridad:</strong> ${this.getPriorityName(cell.priority)}</div>
+          <div style="margin-top: 0.5rem;">
+            <button data-tooltip-action="clear-priority" style="background: transparent; color: #f8fafc; border: 1px solid rgba(255,255,255,0.3); padding: 0.35rem 0.6rem; border-radius: 6px; cursor: pointer;">Quitar designación</button>
+          </div>
         </div>
       `;
     }
@@ -309,6 +364,15 @@ export class CellTooltipController {
       warehouse: "Almacén",
     };
     return names[structure] || structure;
+  }
+
+  private getConstructionPhase(phase: ConstructionSite["phase"]): string {
+    const labels: Record<ConstructionSite["phase"], string> = {
+      foundation: "Cimentación",
+      structure: "Estructura",
+      finishing: "Acabado",
+    };
+    return labels[phase] ?? phase;
   }
 
   private getRoleIcon(role: string): string {

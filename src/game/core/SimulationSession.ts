@@ -161,6 +161,38 @@ export class SimulationSession {
     return sum / recent.length;
   }
 
+  clearPriorityAt(position: Vec2) {
+    if (!this.initialized) return { ok: false as const, reason: "Simulation not running." };
+    this.world.setPriorityAt(position.x, position.y, "none");
+    this.log(`Se ha eliminado la designación en (${position.x}, ${position.y}).`, "info");
+    return { ok: true as const };
+  }
+
+  cancelConstruction(siteId: number, options?: { reclaimMaterials?: boolean }) {
+    if (!this.initialized) {
+      return { ok: false as const, reason: "Simulation not running." };
+    }
+    const site = this.world.getConstructionSite(siteId);
+    if (!site) {
+      return { ok: false as const, reason: "Construction site not found." };
+    }
+    const result = this.world.cancelConstruction(siteId, { refundMaterials: options?.reclaimMaterials ?? true, clearPriority: true });
+    if (!result.ok) {
+      return { ok: false as const, reason: "Unable to cancel construction." };
+    }
+
+    const stoneReturned = result.refunded.stone > 0 ? this.world.deposit("stone", result.refunded.stone) : 0;
+    const woodReturned = result.refunded.wood > 0 ? this.world.deposit("wood", result.refunded.wood) : 0;
+
+    const reclaimed = [];
+    if (stoneReturned > 0) reclaimed.push(`${stoneReturned} piedra`);
+    if (woodReturned > 0) reclaimed.push(`${woodReturned} madera`);
+    const reclaimedText = reclaimed.length > 0 ? ` Recursos recuperados: ${reclaimed.join(", ")}.` : "";
+    this.log(`Se canceló la construcción de ${site.type}. Los aldeanos recogerán los materiales.${reclaimedText}`, "info");
+
+    return { ok: true as const, stoneReturned, woodReturned, siteType: site.type };
+  }
+
   private updateEvents(tickHours: number) {
     if (this.climate.drought) {
       this.climate.droughtTimer -= tickHours;

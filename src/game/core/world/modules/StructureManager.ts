@@ -148,19 +148,27 @@ export class StructureManager {
         return { ok: true as const, site };
     }
 
-    public cancelConstruction(siteId: number) {
+    public cancelConstruction(siteId: number, options?: { refundMaterials?: boolean; clearPriority?: boolean }) {
         const site = this.constructionSites.get(siteId);
         if (!site) {
-            return false;
+            return { ok: false as const, refunded: { stone: 0, wood: 0 } };
         }
+        const refundMaterials = options?.refundMaterials ?? false;
+        const refunded = {
+            stone: refundMaterials ? site.stoneDelivered : 0,
+            wood: refundMaterials ? site.woodDelivered : 0,
+        };
         site.footprint.forEach(({ x, y }: Vec2) => {
             const cell = this.cells[y]?.[x];
             if (cell?.constructionSiteId === siteId) {
                 cell.constructionSiteId = undefined;
+                if (options?.clearPriority && cell.priority === "build") {
+                    cell.priority = "none";
+                }
             }
         });
         this.constructionSites.delete(siteId);
-        return true;
+        return { ok: true as const, refunded };
     }
 
     public applyConstructionWork(siteId: number, labor: number, delivered: { stone: number; wood: number }) {

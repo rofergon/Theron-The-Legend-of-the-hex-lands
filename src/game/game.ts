@@ -28,7 +28,7 @@ export class Game {
   private readonly hud = new HUDController();
   private readonly portraitBar = new CitizenPortraitBarController({ onSelectCitizen: (id) => this.handleCitizenSelection(id) });
   private readonly citizenPanel = new CitizenControlPanelController({ onClose: () => this.handlePanelClose() });
-  private readonly cellTooltip = new CellTooltipController();
+  private readonly cellTooltip: CellTooltipController;
   private readonly playerTribeId = 1;
   private simulation: SimulationSession | null = null;
   private readonly assignableRoles: AssignableRole[] = ["farmer", "worker", "warrior", "scout"];
@@ -114,6 +114,10 @@ export class Game {
     document.body.classList.toggle("is-mobile", this.useMobileLayout);
 
     this.renderer = new GameRenderer(canvas);
+    this.cellTooltip = new CellTooltipController({
+      onCancelConstruction: this.handleCancelConstruction,
+      onClearPriority: this.handleClearPriority,
+    });
     this.camera = new CameraController({ canvas, minZoom: this.minZoom, maxZoom: this.maxZoom }, () => this.simulation?.getWorld() ?? null);
     this.mainMenu = new MainMenu(canvas, { isMobile: this.useMobileLayout });
     this.camera.setViewTarget({ x: WORLD_SIZE / 2, y: WORLD_SIZE / 2 });
@@ -889,6 +893,36 @@ export class Game {
     this.clearPlanningMode();
   }
 
+  private handleCancelConstruction = (siteId: number) => {
+    if (!this.simulation) return;
+    const result = this.simulation.cancelConstruction(siteId, { reclaimMaterials: true });
+    if (!result.ok) {
+      this.hud.updateStatus(result.reason ?? "Could not cancel construction.");
+      return;
+    }
+    const parts: string[] = [];
+    if (result.stoneReturned && result.stoneReturned > 0) {
+      parts.push(`${result.stoneReturned} stone`);
+    }
+    if (result.woodReturned && result.woodReturned > 0) {
+      parts.push(`${result.woodReturned} wood`);
+    }
+    const reclaimed = parts.length > 0 ? ` Materials reclaimed: ${parts.join(", ")}.` : "";
+    this.hud.updateStatus(`Construction canceled.${reclaimed}`.trim());
+    this.updateHUD();
+    this.refreshStructureSelection();
+    this.cellTooltip.hide();
+  };
+
+  private handleClearPriority = (cell: Vec2) => {
+    if (!this.simulation) return;
+    const result = this.simulation.clearPriorityAt(cell);
+    this.hud.updateStatus(
+      result.ok ? `Designation cleared at (${cell.x}, ${cell.y}).` : result.reason ?? "Could not clear designation.",
+    );
+    this.cellTooltip.hide();
+  };
+
   private planningCellKey(cell: Vec2) {
     return `${cell.x},${cell.y}`;
   }
@@ -1438,6 +1472,7 @@ export class Game {
     if (!this.simulation) return;
     const cell = this.simulation.getWorld().getCell(cellPos.x, cellPos.y);
     if (!cell) return;
+    const site = cell.constructionSiteId ? this.simulation.getWorld().getConstructionSite(cell.constructionSiteId) : null;
 
     const citizensInCell = this.simulation
       .getCitizenSystem()
@@ -1447,7 +1482,8 @@ export class Game {
     this.cellTooltip.show({
       cell,
       citizens: citizensInCell,
-      position: { x: event.clientX, y: event.clientY }
+      position: { x: event.clientX, y: event.clientY },
+      constructionSite: site,
     });
   }
 
