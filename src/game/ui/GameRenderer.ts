@@ -83,6 +83,10 @@ const ensureSharedTextures = (cacheTag: string): TextureResources => {
   textures["citizen_miner"] = [loadImage(`/assets/extracted_icons/Human_miner.png${cacheTag}`, "citizen_miner")];
   textures["citizen_worker"] = [loadImage(`/assets/extracted_icons/Worker.png${cacheTag}`, "citizen_worker")];
   textures["citizen_farmer"] = [loadImage(`/assets/extracted_icons/Farmer.png${cacheTag}`, "citizen_farmer")];
+  textures["citizen_scout"] = [loadImage(`/assets/extracted_icons/Explorer.png${cacheTag}`, "citizen_scout")];
+  textures["citizen_child"] = [loadImage(`/assets/extracted_icons/Baby.png${cacheTag}`, "citizen_child")];
+  textures["citizen_warrior"] = [loadImage(`/assets/extracted_icons/Warrior.png${cacheTag}`, "citizen_warrior")];
+  textures["citizen_archer"] = [loadImage(`/assets/extracted_icons/Archer.png${cacheTag}`, "citizen_archer")];
 
   const resources: TextureResources = { textures, hexFrame, cacheTag };
   sharedTextureState.resources = resources;
@@ -481,10 +485,18 @@ export class GameRenderer {
     }
 
     // Priority 4: Default to role-based icon
-    if (!iconKey && citizen.role === "farmer") {
-      iconKey = "citizen_farmer";
-    } else if (!iconKey && citizen.role === "worker") {
-      iconKey = "citizen_worker";
+    if (!iconKey) {
+      if (citizen.role === "farmer") {
+        iconKey = "citizen_farmer";
+      } else if (citizen.role === "worker") {
+        iconKey = "citizen_worker";
+      } else if (citizen.role === "scout") {
+        iconKey = "citizen_scout";
+      } else if (citizen.role === "child") {
+        iconKey = "citizen_child";
+      } else if (citizen.role === "warrior") {
+        iconKey = "citizen_warrior";
+      }
     }
 
     // Try to draw the specialized icon
