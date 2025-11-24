@@ -277,8 +277,7 @@ export class GameRenderer {
 
     if (textureVariants && textureVariants.length > 0) {
       // Seleccionar una variante basada en las coordenadas de la celda
-      const hash = (cell.x * 73856093 + cell.y * 19349663) >>> 0;
-      const variantIndex = hash % textureVariants.length;
+      const variantIndex = this.getTerrainVariantIndex(cell, terrain, textureVariants.length);
       const texture = textureVariants[variantIndex];
 
       if (texture && texture.complete) {
@@ -352,6 +351,14 @@ export class GameRenderer {
       default:
         return "transparent";
     }
+  }
+
+  private getTerrainVariantIndex(cell: WorldCell, terrain: WorldCell["terrain"], variants: number) {
+    if (variants <= 1) return 0;
+    const salt = terrain === "mountain" ? 0x9e3779b9 : 0;
+    let hash = Math.imul(cell.x + 1, 374761393) ^ Math.imul(cell.y + 1, 668265263) ^ salt;
+    hash = (hash ^ (hash >>> 13)) >>> 0;
+    return hash % variants;
   }
 
 

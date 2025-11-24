@@ -118,10 +118,10 @@ export class TerrainGenerator {
         }
         this.processOceans(rows);
         this.processBeaches(rows);
-        const forcedMountain = this.ensureMountainZone(rows, elevationMap);
+        const mountainCluster = this.ensureMountainZone(rows, elevationMap);
         this.resourceGenerator.placeWoodClusters(rows);
         this.resourceGenerator.placeStoneClusters(rows);
-        this.ensureStonePresence(rows, elevationMap, forcedMountain);
+        this.ensureStonePresence(rows, mountainCluster);
         return rows;
     }
 
@@ -688,12 +688,46 @@ export class TerrainGenerator {
         }
     }
 
-    private ensureMountainZone(rows: WorldCell[][], elevationMap: number[][]): Vec2 | null {
-        const existingMountain = rows.flat().find((cell) => cell.terrain === "mountain");
-        if (existingMountain) {
-            return { x: existingMountain.x, y: existingMountain.y };
+    private ensureMountainZone(rows: WorldCell[][], elevationMap: number[][]): Vec2[] {
+        const mountainCells: Vec2[] = [];
+        rows.forEach((row) =>
+            row.forEach((cell) => {
+                if (cell.terrain === "mountain") {
+                    mountainCells.push({ x: cell.x, y: cell.y });
+                }
+            })
+        );
+
+        let anchor: Vec2 | null = null;
+        if (mountainCells.length > 0) {
+            anchor =
+                mountainCells
+                    .map((pos) => ({ pos, elevation: elevationMap[pos.y]?.[pos.x] ?? 0 }))
+                    .sort((a, b) => b.elevation - a.elevation)[0]?.pos ?? null;
+        } else {
+            anchor = this.findBestMountainAnchor(rows, elevationMap);
         }
 
+        if (!anchor) {
+            return [];
+        }
+
+        const cluster = this.buildMountainCluster(anchor, rows, elevationMap);
+        cluster.forEach((pos) => {
+            const cell = rows[pos.y]?.[pos.x];
+            if (!cell) return;
+            cell.terrain = "mountain";
+            cell.fertility = this.resourceGenerator.calculateFertility("mountain", cell.moisture);
+            cell.resource = undefined;
+            cell.cropProgress = 0;
+            cell.cropStage = 0;
+            cell.farmTask = null;
+        });
+
+        return cluster;
+    }
+
+    private findBestMountainAnchor(rows: WorldCell[][], elevationMap: number[][]): Vec2 | null {
         let bestPos: Vec2 | null = null;
         let bestScore = -Infinity;
         const center = (this.size - 1) / 2;
@@ -718,23 +752,7 @@ export class TerrainGenerator {
             }
         }
 
-        if (!bestPos) {
-            return null;
-        }
-
-        const cluster = this.buildMountainCluster(bestPos, rows, elevationMap);
-        cluster.forEach((pos) => {
-            const cell = rows[pos.y]?.[pos.x];
-            if (!cell) return;
-            cell.terrain = "mountain";
-            cell.fertility = this.resourceGenerator.calculateFertility("mountain", cell.moisture);
-            cell.resource = undefined;
-            cell.cropProgress = 0;
-            cell.cropStage = 0;
-            cell.farmTask = null;
-        });
-
-        return cluster[0] ?? bestPos;
+        return bestPos;
     }
 
     private buildMountainCluster(anchor: Vec2, rows: WorldCell[][], elevationMap: number[][]): Vec2[] {
@@ -749,7 +767,7 @@ export class TerrainGenerator {
             { x: 1, y: -1 },
             { x: -1, y: 1 },
         ];
-        const targetSize = clamp(Math.floor(this.size / 6), 4, 10);
+        const targetSize = clamp(Math.floor(this.size / 6), 5, 10);
 
         while (queue.length && cluster.length < targetSize) {
             const pos = queue.shift();
@@ -786,37 +804,40 @@ export class TerrainGenerator {
         return cluster;
     }
 
-    private ensureStonePresence(rows: WorldCell[][], elevationMap: number[][], preferredPos: Vec2 | null) {
-        const hasStone = rows.some((row) => row.some((cell) => cell.resource?.type === "stone"));
-        if (hasStone) return;
+    private ensureStonePresence(rows: WorldCell[][], cluster: Vec2[]) {
+        if (!cluster || cluster.length === 0) return;
 
-        let target: Vec2 | null = preferredPos;
-        if (!target) {
-            let bestPos: Vec2 | null = null;
-            let bestElevation = -Infinity;
-            for (let y = 0; y < this.size; y += 1) {
-                for (let x = 0; x < this.size; x += 1) {
-                    const cell = rows[y]?.[x];
-                    const elevation = elevationMap[y]?.[x];
-                    if (!cell || cell.terrain !== "mountain" || elevation === undefined) continue;
-                    if (elevation > bestElevation) {
-                        bestElevation = elevation;
-                        bestPos = { x, y };
-                    }
-                }
+        const mountainCells = cluster
+            .map((pos) => rows[pos.y]?.[pos.x])
+            .filter((cell): cell is WorldCell => Boolean(cell && cell.terrain === "mountain"));
+
+        let stoneCells = mountainCells.filter((cell) => cell.resource?.type === "stone");
+        const needed = Math.max(0, 2 - stoneCells.length);
+
+        if (needed === 0) return;
+
+        const candidates = mountainCells.filter((cell) => !cell.structure && !cell.constructionSiteId && !cell.resource);
+        for (let i = 0; i < needed && candidates.length > 0; i += 1) {
+            const idx = Math.floor(this.rng() * candidates.length);
+            const cell = candidates.splice(idx, 1)[0];
+            if (!cell) continue;
+            const amount = 6 + Math.floor(this.rng() * 4);
+            const richness = 1.25;
+            cell.resource = { type: "stone", amount, renewable: false, richness };
+            stoneCells = [...stoneCells, cell];
+        }
+
+        // Si faltan recursos porque todas las celdas están ocupadas, intenta reemplazar recursos no piedra
+        if (stoneCells.length < 2) {
+            const fallback = mountainCells.filter((cell) => !cell.structure && !cell.constructionSiteId);
+            for (let i = stoneCells.length; i < 2 && fallback.length > 0; i += 1) {
+                const idx = Math.floor(this.rng() * fallback.length);
+                const cell = fallback.splice(idx, 1)[0];
+                if (!cell) continue;
+                const amount = 6 + Math.floor(this.rng() * 4);
+                const richness = 1.2;
+                cell.resource = { type: "stone", amount, renewable: false, richness };
             }
-            target = bestPos;
         }
-
-        if (!target) {
-            return;
-        }
-
-        const cell = rows[target.y]?.[target.x];
-        if (!cell) return;
-
-        const amount = 6 + Math.floor(this.rng() * 4);
-        const richness = cell.terrain === "mountain" ? 1.25 : 0.9;
-        cell.resource = { type: "stone", amount, renewable: false, richness };
     }
 }
