@@ -30,6 +30,10 @@ body {
   flex-direction: column;
 }
 
+.hidden {
+  display: none !important;
+}
+
 #app {
   width: 100%;
   height: 100vh;
@@ -1730,4 +1734,174 @@ body {
 .pause-btn {
   font-size: 1.1rem;
   padding: 0.45rem 0.65rem;
+}
+
+/* Citizen control overlay */
+#citizen-control-panel {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  background: rgba(8, 11, 15, 0.92);
+  border: 1px solid rgba(93, 64, 55, 0.6);
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(12px);
+  color: var(--color-text-primary);
+  z-index: 2000;
+}
+
+#citizen-control-panel.hidden {
+  display: none;
+}
+
+#citizen-control-panel .panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+#citizen-control-panel .panel-portrait {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: rgba(26, 18, 11, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 8px 18px rgba(0, 0, 0, 0.4);
+}
+
+#citizen-control-panel .panel-role-icon {
+  font-size: 1.6rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+#citizen-control-panel .panel-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+#citizen-control-panel .panel-name {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+#citizen-control-panel .panel-state {
+  font-size: 0.95rem;
+}
+
+#citizen-control-panel .panel-role {
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+}
+
+#citizen-control-panel .panel-close-btn {
+  background: transparent;
+  color: var(--color-text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+#citizen-control-panel .panel-close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+#citizen-control-panel .panel-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+#citizen-control-panel .stat-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+#citizen-control-panel .stat-icon {
+  font-size: 1rem;
+}
+
+#citizen-control-panel .stat-bar-bg {
+  position: relative;
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+#citizen-control-panel .stat-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+#citizen-control-panel .panel-inventory {
+  display: flex;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+
+#citizen-control-panel .inv-item {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.35rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#citizen-control-panel .inv-value {
+  font-weight: 700;
+}
+
+#citizen-control-panel .panel-action {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+}
+
+#citizen-control-panel .action-label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.25rem;
+  letter-spacing: 0.02em;
+}
+
+#citizen-control-panel .action-text {
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+@media (max-width: 800px) {
+  #citizen-control-panel {
+    left: 8px;
+    right: 8px;
+    width: auto;
+    bottom: 12px;
+  }
+
+  #citizen-control-panel .panel-stats {
+    grid-template-columns: 1fr;
+  }
 }
