@@ -44,11 +44,11 @@ export class Game {
     slots: HTMLSpanElement | null;
     help: HTMLParagraphElement | null;
   } = {
-    input: document.querySelector<HTMLInputElement>("#role-devotee"),
-    value: document.querySelector<HTMLSpanElement>("#role-value-devotee"),
-    slots: document.querySelector<HTMLSpanElement>("#role-devotee-slots"),
-    help: document.querySelector<HTMLParagraphElement>("#role-devotee-help"),
-  };
+      input: document.querySelector<HTMLInputElement>("#role-devotee"),
+      value: document.querySelector<HTMLSpanElement>("#role-value-devotee"),
+      slots: document.querySelector<HTMLSpanElement>("#role-devotee-slots"),
+      help: document.querySelector<HTMLParagraphElement>("#role-devotee-help"),
+    };
   private readonly devoteeSlotsPerTemple = 3;
   private devoteeTarget = 0;
   private debugExportButton = document.querySelector<HTMLButtonElement>("#debug-export");
@@ -448,7 +448,7 @@ export class Game {
   }
 
   private setupSpeedControls() {
-    const container = document.querySelector<HTMLDivElement>("#speed-controls");
+    const container = document.querySelector<HTMLDivElement>(".speed-controls-header");
     if (!container) {
       return;
     }
