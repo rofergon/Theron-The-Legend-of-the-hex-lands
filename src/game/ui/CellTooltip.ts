@@ -46,7 +46,7 @@ export class CellTooltipController {
 
     this.tooltipElement.innerHTML = this.generateTooltipContent(data);
     this.updatePosition(data.position);
-    
+
     this.isVisible = true;
     this.tooltipElement.style.opacity = "1";
     this.tooltipElement.style.transform = "translateY(0)";
@@ -91,7 +91,7 @@ export class CellTooltipController {
 
   private generateTooltipContent(data: TooltipData): string {
     const { cell, citizens } = data;
-    
+
     let html = `
       <div style="border-bottom: 1px solid rgba(233, 204, 152, 0.3); padding-bottom: 0.5rem; margin-bottom: 0.75rem;">
         <strong style="color: #f7c87d; font-size: 1rem;">
@@ -167,7 +167,7 @@ export class CellTooltipController {
     const amount = Math.round(resource.amount);
     const richness = Math.round(resource.richness * 100);
     const renewable = resource.renewable ? "Renovable" : "No renovable";
-    
+
     return `
       <div style="margin-bottom: 0.75rem; padding: 0.5rem; background: rgba(34, 197, 94, 0.15); border-radius: 6px;">
         <div><strong>${this.getResourceIcon(resource.type)} ${this.getResourceName(resource.type)}</strong></div>
@@ -190,7 +190,7 @@ export class CellTooltipController {
     citizens.forEach(citizen => {
       const health = Math.round(citizen.health);
       const healthColor = health > 70 ? "#22c55e" : health > 40 ? "#f59e0b" : "#ef4444";
-      
+
       html += `
         <div style="margin-bottom: 0.3rem; padding: 0.3rem; background: rgba(0, 0, 0, 0.2); border-radius: 4px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -199,8 +199,8 @@ export class CellTooltipController {
           </div>
           <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem;">
             ${this.getRoleName(citizen.role)} • Edad: ${Math.floor(citizen.age)}
-            ${citizen.carrying.food > 0 || citizen.carrying.stone > 0 || citizen.carrying.wood > 0 ? 
-              ` • Carga: ${citizen.carrying.food}🌾 ${citizen.carrying.stone}🪨 ${citizen.carrying.wood}🌲` : ''}
+            ${citizen.carrying.food > 0 || citizen.carrying.stone > 0 || citizen.carrying.wood > 0 ?
+          ` • Carga: ${citizen.carrying.food}🌾 ${citizen.carrying.stone}🪨 ${citizen.carrying.wood}🌲` : ''}
           </div>
         </div>
       `;
@@ -213,7 +213,7 @@ export class CellTooltipController {
   private generateTerrainInfo(cell: WorldCell): string {
     const walkable = this.isWalkable(cell.terrain);
     const canFarm = ["grassland", "forest"].includes(cell.terrain);
-    
+
     let html = `
       <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(233, 204, 152, 0.2); font-size: 0.8rem; color: #94a3b8;">
         <div><strong>Propiedades del terreno:</strong></div>
@@ -366,7 +366,7 @@ export class CellTooltipController {
   }
 
   private isWalkable(terrain: string): boolean {
-    const unwalkable = ["ocean", "mountain", "snow"];
+    const unwalkable = ["ocean", "snow"];
     return !unwalkable.includes(terrain);
   }
 
@@ -379,9 +379,9 @@ export class CellTooltipController {
       desert: "Seco y árido, difícil para la vida.",
       tundra: "Frío y poco fértil, recursos limitados.",
       snow: "Zona helada e intransitable.",
-      mountain: "Rica en minerales pero intransitable.",
-      swamp: "Húmedo y pantanoso, moderadamente fértil.",
-      river: "Fuente de agua fresca, navegable."
+      mountain: "Rica en minerales. Caminable pero agota más (2x fatiga).",
+      swamp: "Húmedo y pantanoso, moderadamente fértil. Movimiento lento (1.3x fatiga).",
+      river: "Fuente de agua fresca. Movimiento lento (1.5x fatiga)."
     };
     return info[terrain] || null;
   }

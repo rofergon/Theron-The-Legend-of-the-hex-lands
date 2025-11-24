@@ -506,7 +506,13 @@ export class GameRenderer {
         const texture = textures[0];
         if (texture && texture.complete) {
           // Preserve aspect ratio and reduce size to fit in cell
-          const maxSize = hex.size * 1; // Reduced from 0.8 to 0.6
+          let maxSize = hex.size * 1; // Reduced from 0.8 to 0.6
+
+          // Make babies (child role) 40% of normal size
+          if (citizen.role === "child") {
+            maxSize = maxSize * 0.4;
+          }
+
           const aspectRatio = texture.width / texture.height;
 
           let width, height;

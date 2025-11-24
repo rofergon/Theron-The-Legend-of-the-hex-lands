@@ -18,6 +18,15 @@ export class ResourceCollectionEngine {
     const brain = this.ensureGathererBrain(citizen, resourceType);
     const carryAmount = citizen.carrying[resourceType];
     const hasCargo = carryAmount > 0;
+
+    // Set currentGoal based on resource type for proper icon display
+    if (resourceType === "stone") {
+      citizen.currentGoal = "mining";
+    } else if (resourceType === "wood") {
+      citizen.currentGoal = "gather";
+    } else if (resourceType === "food") {
+      citizen.currentGoal = "gather";
+    }
     const sendToStorage = (): CitizenAction => {
       const storageTarget = this.findStorageTarget(citizen, view);
       brain.phase = "goingToStorage";
@@ -69,6 +78,10 @@ export class ResourceCollectionEngine {
         if (citizen.x === brain.target.x && citizen.y === brain.target.y) {
           brain.phase = "idle";
           brain.target = null;
+          // Clear currentGoal when task is complete
+          if (citizen.currentGoal === "mining" || citizen.currentGoal === "gather") {
+            delete citizen.currentGoal;
+          }
           return { type: "storeResources" };
         }
         return { type: "move", x: brain.target.x, y: brain.target.y };
