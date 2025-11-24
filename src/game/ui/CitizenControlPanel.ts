@@ -75,10 +75,10 @@ export class CitizenControlPanelController {
         if (this.stateEl) this.stateEl.textContent = stateIcon;
         if (this.roleEl) this.roleEl.textContent = `${roleLabel} · ${Math.floor(c.age)} años`;
 
-        this.updateStatBar(this.statFills.health, healthPct, "#ef4444");
-        this.updateStatBar(this.statFills.hunger, hungerPct, "#f97316");
-        this.updateStatBar(this.statFills.energy, energyPct, "#8b5cf6");
-        this.updateStatBar(this.statFills.morale, moralePct, "#3b82f6");
+        this.updateStatBar(this.statFills.health, healthPct, "#e53935");
+        this.updateStatBar(this.statFills.hunger, hungerPct, "#fb8c00");
+        this.updateStatBar(this.statFills.energy, energyPct, "#fdd835");
+        this.updateStatBar(this.statFills.morale, moralePct, "#43a047");
 
         if (this.invFoodEl) this.invFoodEl.textContent = `${Math.floor(c.carrying.food)}`;
         if (this.invStoneEl) this.invStoneEl.textContent = `${Math.floor(c.carrying.stone)}`;

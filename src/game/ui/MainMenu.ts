@@ -314,8 +314,8 @@ export class MainMenu {
   private renderBackground() {
     const ctx = this.ctx;
     const gradient = ctx.createLinearGradient(0, 0, 0, this.canvas.height);
-    gradient.addColorStop(0, "#0f172a");
-    gradient.addColorStop(1, "#1e293b");
+    gradient.addColorStop(0, "#1a120b");
+    gradient.addColorStop(1, "#2c1e14");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
@@ -326,32 +326,32 @@ export class MainMenu {
     const subtitleSize = this.useMobileLayout ? 12 : 18;
     const yPos = this.useMobileLayout ? 28 : 90;
 
-    ctx.fillStyle = "#f0e7dc";
+    ctx.fillStyle = "#e8dcc5";
     ctx.font = `bold ${titleSize}px "Space Grotesk", Arial`;
     ctx.textAlign = "center";
     ctx.fillText("🏛️ MUNDO", centerX, yPos);
 
     if (!this.useMobileLayout) {
       ctx.font = `${subtitleSize}px Arial`;
-      ctx.fillStyle = "#94a3b8";
+      ctx.fillStyle = "#a89f91";
       ctx.fillText("Configura tu civilización antes de comenzar", centerX, yPos + 40);
     }
   }
 
   private renderInfoPanel(bounds: { x: number; y: number; width: number; height: number }) {
     const ctx = this.ctx;
-    ctx.fillStyle = "rgba(59, 130, 246, 0.2)";
+    ctx.fillStyle = "rgba(255, 107, 53, 0.15)";
     ctx.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
-    ctx.strokeStyle = "rgba(59, 130, 246, 0.4)";
+    ctx.strokeStyle = "rgba(255, 107, 53, 0.4)";
     ctx.lineWidth = 1;
     ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
 
-    ctx.fillStyle = "#93c5fd";
+    ctx.fillStyle = "#ffbca0";
     ctx.font = "bold 13px Arial";
     ctx.textAlign = "left";
     ctx.fillText("ℹ️ Información:", bounds.x + 16, bounds.y + 22);
 
-    ctx.fillStyle = "#cbd5e1";
+    ctx.fillStyle = "#d7ccc8";
     ctx.font = "12px Arial";
     const tips = [
       "• La misma semilla genera el mismo mundo",
@@ -373,15 +373,15 @@ export class MainMenu {
     // Gradiente del botón
     const gradient = ctx.createLinearGradient(bounds.x, bounds.y, bounds.x, bounds.y + bounds.height);
     if (isHovered) {
-      gradient.addColorStop(0, "#10b981");
-      gradient.addColorStop(1, "#059669");
+      gradient.addColorStop(0, "#ff6b35");
+      gradient.addColorStop(1, "#d84315");
     } else {
-      gradient.addColorStop(0, "#059669");
-      gradient.addColorStop(1, "#047857");
+      gradient.addColorStop(0, "#d84315");
+      gradient.addColorStop(1, "#bf360c");
     }
 
     // Sombra suave
-    ctx.shadowColor = "rgba(16, 185, 129, 0.4)";
+    ctx.shadowColor = "rgba(255, 107, 53, 0.4)";
     ctx.shadowBlur = 20;
     ctx.shadowOffsetY = 5;
 
@@ -392,7 +392,7 @@ export class MainMenu {
 
     ctx.shadowColor = "transparent"; // Reset shadow
 
-    ctx.strokeStyle = isHovered ? "#34d399" : "#10b981";
+    ctx.strokeStyle = isHovered ? "#ff8a65" : "#ff6b35";
     ctx.lineWidth = 2;
     ctx.stroke();
 
@@ -407,12 +407,12 @@ export class MainMenu {
     const ctx = this.ctx;
 
     // Fondo del panel
-    ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+    ctx.fillStyle = "rgba(44, 30, 20, 0.95)";
     ctx.beginPath();
     ctx.roundRect(bounds.x, bounds.y, bounds.width, bounds.height, 16);
     ctx.fill();
 
-    ctx.strokeStyle = "rgba(233, 204, 152, 0.3)";
+    ctx.strokeStyle = "rgba(93, 64, 55, 0.5)";
     ctx.lineWidth = 1;
     ctx.stroke();
 
@@ -437,7 +437,8 @@ export class MainMenu {
     const ctx = this.ctx;
 
     // Título
-    ctx.fillStyle = "#e9cc98";
+    // Título
+    ctx.fillStyle = "#f4d03f";
     ctx.font = this.useMobileLayout ? "bold 12px Arial" : "bold 14px Arial";
     ctx.textAlign = "left";
     ctx.fillText("SEMILLA", x, y);
@@ -453,16 +454,16 @@ export class MainMenu {
     const isInputFocused = this.focusedInput === "seed";
     this.setButtonRegion("seedInput", x, y, inputWidth, inputHeight);
 
-    ctx.fillStyle = isInputFocused ? "rgba(59, 130, 246, 0.15)" : "rgba(15, 23, 42, 0.5)";
+    ctx.fillStyle = isInputFocused ? "rgba(255, 107, 53, 0.15)" : "rgba(26, 18, 11, 0.6)";
     ctx.beginPath();
     ctx.roundRect(x, y, inputWidth, inputHeight, 10);
     ctx.fill();
 
-    ctx.strokeStyle = isInputFocused ? "#3b82f6" : "rgba(148, 163, 184, 0.3)";
+    ctx.strokeStyle = isInputFocused ? "#ff6b35" : "rgba(168, 159, 145, 0.3)";
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    ctx.fillStyle = "#f0e7dc";
+    ctx.fillStyle = "#e8dcc5";
     ctx.font = this.useMobileLayout ? "15px 'Courier New'" : "18px 'Courier New'";
     ctx.textAlign = "left";
     ctx.fillText(this.seedInputValue || "0", x + 12, y + 28);
@@ -470,7 +471,7 @@ export class MainMenu {
     // Cursor
     if (isInputFocused && Math.floor(Date.now() / 500) % 2 === 0) {
       const textWidth = ctx.measureText(this.seedInputValue).width;
-      ctx.fillStyle = "#3b82f6";
+      ctx.fillStyle = "#ff6b35";
       ctx.fillRect(x + 14 + textWidth, y + 12, 2, 20);
     }
 
@@ -480,15 +481,15 @@ export class MainMenu {
 
     this.setButtonRegion("randomSeed", randomX, y, randomWidth, inputHeight);
 
-    ctx.fillStyle = isRandomHovered ? "rgba(139, 92, 246, 0.3)" : "rgba(139, 92, 246, 0.15)";
+    ctx.fillStyle = isRandomHovered ? "rgba(244, 208, 63, 0.3)" : "rgba(244, 208, 63, 0.15)";
     ctx.beginPath();
     ctx.roundRect(randomX, y, randomWidth, inputHeight, 10);
     ctx.fill();
 
-    ctx.strokeStyle = isRandomHovered ? "#8b5cf6" : "rgba(139, 92, 246, 0.5)";
+    ctx.strokeStyle = isRandomHovered ? "#f4d03f" : "rgba(244, 208, 63, 0.5)";
     ctx.stroke();
 
-    ctx.fillStyle = "#c4b5fd";
+    ctx.fillStyle = "#ffecb3";
     ctx.font = this.useMobileLayout ? "16px Arial" : "20px Arial";
     ctx.textAlign = "center";
     ctx.fillText("🎲", randomX + randomWidth / 2, y + 29);
@@ -499,7 +500,7 @@ export class MainMenu {
   private renderWorldSizeSection(x: number, y: number, centerX: number): number {
     const ctx = this.ctx;
 
-    ctx.fillStyle = "#e9cc98";
+    ctx.fillStyle = "#f4d03f";
     ctx.font = this.useMobileLayout ? "bold 12px Arial" : "bold 14px Arial";
     ctx.textAlign = "left";
     ctx.fillText("TAMAÑO", x, y);
@@ -520,7 +521,7 @@ export class MainMenu {
   private renderDifficultySection(x: number, y: number, centerX: number) {
     const ctx = this.ctx;
 
-    ctx.fillStyle = "#e9cc98";
+    ctx.fillStyle = "#f4d03f";
     ctx.font = this.useMobileLayout ? "bold 12px Arial" : "bold 14px Arial";
     ctx.textAlign = "left";
     ctx.fillText("DIFICULTAD", x, y);
@@ -541,19 +542,19 @@ export class MainMenu {
 
   private renderWorldPreview(x: number, y: number, width: number, height: number): void {
     const ctx = this.ctx;
-    ctx.fillStyle = "rgba(15, 23, 42, 0.7)";
+    ctx.fillStyle = "rgba(26, 18, 11, 0.8)";
     ctx.fillRect(x, y, width, height);
-    ctx.strokeStyle = "rgba(148, 163, 184, 0.4)";
+    ctx.strokeStyle = "rgba(93, 64, 55, 0.5)";
     ctx.lineWidth = 1.5;
     ctx.strokeRect(x, y, width, height);
 
-    ctx.fillStyle = "#e9cc98";
+    ctx.fillStyle = "#f4d03f";
     ctx.font = "bold 15px Arial";
     ctx.textAlign = "left";
     ctx.fillText("🧭 Vista previa del mundo", x + 12, y + 24);
 
     ctx.font = "12px Arial";
-    ctx.fillStyle = "#cbd5e1";
+    ctx.fillStyle = "#a89f91";
     ctx.fillText(`Semilla ${this.config.seed} • ${this.config.worldSize}x${this.config.worldSize}`, x + 12, y + 42);
 
     const previewWorld = this.ensurePreviewWorld();
@@ -596,10 +597,10 @@ export class MainMenu {
     traceHexPath(ctx, villageCenter, hex);
     ctx.stroke();
 
-    ctx.fillStyle = "rgba(15, 23, 42, 0.6)";
+    ctx.fillStyle = "rgba(26, 18, 11, 0.6)";
     ctx.fillRect(x + 10, y + height - 26, width - 20, 18);
     ctx.font = "11px Arial";
-    ctx.fillStyle = "#93c5fd";
+    ctx.fillStyle = "#ffbca0";
     ctx.fillText("Cambia semilla o tamaño para regenerar la vista previa.", x + 15, y + height - 13);
   }
 
@@ -676,17 +677,17 @@ export class MainMenu {
 
       // Fondo
       ctx.fillStyle = isSelected
-        ? "rgba(59, 130, 246, 0.25)"
+        ? "rgba(255, 107, 53, 0.25)"
         : isHovered
           ? "rgba(255, 255, 255, 0.05)"
-          : "rgba(15, 23, 42, 0.6)";
+          : "rgba(60, 40, 30, 0.8)";
 
       ctx.beginPath();
       ctx.roundRect(startX, y, buttonWidth, buttonHeight, 10);
       ctx.fill();
 
       // Borde
-      ctx.strokeStyle = isSelected ? "#60a5fa" : "rgba(148, 163, 184, 0.2)";
+      ctx.strokeStyle = isSelected ? "#ff6b35" : "rgba(168, 159, 145, 0.2)";
       ctx.lineWidth = isSelected ? 2 : 1;
       ctx.stroke();
 
@@ -698,7 +699,7 @@ export class MainMenu {
       }
 
       // Etiqueta
-      ctx.fillStyle = isSelected ? "#bfdbfe" : "#94a3b8";
+      ctx.fillStyle = isSelected ? "#ffccbc" : "#a89f91";
       ctx.font = this.useMobileLayout ? (isSelected ? "bold 10px Arial" : "10px Arial") : (isSelected ? "bold 11px Arial" : "11px Arial");
       ctx.textAlign = "center";
       ctx.fillText(option.label, startX + buttonWidth / 2, y + 42);
