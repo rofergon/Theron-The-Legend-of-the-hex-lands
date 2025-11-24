@@ -98,8 +98,8 @@ export class Game {
 
     this.hud.setupHeaderButtons(this.handlePauseToggle);
     this.hud.hideOverlay(); // Ocultar el overlay inmediatamente
-    this.hud.updateStatus("🎮 Configura tu mundo y presiona COMENZAR");
-    this.hud.setPauseButtonState(false); // Mostrar botón como si estuviera pausado
+    this.hud.updateStatus("🎮 Configure your world and press START");
+    this.hud.setPauseButtonState(false); // Show button as if paused
 
     this.setupZoomControls();
     this.setupRoleControls();
@@ -117,7 +117,7 @@ export class Game {
     this.handleResize();
     this.initializeMobileUI();
 
-    // Iniciar el loop de renderizado inmediatamente para mostrar el menú
+    // Start the render loop immediately to show the menu
     this.running = true;
     this.lastTime = performance.now();
     requestAnimationFrame(this.loop);
@@ -195,13 +195,13 @@ export class Game {
     this.updateCitizenControlPanel();
 
     this.hud.setPauseButtonState(true);
-    this.hud.updateStatus("▶️ Simulación en curso.");
+    this.hud.updateStatus("▶️ Simulation in progress.");
   }
 
   private initializeAndStart() {
     this.mainMenu.hide();
     this.initializeGame();
-    // El loop continuará automáticamente después de cerrar el menú
+    // The loop will continue automatically after closing the menu
   }
 
   private createMobileActionBar() {
@@ -212,19 +212,19 @@ export class Game {
     bar.id = "mobile-action-bar";
     bar.innerHTML = `
       <div class="mobile-action-row">
-        <button type="button" data-mobile-mode="farm" aria-label="Cultivos" data-mobile-tip="Marca zonas fértiles para sembrar.">🌾</button>
-        <button type="button" data-mobile-mode="mine" aria-label="Minería" data-mobile-tip="Prioriza canteras y colinas.">🪨</button>
-        <button type="button" data-mobile-mode="gather" aria-label="Recolección" data-mobile-tip="Recolecta recursos naturales rápidos.">🍃</button>
-        <button type="button" data-mobile-mode="build" class="mobile-build-button" aria-label="Construcción" data-mobile-tip="Crea planos de edificio donde toques.">
+        <button type="button" data-mobile-mode="farm" aria-label="Crops" data-mobile-tip="Mark fertile zones for sowing.">🌾</button>
+        <button type="button" data-mobile-mode="mine" aria-label="Mining" data-mobile-tip="Prioritize quarries and hills.">🪨</button>
+        <button type="button" data-mobile-mode="gather" aria-label="Gathering" data-mobile-tip="Gather quick natural resources.">🍃</button>
+        <button type="button" data-mobile-mode="build" class="mobile-build-button" aria-label="Construction" data-mobile-tip="Create building blueprints where you touch.">
           🧱 <span id="mobile-build-label">-</span>
         </button>
       </div>
       <div class="mobile-action-row mobile-secondary-row">
-        <button type="button" data-mobile-action="prev-structure" aria-label="Edificio anterior" data-mobile-tip="Cambiar al edificio anterior.">◀</button>
-        <button type="button" data-mobile-action="pause" aria-label="Pausar o reanudar" data-mobile-tip="Pausa o reanuda la simulación.">⏯️</button>
-        <button type="button" data-mobile-action="next-structure" aria-label="Siguiente edificio" data-mobile-tip="Cambiar al siguiente edificio.">▶</button>
-        <button type="button" data-mobile-action="zoom-out" aria-label="Alejar" data-mobile-tip="Alejar el mapa.">−</button>
-        <button type="button" data-mobile-action="zoom-in" aria-label="Acercar" data-mobile-tip="Acercar el mapa.">+</button>
+        <button type="button" data-mobile-action="prev-structure" aria-label="Previous building" data-mobile-tip="Switch to previous building.">◀</button>
+        <button type="button" data-mobile-action="pause" aria-label="Pause or resume" data-mobile-tip="Pause or resume the simulation.">⏯️</button>
+        <button type="button" data-mobile-action="next-structure" aria-label="Next building" data-mobile-tip="Switch to next building.">▶</button>
+        <button type="button" data-mobile-action="zoom-out" aria-label="Zoom out" data-mobile-tip="Zoom out map.">−</button>
+        <button type="button" data-mobile-action="zoom-in" aria-label="Zoom in" data-mobile-tip="Zoom in map.">+</button>
       </div>
       <div id="mobile-hint-bubble" aria-live="polite"></div>
     `;
@@ -248,7 +248,7 @@ export class Game {
       if (!mode) return;
       btn.addEventListener("click", () => {
         this.togglePlanningMode(mode);
-        this.updateMobileHint(btn.dataset.mobileTip ?? `Modo ${mode}`);
+        this.updateMobileHint(btn.dataset.mobileTip ?? `Mode ${mode}`);
       });
       this.attachMobileTip(btn, btn.dataset.mobileTip ?? "");
     });
@@ -262,26 +262,26 @@ export class Game {
     prevButton?.addEventListener("click", () => {
       this.activatePlanningMode("build");
       this.cycleStructure(-1);
-      this.updateMobileHint("Edificio anterior");
+      this.updateMobileHint("Previous building");
     });
     nextButton?.addEventListener("click", () => {
       this.activatePlanningMode("build");
       this.cycleStructure(1);
-      this.updateMobileHint("Siguiente edificio");
+      this.updateMobileHint("Next building");
     });
     pauseButton?.addEventListener("click", () => {
       this.handlePauseToggle();
-      this.updateMobileHint(this.running ? "▶️ Simulación en curso" : "⏸️ En pausa");
+      this.updateMobileHint(this.running ? "▶️ Simulation in progress" : "⏸️ Paused");
     });
     zoomInButton?.addEventListener("click", () => {
       const anchor = this.hoveredCell ? { x: this.hoveredCell.x + 0.5, y: this.hoveredCell.y + 0.5 } : null;
       this.camera.adjustZoom(0.25, anchor ?? undefined);
-      this.updateMobileHint("Acercar mapa");
+      this.updateMobileHint("Zoom in map");
     });
     zoomOutButton?.addEventListener("click", () => {
       const anchor = this.hoveredCell ? { x: this.hoveredCell.x + 0.5, y: this.hoveredCell.y + 0.5 } : null;
       this.camera.adjustZoom(-0.25, anchor ?? undefined);
-      this.updateMobileHint("Alejar mapa");
+      this.updateMobileHint("Zoom out map");
     });
 
     [prevButton, nextButton, pauseButton, zoomInButton, zoomOutButton].forEach((btn) => {
@@ -294,20 +294,20 @@ export class Game {
       return;
     }
     const tipTargets: Array<[HTMLElement | null, string]> = [
-      [this.zoomInButton, "Acercar mapa"],
-      [this.zoomOutButton, "Alejar mapa"],
-      [this.structurePrevButton, "Edificio anterior"],
-      [this.structureNextButton, "Siguiente edificio"],
-      [this.planningHintLabel, "Elige un modo y pinta sobre el mapa."],
+      [this.zoomInButton, "Zoom in map"],
+      [this.zoomOutButton, "Zoom out map"],
+      [this.structurePrevButton, "Previous building"],
+      [this.structureNextButton, "Next building"],
+      [this.planningHintLabel, "Choose a mode and paint over the map."],
     ];
     this.planningButtons.forEach((button) => {
       const mode = button.dataset.planningMode as PlanningMode | undefined;
       if (!mode) return;
       const defaultHints: Record<PlanningMode, string> = {
-        farm: "Marca campos de cultivo.",
-        mine: "Señala minas y canteras.",
-        gather: "Recolecta recursos naturales.",
-        build: "Coloca planos de edificios.",
+        farm: "Mark crop fields.",
+        mine: "Mark mines and quarries.",
+        gather: "Gather natural resources.",
+        build: "Place building blueprints.",
       };
       tipTargets.push([button, defaultHints[mode]]);
     });
@@ -357,25 +357,25 @@ export class Game {
   }
 
   pause() {
-    if (!this.gameInitialized) return; // No pausar si el juego no ha iniciado
+    if (!this.gameInitialized) return; // Do not pause if game has not started
     this.running = false;
-    this.hud.updateStatus("⏸️ En pausa.");
+    this.hud.updateStatus("⏸️ Paused.");
     this.hud.setPauseButtonState(false);
   }
 
   resume() {
-    if (!this.gameInitialized) return; // No reanudar si el juego no ha iniciado
+    if (!this.gameInitialized) return; // Do not resume if game has not started
     if (this.running) return;
     this.running = true;
     this.lastTime = performance.now();
-    this.hud.updateStatus("▶️ Simulación en curso.");
+    this.hud.updateStatus("▶️ Simulation in progress.");
     this.hud.setPauseButtonState(true);
     requestAnimationFrame(this.loop);
   }
 
   private handlePauseToggle = () => {
     if (!this.gameInitialized) {
-      // Si el juego no ha iniciado, cerrar el menú e inicializar
+      // If game has not started, close menu and initialize
       if (this.mainMenu.isMenuVisible()) {
         this.initializeAndStart();
       }
@@ -400,7 +400,7 @@ export class Game {
     this.canvas.addEventListener("touchend", this.handleTouchEnd);
     this.canvas.addEventListener("touchcancel", this.handleTouchCancel);
 
-    // Ocultar tooltip al hacer scroll o redimensionar
+    // Hide tooltip on scroll or resize
     window.addEventListener("scroll", this.hideTooltip);
     window.addEventListener("resize", this.hideTooltip);
   }
@@ -461,7 +461,7 @@ export class Game {
     this.speedMultiplier = multiplier;
     this.updateSpeedButtons();
     if (changed && this.gameInitialized) {
-      this.logEvent(`Velocidad de simulación ${multiplier}×`);
+      this.logEvent(`Simulation speed ${multiplier}×`);
     }
   }
 
@@ -592,21 +592,21 @@ export class Game {
       return;
     }
     if (!this.planningPriority) {
-      this.setPlanningHint("Selecciona un modo para empezar a marcar zonas.");
+      this.setPlanningHint("Select a mode to start marking zones.");
       return;
     }
     if (this.planningPriority === "build") {
       if (!this.selectedStructureType) {
-        this.setPlanningHint("No hay edificios disponibles todavía. Aumenta la población para desbloquearlos.");
+        this.setPlanningHint("No buildings available yet. Increase population to unlock them.");
       } else {
-        this.setPlanningHint("Haz clic en el mapa para trazar el plano del edificio seleccionado.");
+        this.setPlanningHint("Click on the map to place the blueprint of the selected building.");
       }
       return;
     }
     const labels: Record<Exclude<PlanningMode, "build">, string> = {
-      farm: "Arrastra sobre el mapa para señalar zonas de cultivo.",
-      mine: "Pinta sobre colinas o montañas para priorizar la minería.",
-      gather: "Designa zonas de recolección natural para tus trabajadores.",
+      farm: "Drag over the map to mark crop zones.",
+      mine: "Paint over hills or mountains to prioritize mining.",
+      gather: "Designate natural gathering zones for your workers.",
     };
     this.setPlanningHint(labels[this.planningPriority]);
   }
@@ -704,17 +704,17 @@ export class Game {
     });
 
     if (!this.selectedStructureType) {
-      if (this.structureLabel) this.structureLabel.textContent = "Ninguno";
+      if (this.structureLabel) this.structureLabel.textContent = "None";
       if (this.structureStatusLabel) {
         this.structureStatusLabel.textContent = hasOptions
-          ? "Selecciona un edificio para comenzar."
-          : "Aumenta la población para desbloquear edificios.";
+          ? "Select a building to start."
+          : "Increase population to unlock buildings.";
       }
       if (this.buildDetailsContainer) {
         this.buildDetailsContainer.hidden = true;
       }
       if (this.buildDetailsSummary) {
-        this.buildDetailsSummary.textContent = "Selecciona un edificio para ver sus detalles.";
+        this.buildDetailsSummary.textContent = "Select a building to see its details.";
       }
       if (this.buildDetailsCost) {
         this.buildDetailsCost.textContent = "-";
@@ -724,7 +724,7 @@ export class Game {
       }
       if (this.mobileBuildLabel) {
         this.mobileBuildLabel.textContent = "—";
-        this.mobileBuildLabel.title = "Sin edificios disponibles";
+        this.mobileBuildLabel.title = "No buildings available";
       }
       return;
     }
@@ -738,7 +738,7 @@ export class Game {
       }
     }
     if (this.structureStatusLabel) {
-      this.structureStatusLabel.textContent = "Haz clic en el mapa para planificar este edificio.";
+      this.structureStatusLabel.textContent = "Click on the map to plan this building.";
     }
     if (this.buildDetailsContainer) {
       this.buildDetailsContainer.hidden = !definition;
@@ -763,29 +763,29 @@ export class Game {
   private formatStructureCosts(costs: { stone?: number; food?: number; wood?: number }) {
     const parts: string[] = [];
     if (costs.stone && costs.stone > 0) {
-      parts.push(`${costs.stone} piedra${costs.stone > 1 ? "s" : ""}`);
+      parts.push(`${costs.stone} stone${costs.stone > 1 ? "s" : ""}`);
     }
     if (costs.food && costs.food > 0) {
-      parts.push(`${costs.food} comida`);
+      parts.push(`${costs.food} food`);
     }
     if (costs.wood && costs.wood > 0) {
-      parts.push(`${costs.wood} madera${costs.wood > 1 ? "s" : ""}`);
+      parts.push(`${costs.wood} wood${costs.wood > 1 ? "s" : ""}`);
     }
-    return parts.length > 0 ? parts.join(" · ") : "Sin coste";
+    return parts.length > 0 ? parts.join(" · ") : "No cost";
   }
 
   private formatStructureRequirements(req: StructureRequirements) {
     const parts: string[] = [];
     if (req.population) {
-      parts.push(`Población ${req.population}+`);
+      parts.push(`Population ${req.population}+`);
     }
     if (req.structures && req.structures.length > 0) {
       const names = req.structures
         .map((type) => getStructureDefinition(type)?.displayName ?? type)
         .join(", ");
-      parts.push(`Estructuras: ${names}`);
+      parts.push(`Structures: ${names}`);
     }
-    return parts.length > 0 ? parts.join(" | ") : "Ninguno";
+    return parts.length > 0 ? parts.join(" | ") : "None";
   }
 
   private applyPlanningAtCell(cell: Vec2) {
@@ -805,14 +805,14 @@ export class Game {
       return;
     }
     if (!this.selectedStructureType) {
-      this.updatePlanningHint("No hay edificios desbloqueados todavía.");
+      this.updatePlanningHint("No buildings unlocked yet.");
       return;
     }
     const result = this.simulation.planConstruction(this.selectedStructureType, cell);
     if (!result.ok) {
-      this.updatePlanningHint(result.reason ?? "No se pudo trazar el plano aquí.");
+      this.updatePlanningHint(result.reason ?? "Could not place blueprint here.");
     } else {
-      this.updatePlanningHint(`Plano trazado en (${cell.x}, ${cell.y}).`);
+      this.updatePlanningHint(`Blueprint placed at (${cell.x}, ${cell.y}).`);
     }
   }
 
@@ -844,18 +844,18 @@ export class Game {
   private loop = (time: number) => {
     if (!this.running) return;
 
-    // Si el menú está visible, solo renderizarlo
+    // If menu is visible, only render it
     if (this.mainMenu.isMenuVisible()) {
       this.mobileActionBar?.classList.add("is-hidden");
       this.mainMenu.render();
-      // Evitar que el delta explote al cerrar el menú
+      // Prevent delta from exploding when closing the menu
       this.lastTime = time;
       requestAnimationFrame(this.loop);
       return;
     }
     this.mobileActionBar?.classList.remove("is-hidden");
 
-    // Si el juego no está inicializado pero el menú se cerró, inicializar ahora
+    // If game is not initialized but menu closed, initialize now
     if (!this.gameInitialized) {
       this.initializeGame();
     }
@@ -980,8 +980,8 @@ export class Game {
       return;
     }
     this.extinctionAnnounced = true;
-    this.hud.updateStatus("☠️ La tribu ha desaparecido.");
-    this.logEvent("Todos los habitantes han muerto. Usa 'Descargar debug' para guardar el registro.");
+    this.hud.updateStatus("☠️ The tribe has vanished.");
+    this.logEvent("All inhabitants have died. Use 'Download debug' to save the log.");
     this.enableDebugExport();
   };
 
@@ -994,12 +994,12 @@ export class Game {
   private exportDebugLog = () => {
     const entries = this.hud.getHistoryArchive();
     if (entries.length === 0) {
-      this.logEvent("No hay eventos registrados para exportar.");
+      this.logEvent("No events recorded to export.");
       return;
     }
     const now = new Date();
     const timestamp = now.toISOString().replace(/[:.]/g, "-");
-    const header = `Registro de depuración - ${now.toLocaleString()} (entradas: ${entries.length})\n`;
+    const header = `Debug log - ${now.toLocaleString()} (entries: ${entries.length})\n`;
     const lines = entries.map((entry, index) => `${String(index + 1).padStart(4, "0")} ${entry}`);
     const blob = new Blob([header + lines.join("\n")], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -1010,7 +1010,7 @@ export class Game {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    this.logEvent("Registro de depuración exportado.");
+    this.logEvent("Debug log exported.");
   };
 
   private logEvent(message: string, notificationType?: ToastNotification["type"]) {
@@ -1293,7 +1293,7 @@ export class Game {
       return;
     }
     event.preventDefault();
-    this.cellTooltip.hide(); // Ocultar tooltip al hacer zoom
+    this.cellTooltip.hide(); // Hide tooltip on zoom
     const delta = event.deltaY < 0 ? 0.2 : -0.2;
     this.camera.adjustZoom(delta);
   };
@@ -1321,7 +1321,7 @@ export class Game {
     }
     if (event.button === 1) {
       event.preventDefault();
-      this.cellTooltip.hide(); // Ocultar tooltip al iniciar paneo
+      this.cellTooltip.hide(); // Hide tooltip on pan start
       this.camera.startPanning({ x: event.clientX, y: event.clientY });
     }
   };
@@ -1385,7 +1385,7 @@ export class Game {
     this.canvas.width = availableWidth;
     this.canvas.height = availableHeight;
 
-    // Ocultar tooltip al redimensionar
+    // Hide tooltip on resize
     this.cellTooltip.hide();
   };
 
@@ -1409,7 +1409,7 @@ export class Game {
     this.teardownMobileUI();
     this.mobileMediaQuery.removeEventListener("change", this.syncMobileLayout);
     window.removeEventListener("orientationchange", this.syncMobileLayout);
-    // Limpiar otros event listeners si es necesario
+    // Clear other event listeners if necessary
   }
 
 }

@@ -27,7 +27,7 @@ export class MainMenu {
   private ctx: CanvasRenderingContext2D;
   private isVisible: boolean = true;
 
-  // Opciones configurables
+  // Configurable options
   private config: WorldGenerationConfig = {
     seed: Math.floor(Math.random() * 1000000),
     worldSize: 36,
@@ -71,7 +71,7 @@ export class MainMenu {
   constructor(canvas: HTMLCanvasElement, options?: { isMobile?: boolean; onStart?: (config: WorldGenerationConfig) => void }) {
     this.canvas = canvas;
     const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("No se pudo obtener el contexto 2D");
+    if (!ctx) throw new Error("Could not get 2D context");
     this.ctx = ctx;
     this.seedInputValue = this.config.seed.toString();
     this.useMobileLayout = options?.isMobile ?? false;
@@ -89,7 +89,7 @@ export class MainMenu {
     this.canvas.addEventListener("mousemove", (e) => this.handleMouseMove(e));
     this.canvas.addEventListener("click", (e) => this.handleClick(e));
 
-    // Capturar entrada de teclado para el input de semilla mientras el menú está visible
+    // Capture keyboard input for seed input while menu is visible
     this.attachKeyListener();
   }
 
@@ -286,30 +286,30 @@ export class MainMenu {
     const canvasWidth = this.canvas.width;
     const canvasHeight = this.canvas.height;
 
-    // Fondo con gradiente animado
+    // Animated gradient background
     this.renderBackground();
 
     // Render particles
     this.renderParticles();
 
-    // Layout principal
+    // Main layout
     const layout = this.calculateLayout(canvasWidth, canvasHeight);
 
-    // Preview del mundo (fondo completo)
+    // World preview (full background)
     this.renderWorldPreview(layout.preview.x, layout.preview.y, layout.preview.width, layout.preview.height);
 
-    // Título
+    // Title
     this.renderTitle(layout.centerX);
 
-    // Panel de configuración (superpuesto sobre el mapa)
+    // Configuration panel (overlaid on map)
     this.renderConfigPanel(layout.configPanel);
 
-    // Panel de información (solo desktop o muy minimalista en móvil)
+    // Info panel (desktop only or very minimalist on mobile)
     if (!this.useMobileLayout) {
       this.renderInfoPanel(layout.infoPanel);
     }
 
-    // Botón de inicio
+    // Start button
     this.renderStartButton(layout.startButton);
 
     // Footer
@@ -326,18 +326,18 @@ export class MainMenu {
       const available = canvasHeight - margin * 2;
       const gap = 12;
 
-      // Alturas fijas para componentes móviles (reducidas)
+      // Fixed heights for mobile components (reduced)
       const titleHeight = 35;
       const configPanelHeight = 180;
       const startButtonHeight = 48;
 
-      // El preview ocupa el espacio restante, pero con un mínimo
+      // Preview takes remaining space, but with a minimum
       let previewHeight = available - titleHeight - configPanelHeight - startButtonHeight - gap * 3;
       previewHeight = Math.max(60, previewHeight);
 
       const contentWidth = canvasWidth - margin * 2;
 
-      // Posiciones
+      // Positions
       const previewY = margin + titleHeight + gap;
       const configPanelY = previewY + previewHeight + gap;
       const startButtonY = configPanelY + configPanelHeight + gap;
@@ -365,7 +365,7 @@ export class MainMenu {
         centerX,
         useColumns: false,
         preview: { x: margin, y: previewY, width: contentWidth, height: previewHeight },
-        infoPanel: { x: 0, y: 0, width: 0, height: 0 }, // Oculto en móvil
+        infoPanel: { x: 0, y: 0, width: 0, height: 0 }, // Hidden on mobile
         startButton: { x: margin, y: startButtonY, width: contentWidth, height: startButtonHeight },
         configPanel: { x: margin, y: configPanelY, width: contentWidth, height: configPanelHeight }
       };
@@ -458,7 +458,7 @@ export class MainMenu {
     ctx.fillStyle = "#e8dcc5";
     ctx.font = `bold ${titleSize}px "Space Grotesk", Arial`;
     ctx.textAlign = "center";
-    ctx.fillText("🏛️ MUNDO", centerX, yPos);
+    ctx.fillText("🏛️ WORLD", centerX, yPos);
     ctx.restore();
 
     if (!this.useMobileLayout) {
@@ -468,7 +468,7 @@ export class MainMenu {
       ctx.globalAlpha = fadeInProgress;
       ctx.font = `${subtitleSize}px Arial`;
       ctx.fillStyle = "#a89f91";
-      ctx.fillText("Configura tu civilización antes de comenzar", centerX, yPos + 40);
+      ctx.fillText("Configure your civilization before starting", centerX, yPos + 40);
       ctx.restore();
     }
   }
@@ -484,14 +484,14 @@ export class MainMenu {
     ctx.fillStyle = "#ffbca0";
     ctx.font = "bold 13px Arial";
     ctx.textAlign = "left";
-    ctx.fillText("ℹ️ Información:", bounds.x + 16, bounds.y + 22);
+    ctx.fillText("ℹ️ Information:", bounds.x + 16, bounds.y + 22);
 
     ctx.fillStyle = "#d7ccc8";
     ctx.font = "12px Arial";
     const tips = [
-      "• La misma semilla genera el mismo mundo",
-      "• Mundos más grandes = más exploración",
-      "• Puedes copiar la semilla para compartir"
+      "• Same seed generates the same world",
+      "• Larger worlds = more exploration",
+      "• You can copy the seed to share"
     ];
 
     tips.forEach((tip, i) => {
@@ -508,7 +508,7 @@ export class MainMenu {
     // Pulsing glow animation
     const pulseIntensity = 0.2 + Math.sin((performance.now() - this.menuOpenTime) * 0.003) * 0.15;
 
-    // Gradiente del botón
+    // Button gradient
     const gradient = ctx.createLinearGradient(bounds.x, bounds.y, bounds.x, bounds.y + bounds.height);
     if (isHovered) {
       gradient.addColorStop(0, "#ff6b35");
@@ -536,7 +536,7 @@ export class MainMenu {
     ctx.stroke();
     ctx.restore();
 
-    // Texto del botón con scale effect on hover
+    // Button text with scale effect on hover
     ctx.save();
     if (isHovered) {
       const scale = 1.05;
@@ -548,7 +548,7 @@ export class MainMenu {
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 20px Arial";
     ctx.textAlign = "center";
-    ctx.fillText("🚀 JUGAR", bounds.x + bounds.width / 2, bounds.y + bounds.height / 2 + 7);
+    ctx.fillText("🚀 PLAY", bounds.x + bounds.width / 2, bounds.y + bounds.height / 2 + 7);
     ctx.restore();
   }
 
@@ -561,7 +561,7 @@ export class MainMenu {
     ctx.shadowBlur = 40;
     ctx.shadowOffsetY = 10;
 
-    // Fondo del panel
+    // Panel background
     ctx.fillStyle = "rgba(44, 30, 20, 0.95)";
     ctx.beginPath();
     ctx.roundRect(bounds.x, bounds.y, bounds.width, bounds.height, 16);
@@ -581,15 +581,15 @@ export class MainMenu {
     const contentX = bounds.x + padding;
     const contentWidth = bounds.width - padding * 2;
 
-    // Sección: Semilla
+    // Section: Seed
     currentY = this.renderSeedSection(contentX, currentY, contentWidth);
     currentY += this.useMobileLayout ? 14 : 25;
 
-    // Sección: Tamaño del mundo
+    // Section: World size
     currentY = this.renderWorldSizeSection(contentX, currentY, bounds.x + bounds.width / 2);
     currentY += this.useMobileLayout ? 14 : 35;
 
-    // Sección: Dificultad
+    // Section: Difficulty
     this.renderDifficultySection(contentX, currentY, bounds.x + bounds.width / 2);
   }
 
@@ -597,11 +597,11 @@ export class MainMenu {
     const ctx = this.ctx;
 
     // Título
-    // Título
+    // Title
     ctx.fillStyle = "#f4d03f";
     ctx.font = this.useMobileLayout ? "bold 12px Arial" : "bold 14px Arial";
     ctx.textAlign = "left";
-    ctx.fillText("SEMILLA", x, y);
+    ctx.fillText("SEED", x, y);
 
     y += this.useMobileLayout ? 12 : 15;
 
@@ -635,7 +635,7 @@ export class MainMenu {
       ctx.fillRect(x + 14 + textWidth, y + 12, 2, 20);
     }
 
-    // Botón aleatorio (Icono de dado)
+    // Random button (Dice icon)
     const randomX = x + inputWidth + spacing;
     const isRandomHovered = this.hoveredButton === "randomSeed";
 
@@ -663,7 +663,7 @@ export class MainMenu {
     ctx.fillStyle = "#f4d03f";
     ctx.font = this.useMobileLayout ? "bold 12px Arial" : "bold 14px Arial";
     ctx.textAlign = "left";
-    ctx.fillText("TAMAÑO", x, y);
+    ctx.fillText("SIZE", x, y);
 
     y += this.useMobileLayout ? 12 : 15;
 
@@ -684,14 +684,14 @@ export class MainMenu {
     ctx.fillStyle = "#f4d03f";
     ctx.font = this.useMobileLayout ? "bold 12px Arial" : "bold 14px Arial";
     ctx.textAlign = "left";
-    ctx.fillText("DIFICULTAD", x, y);
+    ctx.fillText("DIFFICULTY", x, y);
 
     y += this.useMobileLayout ? 12 : 15;
 
     const difficultyOptions: Array<{ label: string; value: "easy" | "normal" | "hard"; key: MenuButtonKey; icon: string }> = [
-      { label: "Fácil", value: "easy", key: "difficultyEasy", icon: "😌" },
+      { label: "Easy", value: "easy", key: "difficultyEasy", icon: "😌" },
       { label: "Normal", value: "normal", key: "difficultyNormal", icon: "😐" },
-      { label: "Difícil", value: "hard", key: "difficultyHard", icon: "💀" }
+      { label: "Hard", value: "hard", key: "difficultyHard", icon: "💀" }
     ];
 
     this.renderOptionButtons(difficultyOptions, y, this.config.difficulty, centerX, true);
@@ -724,11 +724,11 @@ export class MainMenu {
     ctx.fillStyle = "#f4d03f";
     ctx.font = "bold 15px Arial";
     ctx.textAlign = "left";
-    ctx.fillText("🧭 Vista previa del mundo", x + 12, y + 24);
+    ctx.fillText("🧭 World Preview", x + 12, y + 24);
 
     ctx.font = "12px Arial";
     ctx.fillStyle = "#a89f91";
-    ctx.fillText(`Semilla ${this.config.seed} • ${this.config.worldSize}x${this.config.worldSize}`, x + 12, y + 42);
+    ctx.fillText(`Seed ${this.config.seed} • ${this.config.worldSize}x${this.config.worldSize}`, x + 12, y + 42);
 
     const previewWorld = this.ensurePreviewWorld();
     const gridTopOffset = this.useMobileLayout ? 28 : 50;
@@ -742,7 +742,7 @@ export class MainMenu {
       ctx.globalAlpha = loadingAlpha;
       ctx.fillStyle = "#94a3b8";
       ctx.font = "13px Arial";
-      ctx.fillText("Generando vista previa...", x + 12, y + gridTopOffset + 30);
+      ctx.fillText("Generating preview...", x + 12, y + gridTopOffset + 30);
       ctx.restore();
       return;
     }
@@ -785,7 +785,7 @@ export class MainMenu {
     ctx.fillRect(x + 10, y + height - 26, width - 20, 18);
     ctx.font = "11px Arial";
     ctx.fillStyle = "#ffbca0";
-    ctx.fillText("Cambia semilla o tamaño para regenerar la vista previa.", x + 15, y + height - 13);
+    ctx.fillText("Change seed or size to regenerate preview.", x + 15, y + height - 13);
   }
 
   private getPreviewTerrainColor(terrain: Terrain): string {
@@ -843,7 +843,7 @@ export class MainMenu {
     const ctx = this.ctx;
     const centerX = centerXOverride ?? this.canvas.width / 2;
 
-    // Botones más compactos
+    // More compact buttons
     // Calculate button width based on available space if needed
     const maxButtonWidth = this.useMobileLayout ? (this.canvas.width - 40) / options.length - 10 : 100;
     const buttonWidth = Math.min(this.useMobileLayout ? 70 : 100, maxButtonWidth);
@@ -866,7 +866,7 @@ export class MainMenu {
         ctx.shadowBlur = 15;
       }
 
-      // Fondo
+      // Background
       ctx.fillStyle = isSelected
         ? "rgba(255, 107, 53, 0.25)"
         : isHovered
@@ -882,19 +882,19 @@ export class MainMenu {
         ctx.restore();
       }
 
-      // Borde
+      // Border
       ctx.strokeStyle = isSelected ? "#ff6b35" : isHovered ? "rgba(255, 107, 53, 0.4)" : "rgba(168, 159, 145, 0.2)";
       ctx.lineWidth = isSelected ? 2 : 1;
       ctx.stroke();
 
-      // Icono
+      // Icon
       if (option.icon) {
         ctx.font = this.useMobileLayout ? "16px Arial" : "20px Arial";
         ctx.textAlign = "center";
         ctx.fillText(option.icon, startX + buttonWidth / 2, y + 24);
       }
 
-      // Etiqueta
+      // Label
       ctx.fillStyle = isSelected ? "#ffccbc" : isHovered ? "#c9bfb3" : "#a89f91";
       ctx.font = this.useMobileLayout ? (isSelected ? "bold 10px Arial" : "10px Arial") : (isSelected ? "bold 11px Arial" : "11px Arial");
       ctx.textAlign = "center";

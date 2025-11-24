@@ -59,11 +59,11 @@ export class WorldEngine {
     const cell = this.cells[y]?.[x];
     if (!cell) return false;
 
-    // Terrenos no caminables (solo océano y nieve)
+    // Unwalkable terrains (only ocean and snow)
     const unwalkable: Terrain[] = ["ocean", "snow"];
     if (unwalkable.includes(cell.terrain)) return false;
 
-    // Las montañas y ríos son caminables pero con costo adicional de fatiga
+    // Mountains and rivers are walkable but with additional fatigue cost
     return true;
   }
 
@@ -211,7 +211,7 @@ export class WorldEngine {
 
     this.cells.forEach((row) => {
       row.forEach((cell) => {
-        // Actualizar humedad según clima
+        // Update moisture based on climate
         if (fertileTerrains.includes(cell.terrain)) {
           cell.moisture = clamp(
             cell.moisture + (climate.rainy ? 0.02 : climate.drought ? -0.03 : -0.005),
@@ -221,7 +221,7 @@ export class WorldEngine {
 
         }
 
-        // Crecimiento de recursos renovables
+        // Renewable resource growth
         if (cell.resource?.type === "food" && cell.resource.renewable) {
           const climateModifier = (climate.rainy ? 0.5 : 0) - (climate.drought ? 0.8 : 0);
           const growth = (cell.fertility + climateModifier) * 0.02;
@@ -236,7 +236,7 @@ export class WorldEngine {
           cell.resource.amount = nextAmount;
         }
 
-        // Crecimiento de cultivos por etapas
+        // Crop growth by stages
         if (cell.priority === "farm" && cell.cropStage === 0 && !cell.farmTask) {
           cell.farmTask = "sow";
         }
