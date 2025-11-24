@@ -28,6 +28,8 @@ export class SimulationSession {
   private resourceTrackTimer = 0;
   private extinctionAnnounced = false;
   private initialized = false;
+  private faith = 0;
+  private faithPerHour = 0;
 
   constructor(private playerTribeId: number, private hooks: SimulationHooks = {}) { }
 
@@ -38,6 +40,8 @@ export class SimulationSession {
     this.resourceHistory = [];
     this.resourceTrackTimer = 0;
     this.extinctionAnnounced = false;
+    this.faith = 0;
+    this.faithPerHour = 0;
     this.world = new WorldEngine(config.worldSize, config.seed);
 
     this.citizenSystem = new CitizenSystem(this.world, (event) => this.handleCitizenEvent(event));
@@ -71,6 +75,7 @@ export class SimulationSession {
     this.updateEvents(tickHours);
     this.world.updateEnvironment(this.climate, tickHours);
     this.citizenSystem.update(tickHours);
+    this.generateFaith(tickHours);
     this.trackResourceTrends(tickHours);
     this.checkExtinction();
   }
@@ -130,6 +135,10 @@ export class SimulationSession {
 
   getClimate() {
     return this.climate;
+  }
+
+  getFaithSnapshot() {
+    return { value: this.faith, perHour: this.faithPerHour };
   }
 
   getResourceTrendAverage(type: keyof ResourceTrend) {
@@ -254,5 +263,20 @@ export class SimulationSession {
 
   private log(message: string, notificationType?: ToastNotification["type"]) {
     this.hooks.onLog?.(message, notificationType);
+  }
+
+  private generateFaith(tickHours: number) {
+    const devoteeCount = this.citizenSystem.getDevoteeCount(this.playerTribeId);
+    if (devoteeCount <= 0) {
+      this.faithPerHour = 0;
+      return;
+    }
+    const templeCount = this.world.getStructureCount("temple");
+    const basePerHour = 0.6; // base faith per devotee per in-game hour
+    const templeBonus = 1 + Math.max(0, templeCount - 1) * 0.1;
+    const gainPerHour = devoteeCount * basePerHour * templeBonus;
+    this.faithPerHour = gainPerHour;
+    const gainThisTick = gainPerHour * (tickHours / 1);
+    this.faith += gainThisTick;
   }
 }
