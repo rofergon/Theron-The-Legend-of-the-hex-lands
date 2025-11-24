@@ -126,6 +126,14 @@ export class WorldEngine {
     return this.structureManager.planStructure(type, anchor, (x, y) => this.isWalkable(x, y));
   }
 
+  getStructureCount(type: StructureType) {
+    return this.structureManager.getStructureCount(type);
+  }
+
+  getStructures() {
+    return this.structureManager.getStructures();
+  }
+
   cancelConstruction(siteId: number) {
     return this.structureManager.cancelConstruction(siteId);
   }
