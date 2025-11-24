@@ -177,6 +177,7 @@ body {
   overflow: hidden;
 }
 
+
 #left-panel {
   width: 340px;
   min-width: 340px;
@@ -1519,4 +1520,56 @@ body {
   top: -4px;
   right: -4px;
   font-size: 0.7rem;
+}
+
+/* Header Controls (Speed + Pause) */
+.header-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.speed-controls-header {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.header-control-btn {
+  padding: 0.45rem 0.75rem;
+  background: var(--color-btn-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text-primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.03em;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  min-width: 38px;
+  text-align: center;
+}
+
+.header-control-btn:hover {
+  background: var(--color-btn-hover);
+  border-color: var(--color-accent-fire);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(255, 107, 53, 0.2);
+}
+
+.header-control-btn:active {
+  transform: translateY(0);
+}
+
+.header-control-btn.active {
+  background: rgba(255, 107, 53, 0.25);
+  border-color: var(--color-accent-fire);
+  box-shadow: 0 0 16px rgba(255, 107, 53, 0.3);
+}
+
+.pause-btn {
+  font-size: 1.1rem;
+  padding: 0.45rem 0.65rem;
 }

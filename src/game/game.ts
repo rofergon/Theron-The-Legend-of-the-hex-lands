@@ -1014,11 +1014,12 @@ export class Game {
   };
 
   private logEvent(message: string, notificationType?: ToastNotification["type"]) {
-    this.hud.appendHistory(message);
-
+    // Skip DEBUG messages completely - don't add to history
     if (message.startsWith("[DEBUG]")) {
       return;
     }
+
+    this.hud.appendHistory(message);
 
     if (notificationType) {
       this.hud.showNotification(message, notificationType);

@@ -43,6 +43,17 @@
           <span class="hud-pill-value" id="water" aria-label="Agua">0</span>
         </div>
       </div>
+      <div class="header-controls" aria-label="Controles de simulación">
+        <div class="speed-controls-header" role="group" aria-label="Velocidad">
+          <button type="button" class="header-control-btn speed-button" data-speed="1"
+            title="Velocidad normal (1x)">1×</button>
+          <button type="button" class="header-control-btn speed-button" data-speed="2"
+            title="Velocidad rápida (2x)">2×</button>
+          <button type="button" class="header-control-btn speed-button" data-speed="5"
+            title="Velocidad muy rápida (5x)">5×</button>
+        </div>
+        <button id="pause-button" class="header-control-btn pause-btn" title="Pausar/Reanudar">⏸️</button>
+      </div>
     </header>
 
     <!-- Citizen Portrait Bar (RimWorld-style) -->
@@ -167,23 +178,6 @@
           </div>
 
           <div class="planning-hint" id="planning-hint">Selecciona un modo para empezar a marcar zonas.
-          </div>
-        </section>
-
-        <section class="panel-block" id="instructions">
-          <h2>Simulación</h2>
-          <p id="status-text">Simulación en curso.</p>
-          <div id="speed-controls" class="speed-controls" role="group" aria-label="Velocidad de simulación">
-            <span class="speed-label">Velocidad:</span>
-            <div class="speed-button-group">
-              <button type="button" class="panel-button speed-button" data-speed="1">1× Normal</button>
-              <button type="button" class="panel-button speed-button" data-speed="2">2×</button>
-              <button type="button" class="panel-button speed-button" data-speed="5">5×</button>
-            </div>
-          </div>
-          <div class="panel-actions">
-            <button id="pause-button" class="panel-button">⏸️ Pausar</button>
-            <button id="debug-export" class="panel-button" disabled>⬇️ Descargar debug</button>
           </div>
         </section>
 
