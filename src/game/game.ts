@@ -1376,14 +1376,13 @@ export class Game {
     const wrapperRect = gameWrapper.getBoundingClientRect();
     const padding = this.useMobileLayout ? 12 : 32;
     const mobileOffset = this.useMobileLayout ? 96 : 0;
-    const availableWidth = wrapperRect.width - padding;
-    const availableHeight = wrapperRect.height - padding - mobileOffset;
-    const size = Math.max(0, Math.min(availableWidth, availableHeight));
+    const availableWidth = Math.max(0, wrapperRect.width - padding);
+    const availableHeight = Math.max(0, wrapperRect.height - padding - mobileOffset);
 
-    this.canvas.style.width = `${size}px`;
-    this.canvas.style.height = `${size}px`;
-    this.canvas.width = size;
-    this.canvas.height = size;
+    this.canvas.style.width = `${availableWidth}px`;
+    this.canvas.style.height = `${availableHeight}px`;
+    this.canvas.width = availableWidth;
+    this.canvas.height = availableHeight;
 
     // Ocultar tooltip al redimensionar
     this.cellTooltip.hide();
