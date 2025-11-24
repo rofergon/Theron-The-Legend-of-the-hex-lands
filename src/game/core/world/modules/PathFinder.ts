@@ -6,6 +6,8 @@ type PathCacheEntry = {
     updatedAt: number;
 };
 
+const PATH_CACHE_TTL_MS = 5_000;
+
 const PATH_NEIGHBOR_OFFSETS: Vec2[] = [
     { x: 1, y: 0 },
     { x: -1, y: 0 },
@@ -51,14 +53,29 @@ export class PathFinder {
         }
         const startKey = this.coordKey(start.x, start.y);
         const goalKey = this.coordKey(goal.x, goal.y);
-        return this.extractPathFromField(startKey, goalKey, cache.cameFrom);
+        const path = this.extractPathFromField(startKey, goalKey, cache.cameFrom);
+        if (!path) {
+            return null;
+        }
+        if (!this.pathIsWalkable(path, start, goal)) {
+            this.pathCache.delete(cacheKey);
+            return null;
+        }
+        return path;
     }
 
     private ensurePathCache(cacheKey: string, goal: Vec2): PathCacheEntry | null {
+        const now = Date.now();
         const existing = this.pathCache.get(cacheKey);
-        if (existing && existing.target.x === goal.x && existing.target.y === goal.y) {
+        const targetMatches = existing && existing.target.x === goal.x && existing.target.y === goal.y;
+        const fresh = existing && now - existing.updatedAt <= PATH_CACHE_TTL_MS;
+        const goalWalkable = this.isWalkable(goal.x, goal.y);
+
+        if (existing && targetMatches && fresh && goalWalkable) {
             return existing;
         }
+        this.pathCache.delete(cacheKey);
+
         const nextCache = this.buildPathCache(goal);
         if (nextCache) {
             this.pathCache.set(cacheKey, nextCache);
@@ -235,5 +252,17 @@ export class PathFinder {
     private stepCost(a: Vec2, b: Vec2): number {
         const diagonal = a.x !== b.x && a.y !== b.y;
         return diagonal ? Math.SQRT2 : 1;
+    }
+
+    private pathIsWalkable(path: Vec2[], start: Vec2, goal: Vec2): boolean {
+        if (!this.isWalkable(start.x, start.y) || !this.isWalkable(goal.x, goal.y)) {
+            return false;
+        }
+        for (const step of path) {
+            if (!this.isWalkable(step.x, step.y)) {
+                return false;
+            }
+        }
+        return true;
     }
 }
