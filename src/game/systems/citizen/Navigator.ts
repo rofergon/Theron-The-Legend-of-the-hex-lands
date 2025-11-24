@@ -1,5 +1,5 @@
 import { clamp } from "../../core/utils";
-import type { Citizen, Vec2 } from "../../core/types";
+import type { Citizen, Terrain, Vec2 } from "../../core/types";
 import type { WorldEngine } from "../../core/world/WorldEngine";
 
 /**
@@ -7,7 +7,7 @@ import type { WorldEngine } from "../../core/world/WorldEngine";
  * behavior can be reused by other systems.
  */
 export class Navigator {
-  constructor(private world: WorldEngine) {}
+  constructor(private world: WorldEngine) { }
 
   moveCitizenTowards(citizen: Citizen, targetX: number, targetY: number) {
     const target = { x: targetX, y: targetY };
@@ -73,6 +73,10 @@ export class Navigator {
       citizen.lastPosition = previousPosition;
       citizen.path?.shift();
       citizen.stuckCounter = 0;
+
+      // Aplicar costo de movimiento por terreno
+      this.applyMovementCost(citizen, nextStep);
+
       if (!citizen.path || citizen.path.length === 0) {
         this.clearCitizenPath(citizen);
       }
@@ -142,6 +146,7 @@ export class Navigator {
           citizen.lastPosition = { x: citizen.x, y: citizen.y };
           citizen.x = next.x;
           citizen.y = next.y;
+          this.applyMovementCost(citizen, next);
           return;
         }
       }
@@ -155,6 +160,7 @@ export class Navigator {
           citizen.lastPosition = { x: citizen.x, y: citizen.y };
           citizen.x = next.x;
           citizen.y = next.y;
+          this.applyMovementCost(citizen, next);
           return;
         }
       }
@@ -179,6 +185,7 @@ export class Navigator {
           citizen.lastPosition = { x: citizen.x, y: citizen.y };
           citizen.x = next.x;
           citizen.y = next.y;
+          this.applyMovementCost(citizen, next);
           citizen.stuckCounter = 0;
           return;
         }
@@ -218,5 +225,23 @@ export class Navigator {
     delete citizen.unreachableTarget;
     delete citizen.unreachableCacheKey;
     delete citizen.unreachableCooldown;
+  }
+
+  private applyMovementCost(citizen: Citizen, position: Vec2) {
+    const cell = this.world.getCell(position.x, position.y);
+    if (!cell) return;
+
+    // Costo de fatiga por tipo de terreno
+    const terrainCost: Partial<Record<Terrain, number>> = {
+      mountain: 2.0,  // Doble fatiga en montañas
+      river: 1.5,     // 50% más fatiga en ríos
+      swamp: 1.3,     // 30% más fatiga en pantanos
+    };
+
+    const baseFatigue = 0.5; // Fatiga base por movimiento
+    const multiplier = terrainCost[cell.terrain] ?? 1.0;
+    const fatigueCost = baseFatigue * multiplier;
+
+    citizen.fatigue = clamp(citizen.fatigue + fatigueCost, 0, 100);
   }
 }
