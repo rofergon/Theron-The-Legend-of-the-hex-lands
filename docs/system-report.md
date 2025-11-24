@@ -5,6 +5,14 @@
 - Propose a technical architecture: game layers, backend “ledger”, and contracts.
 - Suggest concrete steps to start implementing the mechanics in your current codebase.
 
+## Frontend-only scope for this pass
+
+- Deliver just the UI layer of the plan (no backend/ledger yet): counters live in client state and actions fire mock handlers.
+- HUD/economy bar: show Faith and Token1/Token2 readouts plus a “Convertir Fe” CTA that opens a lightweight panel or toast stub.
+- Economy/Temple panel: surface Faith per hora and a convert button; block actions when there is no Faith available.
+- Lands/chests selection: simple picker in main menu with mock rarity/bioma tags; selections only tweak local session config.
+- Keep blockchain mentions as copy only; buttons link to stubs/logs for now.
+
 ## 1. Tokens and Resources Definition
 
 ### Weak Token (Token1, in‑game)
@@ -84,6 +92,10 @@
     - Current **Faith** indicator.
     - **Faith per hour** generation indicator.
     - A **“Convert Faith → Token1”** button.
+  - Slide/UI: **Asignación de devotos** en el panel de Oficios:
+    - Nueva fila con slider “Devotos” y badge `ocupado/total` (total = templos × `maxDevotees`).
+    - El slider queda deshabilitado hasta construir el primer templo y muestra tooltip explicando el bloqueo.
+    - En este entregable solo actualiza la UI; la lógica de adoración real se conectará en el backend/simulación después.
 
 ## 3. Lands System (World Map)
 
