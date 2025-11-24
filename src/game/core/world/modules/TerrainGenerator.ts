@@ -33,7 +33,7 @@ export class TerrainGenerator {
     public generateTerrain(): WorldCell[][] {
         const rows: WorldCell[][] = [];
 
-        // Paso 1: Generar mapas de elevación y humedad con múltiples octavas
+        // Step 1: Generate elevation and moisture maps with multiple octaves
         const elevationMap: number[][] = [];
         const moistureMap: number[][] = [];
 
@@ -41,7 +41,7 @@ export class TerrainGenerator {
             elevationMap[y] = [];
             moistureMap[y] = [];
             for (let x = 0; x < this.size; x += 1) {
-                // Múltiples octavas para elevación (más detalle)
+                // Multiple octaves for elevation (more detail)
                 let elevation = this.multiOctaveNoise(x, y, this.seed, [
                     { freq: 1, amp: 1.0 },
                     { freq: 2, amp: 0.5 },
@@ -50,11 +50,11 @@ export class TerrainGenerator {
                     { freq: 16, amp: 0.06 }
                 ]);
 
-                // Redistribución para crear valles planos y montañas pronunciadas
+                // Redistribution to create flat valleys and steep mountains
                 elevation = Math.pow(elevation, 2.5);
                 elevationMap[y]![x] = elevation;
 
-                // Múltiples octavas para humedad con offsets muy diferentes para evitar correlación
+                // Multiple octaves for moisture with very different offsets to avoid correlation
                 const moisture = this.multiOctaveNoise(x + 12345, y + 67890, this.seed + 314159, [
                     { freq: 1, amp: 1.0 },
                     { freq: 2, amp: 0.75 },
@@ -67,10 +67,10 @@ export class TerrainGenerator {
 
         const biomeRegions = this.generateBiomeRegions(elevationMap, moistureMap, this.seed);
 
-        // Paso 2: Generar ríos desde picos de montañas
+        // Step 2: Generate rivers from mountain peaks
         const rivers = this.generateRivers(elevationMap, moistureMap);
 
-        // Paso 3: Crear celdas con biomas basados en elevación y humedad
+        // Step 3: Create cells with biomes based on elevation and moisture
         for (let y = 0; y < this.size; y += 1) {
             const row: WorldCell[] = [];
             for (let x = 0; x < this.size; x += 1) {
@@ -87,7 +87,7 @@ export class TerrainGenerator {
                 }
                 terrain = this.applyExtremeElevationBias(terrain, elevation, moisture);
 
-                // Sobrescribir con río si existe
+                // Overwrite with river if it exists
                 if (rivers.has(`${x},${y}`)) {
                     terrain = "river";
                 }
@@ -138,7 +138,7 @@ export class TerrainGenerator {
         octaves.forEach((octave, i) => {
             const frequency = baseFrequency * octave.freq;
 
-            // Domain warping para eliminar patrones diagonales
+            // Domain warping to eliminate diagonal patterns
             const warpStrength = 8.0;
             const warpFreq = frequency * 0.5;
 
@@ -148,7 +148,7 @@ export class TerrainGenerator {
             const warpedX = x + warpX;
             const warpedY = y + warpY;
 
-            // Usar offsets más diversos y primos grandes para evitar correlación
+            // Use more diverse offsets and large primes to avoid correlation
             const offsetX = i * 127.1;
             const offsetY = i * 311.7;
             const offsetSeed = seed + i * 2654435761;
@@ -161,55 +161,55 @@ export class TerrainGenerator {
             totalAmplitude += octave.amp;
         });
 
-        // Normalizar al rango [0, 1]
+        // Normalize to range [0, 1]
         return clamp(total / totalAmplitude, 0, 1);
     }
 
     private determineBiome(elevation: number, moisture: number): Terrain {
-        // Sistema de biomas mejorado con transiciones más naturales
-        // Basado en elevación (temperatura) y humedad
+        // Improved biome system with more natural transitions
+        // Based on elevation (temperature) and moisture
 
-        // Océanos - umbrales más estrictos para evitar dispersión
+        // Oceans - stricter thresholds to avoid dispersion
         if (elevation < 0.08) return "ocean";
         // Beach generation is now handled in post-processing
 
 
-        // Montañas altas (frío) - transiciones más suaves
+        // High mountains (cold) - smoother transitions
         if (elevation > 0.85) {
-            if (moisture < 0.15) return "mountain"; // Montaña árida
+            if (moisture < 0.15) return "mountain"; // Arid mountain
             if (moisture < 0.35) return "tundra";
-            return "snow"; // Picos nevados
+            return "snow"; // Snowy peaks
         }
 
-        // Tierras altas
+        // Highlands
         if (elevation > 0.7) {
-            if (moisture < 0.2) return "mountain"; // Montaña media
+            if (moisture < 0.2) return "mountain"; // Medium mountain
             if (moisture < 0.4) return "tundra";
             if (moisture < 0.7) return "forest";
-            return "tundra"; // Bosque frío de montaña
+            return "tundra"; // Cold mountain forest
         }
 
-        // Tierras medias-altas
+        // Mid-highlands
         if (elevation > 0.5) {
             if (moisture < 0.25) return "desert";
             if (moisture < 0.45) return "grassland";
             if (moisture < 0.75) return "forest";
-            return "forest"; // Bosque húmedo
+            return "forest"; // Humid forest
         }
 
-        // Tierras medias
+        // Midlands
         if (elevation > 0.25) {
             if (moisture < 0.2) return "desert";
             if (moisture < 0.4) return "grassland";
             if (moisture < 0.8) return "forest";
-            return "swamp"; // Pantano en tierras bajas húmedas
+            return "swamp"; // Swamp in humid lowlands
         }
 
-        // Tierras bajas - más coherentes
-        if (moisture < 0.25) return "grassland"; // Pradera costera
+        // Lowlands - more coherent
+        if (moisture < 0.25) return "grassland"; // Coastal grassland
         if (moisture < 0.5) return "grassland";
         if (moisture < 0.8) return "forest";
-        return "swamp"; // Pantano costero
+        return "swamp"; // Coastal swamp
     }
 
     private generateBiomeRegions(
@@ -217,16 +217,16 @@ export class TerrainGenerator {
         moistureMap: number[][],
         seed: number
     ): BiomeRegionResult {
-        const approxRegionSize = Math.max(12, Math.floor(this.size / 4)); // Regiones más grandes
+        const approxRegionSize = Math.max(12, Math.floor(this.size / 4)); // Larger regions
         const targetRegions = clamp(
             Math.floor((this.size * this.size) / (approxRegionSize * approxRegionSize)),
             6,
-            32 // Menos regiones para mayor cohesión
+            32 // Fewer regions for greater cohesion
         );
         const regionSeed = (seed ^ 0x9e3779b9) >>> 0;
         const regionRng = mulberry32(regionSeed);
         const regions: BiomeRegion[] = [];
-        const candidateTries = 15; // Más intentos para mejor distribución
+        const candidateTries = 15; // More attempts for better distribution
 
         for (let i = 0; i < targetRegions; i += 1) {
             let bestCandidate: Vec2 | undefined;
@@ -327,7 +327,7 @@ export class TerrainGenerator {
             }
         }
 
-        this.smoothBiomeRegions(regionMap, 3); // Más iteraciones de suavizado
+        this.smoothBiomeRegions(regionMap, 3); // More smoothing iterations
         return { map: regionMap, regions };
     }
 
@@ -342,13 +342,13 @@ export class TerrainGenerator {
                     if (current === undefined) continue;
                     const counts = new Map<number, number>();
 
-                    // Usar un radio más grande para mayor suavizado
+                    // Use a larger radius for greater smoothing
                     const radius = iteration === 0 ? 1 : 2;
                     for (let dy = -radius; dy <= radius; dy += 1) {
                         for (let dx = -radius; dx <= radius; dx += 1) {
                             const id = snapshot[y + dy]?.[x + dx];
                             if (id === undefined) continue;
-                            // Dar más peso a celdas más cercanas
+                            // Give more weight to closer cells
                             const distance = Math.abs(dx) + Math.abs(dy);
                             const weight = distance === 0 ? 3 : distance === 1 ? 2 : 1;
                             counts.set(id, (counts.get(id) ?? 0) + weight);
@@ -356,7 +356,7 @@ export class TerrainGenerator {
                     }
 
                     const dominant = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
-                    const threshold = iteration === 0 ? 8 : 12; // Umbral más alto para mayor estabilidad
+                    const threshold = iteration === 0 ? 8 : 12; // Higher threshold for greater stability
                     if (dominant && dominant[1] >= threshold && dominant[0] !== current) {
                         const row = regionMap[y];
                         if (!row) continue;
@@ -370,20 +370,20 @@ export class TerrainGenerator {
     private getBiomeSpread(biome: Terrain): number {
         switch (biome) {
             case "ocean":
-                return 0.5; // Más concentrado para evitar dispersión
+                return 0.5; // More concentrated to avoid dispersion
             case "beach":
-                return 0.8; // Más cohesivo alrededor del océano
+                return 0.8; // More cohesive around the ocean
             case "mountain":
             case "snow":
-                return 1.4; // Mayor expansión para montañas
+                return 1.4; // Greater expansion for mountains
             case "desert":
-                return 1.3; // Desiertos más extensos
+                return 1.3; // More extensive deserts
             case "forest":
-                return 1.1; // Bosques ligeramente expansivos
+                return 1.1; // Slightly expansive forests
             case "swamp":
-                return 0.7; // Pantanos más localizados
+                return 0.7; // More localized swamps
             case "river":
-                return 0.3; // Ríos muy localizados
+                return 0.3; // Very localized rivers
             default:
                 return 1;
         }
@@ -399,16 +399,16 @@ export class TerrainGenerator {
             return localBiome;
         }
 
-        // Biomas acuáticos tienen prioridad absoluta para evitar dispersión
+        // Aquatic biomes have absolute priority to avoid dispersion
         if (regionBiome === "ocean" || regionBiome === "beach") {
             return regionBiome;
         }
 
-        // Transiciones más naturales para montañas
+        // More natural transitions for mountains
         if (regionBiome === "snow") {
             if (elevation > 0.75) return "snow";
             if (elevation > 0.6) return "tundra";
-            return localBiome; // Transición gradual
+            return localBiome; // Gradual transition
         }
 
         if (regionBiome === "mountain") {
@@ -417,27 +417,27 @@ export class TerrainGenerator {
             return localBiome;
         }
 
-        // Transiciones más suaves para desiertos
+        // Smoother transitions for deserts
         if (regionBiome === "desert") {
-            if (moisture > 0.6) return "grassland"; // Transición a pradera
+            if (moisture > 0.6) return "grassland"; // Transition to grassland
             if (moisture > 0.4 && elevation < 0.3) return "grassland";
             return regionBiome;
         }
 
-        // Pantanos requieren condiciones específicas
+        // Swamps require specific conditions
         if (regionBiome === "swamp") {
             if (moisture < 0.4 || elevation > 0.5) return localBiome;
             return regionBiome;
         }
 
-        // Tundra con transiciones mejoradas
+        // Tundra with improved transitions
         if (regionBiome === "tundra") {
             if (elevation < 0.3) return "grassland";
             if (elevation < 0.5 && moisture > 0.6) return "forest";
             return regionBiome;
         }
 
-        // Bosques con transiciones naturales
+        // Forests with natural transitions
         if (regionBiome === "forest") {
             if (moisture < 0.2) return "grassland";
             if (elevation > 0.8) return "tundra";
@@ -448,30 +448,30 @@ export class TerrainGenerator {
     }
 
     private applyExtremeElevationBias(terrain: Terrain, elevation: number, moisture: number): Terrain {
-        // No modificar ríos
+        // Do not modify rivers
         if (terrain === "river") {
             return terrain;
         }
 
-        // Océanos más concentrados y coherentes
+        // Oceans more concentrated and coherent
         if (elevation < 0.06) {
             return "ocean";
         }
         // Beach forcing removed to rely on adjacency
 
 
-        // Montañas con transiciones más naturales
+        // Mountains with more natural transitions
         if (elevation > 0.9) {
             return moisture > 0.3 ? "snow" : "mountain";
         }
         if (elevation > 0.8) {
             if (terrain === "ocean" || terrain === "beach") {
-                return terrain; // Mantener características acuáticas
+                return terrain; // Maintain aquatic characteristics
             }
             return moisture > 0.5 ? "snow" : moisture > 0.3 ? "tundra" : "mountain";
         }
 
-        // Correcciones para coherencia de biomas húmedos
+        // Corrections for humid biome coherence
         if (terrain === "desert" && moisture > 0.6) {
             return "grassland";
         }
@@ -488,17 +488,17 @@ export class TerrainGenerator {
     private generateRivers(elevationMap: number[][], moistureMap: number[][]): Set<string> {
         const riverCells = new Set<string>();
 
-        // Encontrar picos de montañas para colocar fuentes de ríos
+        // Find mountain peaks to place river sources
         const peaks: Vec2[] = [];
         for (let y = 2; y < this.size - 2; y += 1) {
             for (let x = 2; x < this.size - 2; x += 1) {
                 const elevation = elevationMap[y]?.[x];
                 if (elevation === undefined) continue;
 
-                // Solo montañas altas
+                // Only high mountains
                 if (elevation < 0.7) continue;
 
-                // Verificar si es un máximo local
+                // Check if it is a local maximum
                 let isPeak = true;
                 for (let dy = -1; dy <= 1; dy++) {
                     for (let dx = -1; dx <= 1; dx++) {
@@ -519,18 +519,18 @@ export class TerrainGenerator {
             }
         }
 
-        // Generar ríos desde cada pico
+        // Generate rivers from each peak
         for (const peak of peaks) {
             let current = { ...peak };
             let waterVolume = 1.0;
             const visitedCells = new Set<string>();
             const riverPath: Vec2[] = [];
 
-            // Seguir el río cuesta abajo
+            // Follow the river downhill
             for (let steps = 0; steps < 100; steps++) {
                 const key = `${current.x},${current.y}`;
 
-                // Evitar bucles
+                // Avoid loops
                 if (visitedCells.has(key)) break;
                 visitedCells.add(key);
                 riverPath.push({ ...current });
@@ -538,12 +538,12 @@ export class TerrainGenerator {
                 const currentElevation = elevationMap[current.y]?.[current.x];
                 if (currentElevation === undefined) break;
 
-                // Si llegamos al océano, terminar
+                // If we reach the ocean, terminate
                 if (currentElevation < 0.15) {
                     break;
                 }
 
-                // Encontrar el vecino más bajo
+                // Find the lowest neighbor
                 let lowest: Vec2 | null = null;
                 let lowestElevation = currentElevation;
 
@@ -562,23 +562,23 @@ export class TerrainGenerator {
                     }
                 }
 
-                // Si no hay pendiente, crear lago/terminar
+                // If there is no slope, create lake/terminate
                 if (!lowest || lowestElevation >= currentElevation * 0.98) {
                     break;
                 }
 
-                // El agua se evapora gradualmente
+                // Water evaporates gradually
                 waterVolume *= 0.95;
                 if (waterVolume < 0.1) break;
 
                 current = lowest;
             }
 
-            // Solo añadir ríos que sean lo suficientemente largos
+            // Only add rivers that are long enough
             if (riverPath.length >= 5) {
                 riverPath.forEach(pos => {
                     riverCells.add(`${pos.x},${pos.y}`);
-                    // Añadir celdas adyacentes para ríos más anchos en elevaciones bajas
+                    // Add adjacent cells for wider rivers at low elevations
                     const posElev = elevationMap[pos.y]?.[pos.x];
                     if (posElev !== undefined && posElev < 0.38) {
                         riverCells.add(`${pos.x + 1},${pos.y}`);
@@ -827,7 +827,7 @@ export class TerrainGenerator {
             stoneCells = [...stoneCells, cell];
         }
 
-        // Si faltan recursos porque todas las celdas están ocupadas, intenta reemplazar recursos no piedra
+        // If resources are missing because all cells are occupied, try to replace non-stone resources
         if (stoneCells.length < 2) {
             const fallback = mountainCells.filter((cell) => !cell.structure && !cell.constructionSiteId);
             for (let i = stoneCells.length; i < 2 && fallback.length > 0; i += 1) {

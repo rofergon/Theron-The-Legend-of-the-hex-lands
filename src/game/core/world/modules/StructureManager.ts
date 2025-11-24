@@ -31,7 +31,7 @@ export class StructureManager {
                 const cell = this.cells[y]?.[x];
                 if (!cell || !goodTerrains.includes(cell.terrain)) continue;
 
-                // Preferir áreas cerca de ríos pero no en ellos
+                // Prefer areas near rivers but not on them
                 let nearRiver = 0;
                 for (let dy = -3; dy <= 3; dy++) {
                     for (let dx = -3; dx <= 3; dx++) {
@@ -91,7 +91,7 @@ export class StructureManager {
     public planStructure(type: StructureType, anchor: Vec2, isWalkable: (x: number, y: number) => boolean) {
         const blueprint = STRUCTURE_DEFINITIONS[type];
         if (!blueprint) {
-            return { ok: false as const, reason: "Estructura desconocida." };
+            return { ok: false as const, reason: "Unknown structure." };
         }
         const occupiedCells = blueprint.footprint.map((offset: Vec2) => ({
             x: anchor.x + offset.x,
@@ -102,18 +102,18 @@ export class StructureManager {
         for (const pos of occupiedCells) {
             const key = `${pos.x},${pos.y}`;
             if (seen.has(key)) {
-                return { ok: false as const, reason: "Plano inválido." };
+                return { ok: false as const, reason: "Invalid blueprint." };
             }
             seen.add(key);
             const cell = this.cells[pos.y]?.[pos.x];
             if (!cell) {
-                return { ok: false as const, reason: "Fuera de los límites." };
+                return { ok: false as const, reason: "Out of bounds." };
             }
             if (!isWalkable(pos.x, pos.y)) {
-                return { ok: false as const, reason: "Terreno no apto." };
+                return { ok: false as const, reason: "Unsuitable terrain." };
             }
             if (cell.structure || cell.constructionSiteId) {
-                return { ok: false as const, reason: "Ya ocupado." };
+                return { ok: false as const, reason: "Already occupied." };
             }
         }
 
@@ -177,7 +177,7 @@ export class StructureManager {
             site.woodDelivered += acceptedWood;
         }
 
-        // Solo permitir trabajo de construcción si todos los materiales están entregados
+        // Only allow construction work if all materials are delivered
         const materialsComplete =
             site.stoneDelivered >= site.stoneRequired &&
             site.woodDelivered >= site.woodRequired;
@@ -185,7 +185,7 @@ export class StructureManager {
         if (materialsComplete && labor > 0) {
             site.workDone = clamp(site.workDone + labor, 0, site.workRequired);
 
-            // Actualizar fase según progreso
+            // Update phase based on progress
             const progress = site.workDone / site.workRequired;
             if (progress < 0.33) {
                 site.phase = "foundation";

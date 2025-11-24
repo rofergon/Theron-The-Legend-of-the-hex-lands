@@ -199,7 +199,7 @@ export class ResourceGenerator {
         let placedClusters = 0;
         const maxAttempts = desiredClusters * 4;
 
-        // Garantizar al menos un clúster en montaña si existe una
+        // Ensure at least one cluster in mountain if one exists
         if (mountainPositions.length > 0) {
             const mountainAttempts = Math.min(3, mountainPositions.length);
             for (let attempt = 0; attempt < mountainAttempts && placedClusters < desiredClusters; attempt += 1) {
