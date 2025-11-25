@@ -1,28 +1,28 @@
 /**
  * OneChain Client Configuration
- * 
- * Cliente para interactuar con la blockchain OneChain (basada en Sui)
- * Maneja consultas de balance, transacciones y estado de la red
+ *
+ * Client to interact with the OneChain blockchain (Sui-based)
+ * Handles balance queries, transactions, and network status
  */
 
 import { getFullnodeUrl, SuiClient } from '@onelabs/sui/client';
 import { MIST_PER_SUI } from '@onelabs/sui/utils';
 
 /**
- * Tipos de red disponibles en OneChain
+ * Available network types in OneChain
  */
 export type OneChainNetwork = 'mainnet' | 'testnet' | 'devnet' | 'localnet';
 
 /**
- * Cliente configurado para OneChain Testnet por defecto
- * Usa el SDK oficial de OneChain (@onelabs/sui)
+ * Client configured for OneChain Testnet by default
+ * Uses the official OneChain SDK (@onelabs/sui)
  */
 export const onechainClient = new SuiClient({
-  url: getFullnodeUrl('testnet'), // Cambiar según necesidades del hackathon
+  url: getFullnodeUrl('testnet'), // Change as needed for the hackathon
 });
 
 /**
- * Crea un cliente OneChain para una red específica
+ * Creates a OneChain client for a specific network
  */
 export function createOneChainClient(network: OneChainNetwork = 'testnet'): SuiClient {
   return new SuiClient({
@@ -31,11 +31,11 @@ export function createOneChainClient(network: OneChainNetwork = 'testnet'): SuiC
 }
 
 /**
- * Convierte de MIST (unidad mínima) a OCT (token principal)
- * En OneChain, al igual que Sui, 1 OCT = 10^9 MIST
- * 
- * @param totalBalance - Balance en MIST (string o bigint)
- * @returns Balance en OCT como número decimal
+ * Converts from MIST (smallest unit) to OCT (main token)
+ * In OneChain, as in Sui, 1 OCT = 10^9 MIST
+ *
+ * @param totalBalance - Balance in MIST (string or bigint)
+ * @returns Balance in OCT as a decimal number
  */
 export function mistToOct(totalBalance: string | bigint): number {
   const n = typeof totalBalance === 'string' ? BigInt(totalBalance) : totalBalance;
@@ -43,21 +43,21 @@ export function mistToOct(totalBalance: string | bigint): number {
 }
 
 /**
- * Convierte de OCT a MIST para enviar transacciones
- * 
- * @param octAmount - Cantidad en OCT
- * @returns Cantidad en MIST como bigint
+ * Converts from OCT to MIST for sending transactions
+ *
+ * @param octAmount - Amount in OCT
+ * @returns Amount in MIST as bigint
  */
 export function octToMist(octAmount: number): bigint {
   return BigInt(Math.floor(octAmount * Number(MIST_PER_SUI)));
 }
 
 /**
- * Obtiene el balance de OCT de una dirección
- * 
- * @param address - Dirección en formato Sui/OneChain
- * @param client - Cliente opcional (usa el por defecto si no se proporciona)
- * @returns Balance en OCT
+ * Gets the OCT balance of an address
+ *
+ * @param address - Address in Sui/OneChain format
+ * @param client - Optional client (uses default if not provided)
+ * @returns Balance in OCT
  */
 export async function getOctBalance(
   address: string,
@@ -70,13 +70,13 @@ export async function getOctBalance(
     
     return mistToOct(balance.totalBalance);
   } catch (error) {
-    console.error('❌ Error al obtener balance:', error);
+    console.error('❌ Error getting balance:', error);
     throw error;
   }
 }
 
 /**
- * Obtiene información completa del balance (incluye balance bloqueado)
+ * Gets full balance information (includes locked balance)
  */
 export async function getDetailedBalance(
   address: string,
@@ -94,14 +94,14 @@ export async function getDetailedBalance(
       coinObjectCount: balance.coinObjectCount,
     };
   } catch (error) {
-    console.error('❌ Error al obtener balance detallado:', error);
+    console.error('❌ Error getting detailed balance:', error);
     throw error;
   }
 }
 
 /**
- * Formatea una dirección de OneChain/Sui para mostrar
- * (muestra primeros 6 y últimos 4 caracteres)
+ * Formats a OneChain/Sui address for display
+ * (shows first 6 and last 4 characters)
  */
 export function formatAddress(address: string): string {
   if (address.length <= 12) return address;
