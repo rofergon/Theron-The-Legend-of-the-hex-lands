@@ -14,7 +14,11 @@
 import { Transaction } from '@onelabs/sui/transactions';
 import { onechainClient } from './onechainClient';
 import { getCurrentAccount, isWalletConnected, getWalletInstance } from './walletConfig';
-import { ONECHAIN_PACKAGE_ID, HEX_TOKEN, CONVERSION_RATES } from '../../config/contracts';
+import { ONECHAIN_PACKAGE_ID, HEX_TOKEN, THERON_TOKEN, CONVERSION_RATES } from '../../config/contracts';
+
+// Decimales del token HEX (9)
+const HEX_DECIMALS = 9;
+const HEX_MULT = BigInt(10 ** HEX_DECIMALS);
 
 /**
  * Resultado de la conversión
@@ -44,7 +48,9 @@ export type TransactionStatus =
  * Calcula cuánto HEX se recibirá por una cantidad de Faith
  */
 export function calculateHexAmount(faithAmount: number): number {
-  return Math.floor(faithAmount / CONVERSION_RATES.FAITH_TO_HEX);
+  const faithInt = Math.max(0, Math.floor(faithAmount));
+  const subunits = (BigInt(faithInt) * HEX_MULT) / BigInt(CONVERSION_RATES.FAITH_TO_HEX);
+  return Number(subunits) / Number(HEX_MULT);
 }
 
 /**
@@ -181,9 +187,9 @@ export async function convertFaithToHex(
         // stats: &mut EconomyStats (shared object)  
         tx.object(HEX_TOKEN.ECONOMY_STATS),
         
-        // faith_amount: u64 (pure value)
+        // faith_amount: u64 (en subunidades: Faith * 10^decimales)
         // tx.pure() maneja automáticamente la serialización BCS según el tipo
-        tx.pure.u64(faithAmount),
+        tx.pure.u64(BigInt(Math.max(0, Math.floor(faithAmount))) * HEX_MULT),
         
         // conversion_rate: u64 (pure value)
         tx.pure.u64(CONVERSION_RATES.FAITH_TO_HEX),
@@ -388,6 +394,37 @@ export async function getHexBalance(address: string): Promise<number> {
     console.error('❌ Error obteniendo balance de HEX:', error);
     return 0;
   }
+}
+
+/**
+ * Obtiene el balance de THERON tokens de una dirección
+ */
+export async function getTheronBalance(address: string): Promise<number> {
+  try {
+    const balance = await onechainClient.getBalance({
+      owner: address,
+      coinType: THERON_TOKEN.TYPE,
+    });
+    return Number(balance.totalBalance) / 1_000_000_000;
+  } catch (error) {
+    console.error('❌ Error obteniendo balance de THERON:', error);
+    return 0;
+  }
+}
+
+/**
+ * Obtiene ambos balances on-chain (HEX y THERON) para mostrar en UI
+ */
+export async function getOnChainBalances(address: string): Promise<{
+  hex: number;
+  theron: number;
+}> {
+  const [hex, theron] = await Promise.all([
+    getHexBalance(address),
+    getTheronBalance(address),
+  ]);
+  console.log('💰 Balances on-chain:', { address, hex, theron });
+  return { hex, theron };
 }
 
 /**

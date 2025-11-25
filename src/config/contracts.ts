@@ -72,8 +72,8 @@ export const UPGRADE_CAP = "0x9161db78cf8dd9627b9af6b4a7b6d8422d73a046b524e3cd5d
  * Conversion rates
  */
 export const CONVERSION_RATES = {
-  // Faith a HEX: 100 Faith = 1 HEX
-  FAITH_TO_HEX: 100,
+  // Faith a HEX: 20 Faith = 1 HEX
+  FAITH_TO_HEX: 20,
   
   // HEX a THERON: 100,000 HEX = 1 THERON
   HEX_TO_THERON: 100_000,

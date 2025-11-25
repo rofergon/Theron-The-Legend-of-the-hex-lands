@@ -40,11 +40,11 @@ export class HUDController {
     }
 
     if (this.hudToken1) {
-      this.hudToken1.textContent = `${Math.floor(snapshot.tokens.token1)}`;
+      this.hudToken1.textContent = snapshot.tokens.token1.toFixed(2);
     }
 
     if (this.hudToken2) {
-      this.hudToken2.textContent = `${Math.floor(snapshot.tokens.token2)}`;
+      this.hudToken2.textContent = snapshot.tokens.token2.toFixed(2);
     }
     if (this.hudPopulation) {
       const arrow = snapshot.population.trend > 0.1 ? "⬆️" : snapshot.population.trend < -0.1 ? "⬇️" : "➡️";

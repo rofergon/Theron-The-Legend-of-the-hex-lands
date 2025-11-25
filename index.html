@@ -24,12 +24,16 @@
           <span class="hud-pill-value" id="score" aria-label="Faith">0</span>
         </div>
         <div class="hud-pill token-pill" data-stat="token1" id="token1-pill" role="button" tabindex="0"
-          title="Convert Faith to Token1">
-          <span class="hud-pill-icon" aria-hidden="true">🪙</span>
+          title="Convert Faith to HEX">
+          <span class="hud-pill-icon" aria-hidden="true">
+            <img src="/assets/extracted_icons/Hex_Token.png" alt="HEX token" />
+          </span>
           <span class="hud-pill-value" id="token1-value" aria-label="Token1">0</span>
         </div>
         <div class="hud-pill token-pill" data-stat="token2" id="token2-pill" title="Token2 balance">
-          <span class="hud-pill-icon" aria-hidden="true">💠</span>
+          <span class="hud-pill-icon" aria-hidden="true">
+            <img src="/assets/extracted_icons/Theron_token.png" alt="THERON token" />
+          </span>
           <span class="hud-pill-value" id="token2-value" aria-label="Token2">0</span>
         </div>
         <div class="hud-pill" data-stat="population">
@@ -238,7 +242,17 @@
         </div>
         <div class="modal-row">
           <span>Conversion Rate</span>
-          <strong id="token-modal-rate">100 Faith → 1 HEX</strong>
+          <strong id="token-modal-rate">20 Faith → 1 HEX</strong>
+        </div>
+        <div class="conversion-visual">
+          <div class="token-badge faith">
+            <span class="icon">✨</span>
+            <span>Faith</span>
+          </div>
+          <div class="conversion-arrow">→</div>
+          <div class="token-badge hex">
+            <img src="/assets/extracted_icons/Hex_Token.png" alt="HEX token" />
+          </div>
         </div>
         <div class="modal-info">
           <small>💡 Esta conversión creará HEX tokens en la blockchain de OneChain. Necesitarás firmar la transacción con tu OneWallet.</small>

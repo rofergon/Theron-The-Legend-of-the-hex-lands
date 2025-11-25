@@ -13,8 +13,8 @@ import { CellTooltipController } from "./ui/CellTooltip";
 import { getStructureDefinition } from "./data/structures";
 import type { StructureRequirements } from "./data/structures";
 import { axialToOffset, createHexGeometry, getHexCenter, getHexWorldBounds, pixelToAxial, roundAxial } from "./ui/hexGrid";
-import { convertFaithToHex, type TransactionStatus } from "./wallet/hexConversionService";
-import { isWalletConnected, connectOneWallet } from "./wallet/walletConfig";
+import { convertFaithToHex, type TransactionStatus, getOnChainBalances } from "./wallet/hexConversionService";
+import { isWalletConnected, connectOneWallet, getCurrentAccount } from "./wallet/walletConfig";
 
 type AssignableRole = Extract<Role, "farmer" | "worker" | "warrior" | "scout">;
 type PlanningMode = "farm" | "mine" | "gather" | "build";
@@ -1033,6 +1033,21 @@ export class Game {
     }
   }
 
+  private async refreshOnChainBalances() {
+    if (!isWalletConnected()) return;
+    const account = getCurrentAccount();
+    if (!account?.address) return;
+    try {
+      const { hex, theron } = await getOnChainBalances(account.address);
+      const token1El = document.querySelector<HTMLSpanElement>("#token1-value");
+      const token2El = document.querySelector<HTMLSpanElement>("#token2-value");
+      if (token1El) token1El.textContent = hex.toFixed(2);
+      if (token2El) token2El.textContent = theron.toFixed(2);
+    } catch (error) {
+      console.warn("No se pudo refrescar balances on-chain:", error);
+    }
+  }
+
   private convertAllFaithToToken1 = async () => {
     if (!this.simulation) {
       return;
@@ -1063,6 +1078,7 @@ export class Game {
       }
       
       this.hud.showNotification("Wallet conectada exitosamente", "success");
+      await this.refreshOnChainBalances();
     }
 
     // Actualizar estado en el modal
@@ -1105,6 +1121,8 @@ export class Game {
           "success",
           6000
         );
+        this.showConversionSuccessAnimation(result.hexReceived);
+        await this.refreshOnChainBalances();
         this.updateHUD();
         
         // Cerrar modal después de 2 segundos
@@ -1132,6 +1150,30 @@ export class Game {
       }
     }
   };
+
+  private showConversionSuccessAnimation(hexAmount: number) {
+    if (!this.tokenModal) return;
+    const anim = document.createElement("div");
+    anim.className = "conversion-success-anim";
+    anim.innerHTML = `
+      <div class="fireworks">
+        <div class="firework"></div>
+        <div class="firework"></div>
+        <div class="firework"></div>
+        <div class="firework"></div>
+        <div class="firework"></div>
+        <div class="firework"></div>
+      </div>
+      <div class="coin-3d">
+        <div class="face front"><img src="/assets/extracted_icons/Hex_Token.png" alt="HEX token" /></div>
+        <div class="face back"><img src="/assets/extracted_icons/Hex_Token.png" alt="HEX token" /></div>
+        <div class="edge"></div>
+      </div>
+      <div class="celebrate-text">+${hexAmount.toFixed(2)} HEX</div>
+    `;
+    this.tokenModal.appendChild(anim);
+    setTimeout(() => anim.remove(), 4000);
+  }
 
   private loop = (time: number) => {
     if (!this.running) return;
