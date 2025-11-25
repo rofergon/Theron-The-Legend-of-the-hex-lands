@@ -54,10 +54,8 @@ export class MainMenu {
   private lastAnimationTime: number = 0;
   private logoImage: HTMLImageElement;
 
-  // Icons for buttons
-  private sizeImages: Record<number, HTMLImageElement> = {};
-  private difficultyImages: Record<string, HTMLImageElement> = {};
-
+  // Chest Icons
+  private chestImages: Record<string, HTMLImageElement> = {};
 
   private keydownHandler = (e: KeyboardEvent) => {
     if (!this.isVisible) return;
@@ -90,22 +88,21 @@ export class MainMenu {
     this.logoImage = new Image();
     this.logoImage.src = "/assets/Landing/Theron_game_logo.png";
 
-    // Load Size Icons (Land Chests)
-    this.sizeImages[24] = new Image(); // Small
-    this.sizeImages[24].src = "/assets/Chest/Land_chest_common_1.png";
-    this.sizeImages[36] = new Image(); // Normal
-    this.sizeImages[36].src = "/assets/Chest/Land_chest_rare_1.png";
-    this.sizeImages[48] = new Image(); // Large
-    this.sizeImages[48].src = "/assets/Chest/Land_chest_epic.png";
+    // Preload chest images
+    const chestSources = {
+      common: "/assets/Chest/Land_chest_common_1.png",
+      rare: "/assets/Chest/Land_chest_rare_1.png",
+      epic: "/assets/Chest/Land_chest_epic.png",
+      gold: "/assets/Chest/Gold_chest.png",
+      silver: "/assets/Chest/Silver_chest.png",
+      copper: "/assets/Chest/Copper_Chest.png"
+    };
 
-    // Load Difficulty Icons (Reward Chests)
-    this.difficultyImages["easy"] = new Image();
-    this.difficultyImages["easy"].src = "/assets/Chest/Gold_chest.png";
-    this.difficultyImages["normal"] = new Image();
-    this.difficultyImages["normal"].src = "/assets/Chest/Silver_chest.png";
-    this.difficultyImages["hard"] = new Image();
-    this.difficultyImages["hard"].src = "/assets/Chest/Copper_Chest.png";
-
+    Object.entries(chestSources).forEach(([key, src]) => {
+      const img = new Image();
+      img.src = src;
+      this.chestImages[key] = img;
+    });
 
     this.initParticles();
 
@@ -332,7 +329,7 @@ export class MainMenu {
     // Configuration panel (overlaid on map)
     this.renderConfigPanel(layout.configPanel);
 
-    // Info panel removed to save space
+    // Info panel removed
 
 
     // Start button
@@ -381,7 +378,6 @@ export class MainMenu {
           centerX,
           useColumns: false,
           preview: { x: margin, y: previewY, width: contentWidth, height: previewHeight },
-          infoPanel: { x: 0, y: 0, width: 0, height: 0 },
           startButton: { x: margin, y: newStartButtonY, width: contentWidth, height: startButtonHeight },
           configPanel: { x: margin, y: newConfigPanelY, width: contentWidth, height: configPanelHeight }
         };
@@ -391,7 +387,6 @@ export class MainMenu {
         centerX,
         useColumns: false,
         preview: { x: margin, y: previewY, width: contentWidth, height: previewHeight },
-        infoPanel: { x: 0, y: 0, width: 0, height: 0 }, // Hidden on mobile
         startButton: { x: margin, y: startButtonY, width: contentWidth, height: startButtonHeight },
         configPanel: { x: margin, y: configPanelY, width: contentWidth, height: configPanelHeight }
       };
@@ -403,9 +398,11 @@ export class MainMenu {
     const previewX = previewMargin;
     const previewY = previewMargin;
 
-    const headerHeight = 160;
-    // Increased height for icon buttons (was 310)
-    const configPanelHeight = 420;
+    // 2K Screen adjustment (width > 2000)
+    const is2K = canvasWidth > 2000;
+    const headerHeight = is2K ? 220 : 160; // Push down on large screens
+
+    const configPanelHeight = 420; // Increased from 310 to 420 to fit icons
     const configPanelWidth = Math.min(500, canvasWidth - margin * 2);
     const configPanelX = centerX - configPanelWidth / 2;
     const configPanelY = headerHeight;
@@ -415,14 +412,13 @@ export class MainMenu {
     const startButtonHeight = 56;
     const startButtonWidth = 360;
     const startButtonX = centerX - startButtonWidth / 2;
-    // Position start button below config panel with some gap
+    // Position start button below config panel with good spacing
     const startButtonY = configPanelY + configPanelHeight + 30;
 
     return {
       centerX,
       useColumns: false,
       preview: { x: previewX, y: previewY, width: previewWidth, height: previewHeight },
-      infoPanel: { x: 0, y: 0, width: 0, height: 0 }, // Removed
       startButton: {
         x: startButtonX,
         y: startButtonY,
@@ -475,22 +471,33 @@ export class MainMenu {
 
   private renderTitle(centerX: number) {
     const ctx = this.ctx;
-    const yPos = this.useMobileLayout ? 28 : 50;
+    // Moved up by ~15px
+    const yPos = this.useMobileLayout ? 15 : 35;
 
     if (this.logoImage.complete && this.logoImage.naturalWidth > 0) {
-      const maxWidth = this.useMobileLayout ? 170 : 340; // Reduced by ~15%
+      // Check for small screen condition (mobile or width < 1000)
+      const isSmallScreen = this.useMobileLayout || this.canvas.width < 1000;
+
+      // Base width: 340 (already reduced by 15% from original 400)
+      // If small screen, reduce by another 15% -> 340 * 0.85 = ~290
+      // Mobile layout default was 170, let's keep that for mobile, but apply the reduction for small desktop windows
+
+      let maxWidth = 340;
+      if (this.useMobileLayout) {
+        maxWidth = 170;
+      } else if (isSmallScreen) {
+        maxWidth = 290;
+      }
+
       const scale = maxWidth / this.logoImage.naturalWidth;
       const width = maxWidth;
       const height = this.logoImage.naturalHeight * scale;
-
-      // Move up slightly
-      const adjustedY = yPos - (this.useMobileLayout ? 10 : 20);
 
       ctx.save();
       // Glow effect behind logo
       ctx.shadowColor = "rgba(255, 107, 53, 0.3)";
       ctx.shadowBlur = 40;
-      ctx.drawImage(this.logoImage, centerX - width / 2, adjustedY, width, height);
+      ctx.drawImage(this.logoImage, centerX - width / 2, yPos, width, height);
       ctx.restore();
     } else {
       // Fallback text if image fails
@@ -505,17 +512,7 @@ export class MainMenu {
       ctx.restore();
     }
 
-    if (!this.useMobileLayout) {
-      const subtitleSize = 16;
-      const subtitleY = yPos + (this.useMobileLayout ? 60 : 130);
 
-      ctx.save();
-      ctx.font = `${subtitleSize}px "Space Grotesk", Arial`;
-      ctx.fillStyle = "#9fb2d7"; // muted
-      ctx.textAlign = "center";
-      ctx.fillText("LEGENDS OF THE HEX LANDS", centerX, subtitleY);
-      ctx.restore();
-    }
   }
 
 
@@ -683,15 +680,15 @@ export class MainMenu {
 
     y += this.useMobileLayout ? 12 : 15;
 
-    const sizeOptions: Array<{ label: string; value: number; key: MenuButtonKey }> = [
-      { label: "Small", value: 24, key: "sizeSmall" },
-      { label: "Normal", value: 36, key: "sizeNormal" },
-      { label: "Large", value: 48, key: "sizeLarge" }
+    const sizeOptions: Array<{ label: string; value: number; key: MenuButtonKey; iconKey: string }> = [
+      { label: "Small", value: 24, key: "sizeSmall", iconKey: "common" },
+      { label: "Normal", value: 36, key: "sizeNormal", iconKey: "rare" },
+      { label: "Large", value: 48, key: "sizeLarge", iconKey: "epic" }
     ];
 
-    this.renderIconButtons(sizeOptions, y, this.config.worldSize, centerX, "size");
+    this.renderOptionButtons(sizeOptions, y, this.config.worldSize, centerX);
 
-    return y + (this.useMobileLayout ? 80 : 100);
+    return y + (this.useMobileLayout ? 80 : 100); // Increased height for icons
   }
 
   private renderDifficultySection(x: number, y: number, centerX: number) {
@@ -704,14 +701,17 @@ export class MainMenu {
 
     y += this.useMobileLayout ? 12 : 15;
 
-    const difficultyOptions: Array<{ label: string; value: "easy" | "normal" | "hard"; key: MenuButtonKey }> = [
-      { label: "Easy", value: "easy", key: "difficultyEasy" },
-      { label: "Normal", value: "normal", key: "difficultyNormal" },
-      { label: "Hard", value: "hard", key: "difficultyHard" }
+    const difficultyOptions: Array<{ label: string; value: "easy" | "normal" | "hard"; key: MenuButtonKey; iconKey: string }> = [
+      { label: "Easy", value: "easy", key: "difficultyEasy", iconKey: "gold" },
+      { label: "Normal", value: "normal", key: "difficultyNormal", iconKey: "silver" },
+      { label: "Hard", value: "hard", key: "difficultyHard", iconKey: "copper" }
     ];
 
-    this.renderIconButtons(difficultyOptions, y, this.config.difficulty, centerX, "difficulty");
+    this.renderOptionButtons(difficultyOptions, y, this.config.difficulty, centerX, true);
   }
+
+
+
 
   private renderWorldPreview(x: number, y: number, width: number, height: number): void {
     const ctx = this.ctx;
@@ -846,72 +846,92 @@ export class MainMenu {
     return this.previewWorld;
   }
 
-  private renderIconButtons(
-    options: Array<{ label: string; value: number | string; key: MenuButtonKey }>,
+  private renderOptionButtons(
+    options: Array<{ label: string; value: number | string; key: MenuButtonKey; iconKey: string }>,
     y: number,
     currentValue: number | string,
-    centerXOverride: number,
-    type: "size" | "difficulty"
+    centerXOverride?: number,
+    isDifficulty = false
   ) {
     const ctx = this.ctx;
-    const centerX = centerXOverride;
+    const centerX = centerXOverride ?? this.canvas.width / 2;
 
-    const iconSize = this.useMobileLayout ? 60 : 80;
-    const spacing = this.useMobileLayout ? 15 : 30;
-    const totalWidth = options.length * iconSize + (options.length - 1) * spacing;
+    // Icon button dimensions
+    const buttonSize = this.useMobileLayout ? 60 : 80;
+    const spacing = 20;
+
+    const totalWidth = options.length * buttonSize + (options.length - 1) * spacing;
     let startX = centerX - totalWidth / 2;
 
     options.forEach((option) => {
       const isSelected = option.value === currentValue;
       const isHovered = this.hoveredButton === option.key;
 
-      // Hitbox
-      this.setButtonRegion(option.key, startX, y, iconSize, iconSize);
+      this.setButtonRegion(option.key, startX, y, buttonSize, buttonSize);
 
-      // Get image
-      let img: HTMLImageElement | undefined;
-      if (type === "size") {
-        img = this.sizeImages[option.value as number];
-      } else {
-        img = this.difficultyImages[option.value as string];
-      }
+      const img = this.chestImages[option.iconKey];
 
-      // Selection/Hover Glow
-      if (isSelected || isHovered) {
+      if (img && img.complete && img.naturalWidth > 0) {
         ctx.save();
-        const glowColor = isSelected ? "rgba(255, 107, 53, 0.6)" : "rgba(255, 255, 255, 0.3)";
-        ctx.shadowColor = glowColor;
-        ctx.shadowBlur = isSelected ? 30 : 20;
 
-        // Draw a background circle/rounded rect for the glow
-        ctx.fillStyle = isSelected ? "rgba(255, 107, 53, 0.1)" : "rgba(255, 255, 255, 0.05)";
-        ctx.beginPath();
-        ctx.roundRect(startX - 5, y - 5, iconSize + 10, iconSize + 10, 12);
-        ctx.fill();
-
-        // Border for selection
+        // Selection/Hover effects
         if (isSelected) {
+          // Selected glow
+          ctx.shadowColor = "rgba(255, 107, 53, 0.6)";
+          ctx.shadowBlur = 25;
+
+          // Scale up slightly
+          const scale = 1.1;
+          const scaledSize = buttonSize * scale;
+          const offset = (scaledSize - buttonSize) / 2;
+
+          // Draw background glow for selected
+          ctx.fillStyle = "rgba(255, 107, 53, 0.15)";
+          ctx.beginPath();
+          ctx.arc(startX + buttonSize / 2, y + buttonSize / 2, buttonSize / 2 + 5, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.drawImage(img, startX - offset, y - offset, scaledSize, scaledSize);
+
+          // Selection border ring
           ctx.strokeStyle = "#ff6b35";
           ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(startX + buttonSize / 2, y + buttonSize / 2, buttonSize / 2 + 8, 0, Math.PI * 2);
           ctx.stroke();
+
+        } else if (isHovered) {
+          // Hover glow
+          ctx.shadowColor = "rgba(255, 255, 255, 0.3)";
+          ctx.shadowBlur = 15;
+
+          // Slight scale
+          const scale = 1.05;
+          const scaledSize = buttonSize * scale;
+          const offset = (scaledSize - buttonSize) / 2;
+
+          ctx.drawImage(img, startX - offset, y - offset, scaledSize, scaledSize);
+
+          // Hover border ring
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(startX + buttonSize / 2, y + buttonSize / 2, buttonSize / 2 + 5, 0, Math.PI * 2);
+          ctx.stroke();
+        } else {
+          // Normal state
+          ctx.globalAlpha = 0.7; // Dim unselected
+          ctx.drawImage(img, startX, y, buttonSize, buttonSize);
         }
+
         ctx.restore();
-      }
-
-      // Draw Image
-      if (img && img.complete && img.naturalWidth > 0) {
-        const scale = isHovered || isSelected ? 1.1 : 1.0;
-        const drawSize = iconSize * scale;
-        const offset = (drawSize - iconSize) / 2;
-
-        ctx.drawImage(img, startX - offset, y - offset, drawSize, drawSize);
       } else {
-        // Fallback placeholder
-        ctx.fillStyle = "#333";
-        ctx.fillRect(startX, y, iconSize, iconSize);
+        // Fallback if image not loaded
+        ctx.fillStyle = isSelected ? "#ff6b35" : "#333";
+        ctx.fillRect(startX, y, buttonSize, buttonSize);
       }
 
-      startX += iconSize + spacing;
+      startX += buttonSize + spacing;
     });
   }
 
