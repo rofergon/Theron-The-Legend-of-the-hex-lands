@@ -12,12 +12,15 @@ const MAX_CARRY: Record<GatherableResourceType, number> = {
 const MIN_FOOD_NODE_AMOUNT = 0.95;
 
 export class ResourceCollectionEngine {
+  private cellReservations = new Map<string, number>();
+
   constructor(private world: WorldEngine) { }
 
   runGathererBrain(citizen: Citizen, view: WorldView, resourceType: GatherableResourceType): CitizenAction {
     const brain = this.ensureGathererBrain(citizen, resourceType);
     const carryAmount = citizen.carrying[resourceType];
     const hasCargo = carryAmount > 0;
+    const releaseReservation = () => this.releaseReservationFor(citizen.id);
 
     // Set currentGoal based on resource type for proper icon display
     if (resourceType === "stone") {
@@ -28,20 +31,26 @@ export class ResourceCollectionEngine {
       citizen.currentGoal = "gather";
     }
     const sendToStorage = (): CitizenAction => {
+      releaseReservation();
       const storageTarget = this.findStorageTarget(citizen, view);
       brain.phase = "goingToStorage";
       brain.target = storageTarget;
+      citizen.target = storageTarget;
       return { type: "move", x: storageTarget.x, y: storageTarget.y };
     };
     const redirectToNewResource = (): CitizenAction => {
+      releaseReservation();
       const nextCell = this.findClosestResourceCell(citizen, view, resourceType);
       if (nextCell) {
         brain.phase = "goingToResource";
         brain.target = { x: nextCell.x, y: nextCell.y };
+        this.reserveCell(nextCell.x, nextCell.y, citizen.id);
+        citizen.target = { x: nextCell.x, y: nextCell.y };
         return { type: "move", x: nextCell.x, y: nextCell.y };
       }
       brain.phase = "idle";
       brain.target = null;
+      delete citizen.target;
       if (hasCargo) {
         return sendToStorage();
       }
@@ -59,6 +68,12 @@ export class ResourceCollectionEngine {
         if (!brain.target) {
           return redirectToNewResource();
         }
+        const occupiedByOther = this.isCellReservedByOther(brain.target.x, brain.target.y, citizen.id);
+        if (occupiedByOther) {
+          return redirectToNewResource();
+        }
+        this.reserveCell(brain.target.x, brain.target.y, citizen.id);
+        citizen.target = { x: brain.target.x, y: brain.target.y };
         if (citizen.x === brain.target.x && citizen.y === brain.target.y) {
           brain.phase = "gathering";
           return { type: "gather", resourceType };
@@ -66,18 +81,33 @@ export class ResourceCollectionEngine {
         return { type: "move", x: brain.target.x, y: brain.target.y };
       }
       case "gathering": {
+        const target = brain.target;
+        if (target && this.isCellReservedByOther(target.x, target.y, citizen.id)) {
+          return redirectToNewResource();
+        }
+        if (target) {
+          this.reserveCell(target.x, target.y, citizen.id);
+          citizen.target = { x: target.x, y: target.y };
+        }
         if (this.isInventoryFull(citizen, resourceType)) {
           return sendToStorage();
         }
         return { type: "gather", resourceType };
       }
       case "goingToStorage": {
+        releaseReservation();
+        if (brain.target) {
+          citizen.target = { x: brain.target.x, y: brain.target.y };
+        } else {
+          delete citizen.target;
+        }
         if (!brain.target) {
           return sendToStorage();
         }
         if (citizen.x === brain.target.x && citizen.y === brain.target.y) {
           brain.phase = "idle";
           brain.target = null;
+          delete citizen.target;
           // Clear currentGoal when task is complete
           if (citizen.currentGoal === "mining" || citizen.currentGoal === "gather") {
             delete citizen.currentGoal;
@@ -264,6 +294,10 @@ export class ResourceCollectionEngine {
       return false;
     }
 
+    if (this.isCellReservedByOther(targetCell.x, targetCell.y, selfId)) {
+      return true;
+    }
+
     // Check if any other citizen is at the target cell or moving to it
     return view.nearbyCitizens.some((other) => {
       if (other.id === selfId) return false;
@@ -273,13 +307,6 @@ export class ResourceCollectionEngine {
       if (other.x === targetCell.x && other.y === targetCell.y) return true;
 
       // Check intended target (if available in brain/target)
-      // Note: We rely on the fact that if they are moving there, they might be close or targeting it.
-      // Since we don't have full access to other's brain targets in a simple way here without casting,
-      // we'll assume if they are ON the cell, it's occupied.
-      // To be more strict as requested: "one villager per cell"
-
-      // If we want to prevent moving to a cell someone else is targeting, we need that info.
-      // Assuming 'target' property on Citizen reflects their destination.
       if (other.target && other.target.x === targetCell.x && other.target.y === targetCell.y) {
         return true;
       }
@@ -333,5 +360,34 @@ export class ResourceCollectionEngine {
     if (cell.resource.amount <= 0 && !cell.resource.renewable) {
       cell.resource = undefined;
     }
+  }
+
+  clearReservationForCitizen(citizenId: number) {
+    for (const [key, owner] of Array.from(this.cellReservations.entries())) {
+      if (owner === citizenId) {
+        this.cellReservations.delete(key);
+      }
+    }
+  }
+
+  private cellKey(x: number, y: number) {
+    return `${x},${y}`;
+  }
+
+  private reserveCell(x: number, y: number, citizenId: number) {
+    this.cellReservations.set(this.cellKey(x, y), citizenId);
+  }
+
+  private releaseReservationFor(citizenId: number) {
+    for (const [key, owner] of Array.from(this.cellReservations.entries())) {
+      if (owner === citizenId) {
+        this.cellReservations.delete(key);
+      }
+    }
+  }
+
+  private isCellReservedByOther(x: number, y: number, selfId: number) {
+    const owner = this.cellReservations.get(this.cellKey(x, y));
+    return owner !== undefined && owner !== selfId;
   }
 }

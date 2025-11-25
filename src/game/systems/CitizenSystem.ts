@@ -334,6 +334,7 @@ export class CitizenSystem {
         delete citizen.activeTask;
         delete citizen.currentGoal;
         citizen.brain = undefined;
+        this.resourceEngine.clearReservationForCitizen(citizen.id);
       }
       delete citizen.pendingRoleChange;
 
@@ -466,6 +467,7 @@ export class CitizenSystem {
     this.world.removeCitizen(citizen.id, { x: citizen.x, y: citizen.y });
     this.repository.removeLookup(citizen);
     this.devoteeAssignments.delete(citizen.id);
+    this.resourceEngine.clearReservationForCitizen(citizen.id);
     const reason = citizen.lastDamageCause ?? "unknown cause";
     this.emit({
       type: "log",
