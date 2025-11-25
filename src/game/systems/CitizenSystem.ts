@@ -104,37 +104,37 @@ export class CitizenSystem {
     this.applyPendingRoleChanges();
 
     this.repository.pruneDeadCitizens();
-  }
+    }
 
-  spawnMigrants(attitude: "neutral" | "friendly" | "hostile") {
+    spawnMigrants(attitude: "neutral" | "friendly" | "hostile") {
     const entry = this.findValidSpawnPoint("left");
     if (!entry) {
-      this.emit({ type: "log", message: "Un grupo de viajeros pasó de largo (sin ruta segura)." });
+      this.emit({ type: "log", message: "A group of travelers passed by (no safe route)." });
       return;
     }
 
     for (let i = 0; i < 3; i += 1) {
       const role: Role = attitude === "hostile" ? "warrior" : "worker";
       const tribeId = attitude === "hostile" ? 99 : this.playerTribeId;
-      // Intentar colocar cerca del punto de entrada
+      // Try to place near the entry point
       const offsetX = Math.floor(Math.random() * 3);
       const offsetY = Math.floor(Math.random() * 3);
       const x = clamp(entry.x + offsetX, 0, this.world.size - 1);
       const y = clamp(entry.y + offsetY, 0, this.world.size - 1);
 
       if (this.world.isWalkable(x, y)) {
-        const citizen = this.createCitizen(role, x, y, tribeId);
-        citizen.morale = 50;
-        citizen.health = 70;
-        citizen.currentGoal = attitude === "hostile" ? "raid" : "settle";
-        this.addCitizen(citizen);
+      const citizen = this.createCitizen(role, x, y, tribeId);
+      citizen.morale = 50;
+      citizen.health = 70;
+      citizen.currentGoal = attitude === "hostile" ? "raid" : "settle";
+      this.addCitizen(citizen);
       }
     }
     this.emit({
       type: "log",
-      message: attitude === "hostile" ? "Una tribu hostil llega desde el horizonte." : "Viajeros se acercan buscando refugio.",
+      message: attitude === "hostile" ? "A hostile tribe approaches from the horizon." : "Travelers approach seeking shelter.",
     });
-  }
+    }
 
   spawnBeasts() {
     const entry = this.findValidSpawnPoint("bottom");
@@ -417,14 +417,14 @@ export class CitizenSystem {
     this.world.removeCitizen(citizen.id, { x: citizen.x, y: citizen.y });
     this.repository.removeLookup(citizen);
     this.devoteeAssignments.delete(citizen.id);
-    const reason = citizen.lastDamageCause ?? "causa desconocida";
+    const reason = citizen.lastDamageCause ?? "unknown cause";
     this.emit({
       type: "log",
-      message: `Habitante ${citizen.id} ha muerto (${reason}) en ${this.formatCoords(citizen.x, citizen.y)}.`,
+      message: `Citizen ${citizen.id} has died (${reason}) at ${this.formatCoords(citizen.x, citizen.y)}.`,
     });
-  }
+    }
 
-  private tryEatFromStockpile(citizen: Citizen) {
+    private tryEatFromStockpile(citizen: Citizen) {
     let ateFromCarry = false;
     if (citizen.carrying.food > 0) {
       const ration = Math.min(2, citizen.carrying.food);
@@ -433,14 +433,14 @@ export class CitizenSystem {
       citizen.morale = clamp(citizen.morale + 3, 0, 100);
       ateFromCarry = ration > 0;
       if (citizen.hunger <= 70) {
-        return;
+      return;
       }
     }
 
     if (this.world.stockpile.food <= 0) {
       if (!ateFromCarry) {
-        citizen.morale = clamp(citizen.morale - 3, 0, 100);
-        this.inflictDamage(citizen, 1, "hambre (sin reservas)");
+      citizen.morale = clamp(citizen.morale - 3, 0, 100);
+      this.inflictDamage(citizen, 1, "starvation (no reserves)");
       }
       return;
     }

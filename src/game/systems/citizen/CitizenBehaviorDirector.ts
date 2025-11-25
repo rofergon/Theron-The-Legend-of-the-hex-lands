@@ -41,14 +41,14 @@ export class CitizenBehaviorDirector {
   decideAction(citizen: Citizen, view: WorldView): BehaviorDecision {
     const urgent = this.evaluateUrgentNeed(citizen, view);
     if (urgent) {
-      return { action: urgent, source: "urgencia" };
+      return { action: urgent, source: "urgent" };
     }
 
     let ai = this.aiDispatch[citizen.role] ?? passiveAI;
-    let source = `rol ${citizen.role}`;
+    let source = `role ${citizen.role}`;
     if (isGoalBehavior(citizen.currentGoal)) {
       ai = GOAL_BEHAVIOR_MAP[citizen.currentGoal];
-      source = `meta ${citizen.currentGoal}`;
+      source = `goal ${citizen.currentGoal}`;
     }
 
     return { action: ai(citizen, view), source };
@@ -81,11 +81,11 @@ export class CitizenBehaviorDirector {
 
     if (citizen.role === "child" && citizen.age > 12) {
       citizen.role = "worker";
-      this.hooks.emit({ type: "log", message: `El habitante ${citizen.id} ha crecido y trabajará.` });
+      this.hooks.emit({ type: "log", message: `Citizen ${citizen.id} has grown up and will work.` });
     }
 
     if (citizen.role === "elder" && citizen.age > 85) {
-      this.hooks.inflictDamage(citizen, 2, "fragilidad");
+      this.hooks.inflictDamage(citizen, 2, "frailty");
     }
 
     if (citizen.fatigue >= REST_START_FATIGUE || continuingRest) {
@@ -264,7 +264,7 @@ const farmerAI: CitizenAI = (citizen, view) => {
     return { type: "move", x: farmWork.cell.x, y: farmWork.cell.y };
   }
 
-  // Si estaba en fases de recolección natural, continuar
+  // If in natural gathering phases, continue
   if (isReturningToStorage || isGatheringPhase) {
     if (activeGatherEngine) {
       return activeGatherEngine.runGathererBrain(citizen, view, "food");
@@ -272,7 +272,7 @@ const farmerAI: CitizenAI = (citizen, view) => {
     return wanderCitizen(citizen);
   }
 
-  // Recolectar comida natural usando gatherer brain como último recurso
+  // Gather natural food using gatherer brain as a last resort
   if (activeGatherEngine) {
     return activeGatherEngine.runGathererBrain(citizen, view, "food");
   }
@@ -300,7 +300,7 @@ const workerAI: CitizenAI = (citizen, view) => {
     const materialsComplete = !needsStone && !needsWood;
     const storagePos = view.villageCenter ?? activeDirector?.world?.villageCenter;
 
-    // Si los materiales están completos, trabajar en la construcción
+    // If materials are complete, work on construction
     if (materialsComplete) {
       const isOnSite = directive.site.footprint.some(
         cell => cell.x === citizen.x && cell.y === citizen.y
@@ -311,13 +311,13 @@ const workerAI: CitizenAI = (citizen, view) => {
       return { type: "move", x: directive.cell.x, y: directive.cell.y };
     }
 
-    // Si faltan materiales, ir al almacén a recogerlos
+    // If materials are missing, go to the warehouse to collect them
     if (storagePos) {
       const hasStone = citizen.carrying.stone > 0;
       const hasWood = citizen.carrying.wood > 0;
       const atStorage = citizen.x === storagePos.x && citizen.y === storagePos.y;
 
-      // Si está en el almacén, recoger materiales
+      // If at the warehouse, collect materials
       if (atStorage && activeDirector?.world) {
         const world = activeDirector.world;
         if (needsStone && !hasStone && world.stockpile.stone > 0) {
@@ -328,13 +328,13 @@ const workerAI: CitizenAI = (citizen, view) => {
           const taken = world.consume("wood", Math.min(4, woodDeficit));
           citizen.carrying.wood += taken;
         }
-        // Si ya recogió materiales, ir al sitio de construcción
+        // If materials have been collected, go to the construction site
         if (citizen.carrying.stone > 0 || citizen.carrying.wood > 0) {
           return { type: "move", x: directive.cell.x, y: directive.cell.y };
         }
       }
 
-      // Si tiene materiales, entregarlos al sitio
+      // If carrying materials, deliver them to the site
       if (hasStone || hasWood) {
         const isOnSite = directive.site.footprint.some(
           cell => cell.x === citizen.x && cell.y === citizen.y
@@ -345,7 +345,7 @@ const workerAI: CitizenAI = (citizen, view) => {
         return { type: "move", x: directive.cell.x, y: directive.cell.y };
       }
 
-      // Si no tiene materiales y no está en el almacén, verificar si hay en el inventario
+      // If not carrying materials and not at the warehouse, check if there are any in stock
       const world = activeDirector?.world;
       const stockpileStone = world?.stockpile.stone ?? 0;
       const stockpileWood = world?.stockpile.wood ?? 0;
@@ -355,7 +355,7 @@ const workerAI: CitizenAI = (citizen, view) => {
         return { type: "move", x: storagePos.x, y: storagePos.y };
       }
 
-      // Si el almacén está vacío, recolectar manualmente
+      // If the warehouse is empty, gather manually
       if (gatherEngine) {
         if (needsStone) return gatherEngine.runGathererBrain(citizen, view, "stone");
         if (needsWood) return gatherEngine.runGathererBrain(citizen, view, "wood");
@@ -363,13 +363,13 @@ const workerAI: CitizenAI = (citizen, view) => {
     }
   }
 
-  // Si no hay directiva de construcción, recolectar recursos naturales
+  // If there is no construction directive, gather natural resources
   if (gatherEngine) {
     const needWood = gatherEngine.shouldHarvestWood(citizen, view);
     const needStone = gatherEngine.shouldHarvestStone(citizen, view);
 
     if (needWood && needStone) {
-      // Si ambos son necesarios, priorizar el que tenga menos stock relativo
+      // If both are needed, prioritize the one with less relative stock
       const world = activeDirector?.world;
       if (world) {
         const woodRatio = world.stockpile.wood / world.stockpile.woodCapacity;

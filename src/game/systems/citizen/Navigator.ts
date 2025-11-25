@@ -74,7 +74,7 @@ export class Navigator {
       citizen.path?.shift();
       citizen.stuckCounter = 0;
 
-      // Aplicar costo de movimiento por terreno
+      // Apply movement cost for terrain
       this.applyMovementCost(citizen, nextStep);
 
       if (!citizen.path || citizen.path.length === 0) {
@@ -231,7 +231,7 @@ export class Navigator {
     const cell = this.world.getCell(position.x, position.y);
     if (!cell) return;
 
-    // Costo de fatiga por tipo de terreno
+    // Fatigue cost per terrain type
     const terrainCost: Partial<Record<Terrain, number>> = {
       mountain: 2.0,  // Doble fatiga en montañas
       river: 1.5,     // 50% más fatiga en ríos
