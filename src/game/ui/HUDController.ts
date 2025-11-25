@@ -35,23 +35,23 @@ export class HUDController {
     if (this.hudFaith) {
       const perHour = snapshot.faith.perHour;
       const trend = perHour > 0.01 ? "⬆️" : perHour < -0.01 ? "⬇️" : "➡️";
-      this.hudFaith.textContent = `${Math.floor(snapshot.faith.value)} Faith ${trend}`;
-      this.hudFaith.setAttribute("title", `Faith +${perHour.toFixed(2)}/h`);
+      this.hudFaith.textContent = `${Math.floor(snapshot.faith.value)} Fe ${trend}`;
+      this.hudFaith.setAttribute("title", `Fe +${perHour.toFixed(2)}/h`);
     }
 
     if (this.hudToken1) {
-      this.hudToken1.textContent = snapshot.tokens.token1.toFixed(2);
+      this.hudToken1.textContent = `${Math.floor(snapshot.tokens.token1)}`;
     }
 
     if (this.hudToken2) {
-      this.hudToken2.textContent = snapshot.tokens.token2.toFixed(2);
+      this.hudToken2.textContent = `${Math.floor(snapshot.tokens.token2)}`;
     }
     if (this.hudPopulation) {
       const arrow = snapshot.population.trend > 0.1 ? "⬆️" : snapshot.population.trend < -0.1 ? "⬇️" : "➡️";
       this.hudPopulation.textContent = `${snapshot.population.value} inhabitants ${arrow}`;
-    }
+        }
 
-    if (this.hudClimate) {
+        if (this.hudClimate) {
       let icon = "⛅";
       let label = "Temperate climate";
       if (snapshot.climate.drought) {
@@ -59,7 +59,7 @@ export class HUDController {
         label = "Drought";
       } else if (snapshot.climate.rainy) {
         icon = "🌧️";
-        label = "Rainy";
+        label = "Rain";
       }
       this.hudClimate.textContent = `${icon} ${label}`;
       this.hudClimate.setAttribute("title", label);
@@ -128,30 +128,30 @@ export class HUDController {
     this.notifications = this.notifications.filter((notif) => now - notif.timestamp < notif.duration);
   }
 
-  setPauseButtonState(running: boolean) {
-    if (this.pauseButton) {
-      this.pauseButton.textContent = running ? "⏸️ Pause" : "▶️ Resume";
+    setPauseButtonState(running: boolean) {
+      if (this.pauseButton) {
+        this.pauseButton.textContent = running ? "⏸️ Pause" : "▶️ Resume";
+      }
     }
-  }
 
-  setupHeaderButtons(onPauseToggle: () => void) {
-    this.pauseButton?.addEventListener("click", onPauseToggle);
-    this.setPauseButtonState(false);
-  }
+    setupHeaderButtons(onPauseToggle: () => void) {
+      this.pauseButton?.addEventListener("click", onPauseToggle);
+      this.setPauseButtonState(false);
+    }
 
-  registerOverlayInstructions(onStart: () => void) {
-    if (!this.overlay) return;
-    this.overlay.innerHTML = `
-      <div>
-        <h1>Guardian Spirit</h1>
-        <p>Use the "Planning" panel or keys F/M/G/B to mark crops, mines, gathering, or construction (use [ and ] to change the building).</p>
-        <p>Left-click on the map to paint or place blueprints; drag to cover multiple cells.</p>
-        <p>Scroll on the map or use the +/- buttons to zoom in or out.</p>
-        <p>Hold the middle mouse button and drag to move the camera.</p>
-        <p>Watch the HUD for population, climate, and resources. Keep the tribe alive.</p>
-        <p>Press Enter to start.</p>
-      </div>
-    `;
+    registerOverlayInstructions(onStart: () => void) {
+      if (!this.overlay) return;
+      this.overlay.innerHTML = `
+        <div>
+          <h1>Guardian Spirit</h1>
+          <p>Use the "Planning" panel or keys F/M/G/B to mark crops, mines, gathering, or building (use [ and ] to change building).</p>
+          <p>Left-click on the map to paint or place blueprints; drag to cover multiple tiles.</p>
+          <p>Scroll the mouse wheel over the map or use the +/- buttons to zoom in or out.</p>
+          <p>Hold the middle mouse button and drag to pan the camera.</p>
+          <p>Watch the HUD for population, climate, and resources. Keep the tribe alive.</p>
+          <p>Press Enter to begin.</p>
+        </div>
+      `;
 
     const startHandler = (event: KeyboardEvent) => {
       if (event.code === "Enter") {
