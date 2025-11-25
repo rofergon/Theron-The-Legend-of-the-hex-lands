@@ -83,7 +83,7 @@ export class CellTooltipController {
   updatePosition(position: { x: number; y: number }) {
     if (!this.tooltipElement) return;
 
-    // Calcular posición para evitar que se salga de la pantalla
+    // Calculate position to prevent tooltip from going off-screen
     const rect = this.tooltipElement.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
@@ -141,23 +141,23 @@ export class CellTooltipController {
           ${this.getTerrainIcon(cell.terrain)} ${this.getTerrainName(cell.terrain)}
         </strong>
         <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem;">
-          Posición: (${cell.x}, ${cell.y})
+          Position: (${cell.x}, ${cell.y})
         </div>
       </div>
     `;
 
-    // Información del terreno
+    // Terrain information
     html += `<div style="margin-bottom: 0.75rem;">`;
-    html += `<div><strong>🌱 Fertilidad:</strong> ${Math.round(cell.fertility * 100)}%</div>`;
-    html += `<div><strong>💧 Humedad:</strong> ${Math.round(cell.moisture * 100)}%</div>`;
+    html += `<div><strong>🌱 Fertility:</strong> ${Math.round(cell.fertility * 100)}%</div>`;
+    html += `<div><strong>💧 Moisture:</strong> ${Math.round(cell.moisture * 100)}%</div>`;
     html += `</div>`;
 
-    // Recursos
+    // Resources
     if (cell.resource) {
       html += this.generateResourceSection(cell.resource);
     }
 
-    // Estructura
+    // Structure
     if (cell.structure) {
       html += `
         <div style="margin-bottom: 0.75rem; padding: 0.5rem; background: rgba(247, 200, 125, 0.1); border-radius: 6px;">
@@ -174,10 +174,10 @@ export class CellTooltipController {
             <strong>${this.getStructureIcon(constructionSite.type)} ${this.getStructureName(constructionSite.type)}</strong>
             <span style="font-size: 0.8rem; color: #facc15;">${progress}%</span>
           </div>
-          <div style="margin-top: 0.35rem; font-size: 0.82rem; color: #f8fafc;">Fase: ${this.getConstructionPhase(constructionSite.phase)}</div>
-          <div style="margin-top: 0.35rem; font-size: 0.82rem; color: #94a3b8;">Piedra: ${stone} • Madera: ${wood}</div>
+          <div style="margin-top: 0.35rem; font-size: 0.82rem; color: #f8fafc;">Phase: ${this.getConstructionPhase(constructionSite.phase)}</div>
+          <div style="margin-top: 0.35rem; font-size: 0.82rem; color: #94a3b8;">Stone: ${stone} • Wood: ${wood}</div>
           <div style="display:flex; gap: 0.5rem; margin-top: 0.6rem; flex-wrap: wrap;">
-            <button data-tooltip-action="cancel-construction" data-site-id="${constructionSite.id}" style="background: #b91c1c; color: #fff; border: none; padding: 0.45rem 0.6rem; border-radius: 6px; cursor: pointer; font-weight: 700; letter-spacing: 0.02em;">Cancelar obra</button>
+            <button data-tooltip-action="cancel-construction" data-site-id="${constructionSite.id}" style="background: #b91c1c; color: #fff; border: none; padding: 0.45rem 0.6rem; border-radius: 6px; cursor: pointer; font-weight: 700; letter-spacing: 0.02em;">Cancel construction</button>
           </div>
         </div>
       `;
@@ -187,10 +187,10 @@ export class CellTooltipController {
     if (isFarmCell) {
       const progress = Math.round(cell.cropProgress * 100);
       const stageLabel = this.getCropStageLabel(cell.cropStage ?? 0);
-      const taskLabel = cell.farmTask ? this.getFarmTaskName(cell.farmTask) : cell.cropStage === 3 ? "Cosecha lista" : "Creciendo sin ayuda";
+      const taskLabel = cell.farmTask ? this.getFarmTaskName(cell.farmTask) : cell.cropStage === 3 ? "Harvest ready" : "Growing without help";
       html += `
         <div style="margin-bottom: 0.75rem; padding: 0.5rem; background: rgba(34, 197, 94, 0.1); border-radius: 6px;">
-          <div><strong>🌾 Cultivo:</strong> ${progress}% (${stageLabel})</div>
+          <div><strong>🌾 Crop:</strong> ${progress}% (${stageLabel})</div>
           <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 0.2rem;">${taskLabel}</div>
         </div>
       `;
@@ -198,29 +198,29 @@ export class CellTooltipController {
       const progress = Math.round(cell.cropProgress * 100);
       html += `
         <div style="margin-bottom: 0.75rem; padding: 0.5rem; background: rgba(34, 197, 94, 0.1); border-radius: 6px;">
-          <div><strong>🌾 Vegetación:</strong> ${progress}%</div>
+          <div><strong>🌾 Vegetation:</strong> ${progress}%</div>
         </div>
       `;
     }
 
-    // Prioridad
+    // Priority
     if (cell.priority !== "none") {
       html += `
         <div style="margin-bottom: 0.75rem; padding: 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
-          <div><strong>🎯 Prioridad:</strong> ${this.getPriorityName(cell.priority)}</div>
+          <div><strong>🎯 Priority:</strong> ${this.getPriorityName(cell.priority)}</div>
           <div style="margin-top: 0.5rem;">
-            <button data-tooltip-action="clear-priority" style="background: transparent; color: #f8fafc; border: 1px solid rgba(255,255,255,0.3); padding: 0.35rem 0.6rem; border-radius: 6px; cursor: pointer;">Quitar designación</button>
+            <button data-tooltip-action="clear-priority" style="background: transparent; color: #f8fafc; border: 1px solid rgba(255,255,255,0.3); padding: 0.35rem 0.6rem; border-radius: 6px; cursor: pointer;">Remove designation</button>
           </div>
         </div>
       `;
     }
 
-    // Ciudadanos en la celda
+    // Citizens in the cell
     if (citizens.length > 0) {
       html += this.generateCitizensSection(citizens);
     }
 
-    // Información adicional según el tipo de terreno
+    // Additional information depending on terrain type
     html += this.generateTerrainInfo(cell);
 
     return html;
@@ -229,15 +229,15 @@ export class CellTooltipController {
   private generateResourceSection(resource: ResourceNode): string {
     const amount = Math.round(resource.amount);
     const richness = Math.round(resource.richness * 100);
-    const renewable = resource.renewable ? "Renovable" : "No renovable";
+    const renewable = resource.renewable ? "Renewable" : "Non-renewable";
 
     return `
       <div style="margin-bottom: 0.75rem; padding: 0.5rem; background: rgba(34, 197, 94, 0.15); border-radius: 6px;">
         <div><strong>${this.getResourceIcon(resource.type)} ${this.getResourceName(resource.type)}</strong></div>
         <div style="font-size: 0.8rem; margin-top: 0.3rem; color: #94a3b8;">
-          <div>Cantidad: ${amount}</div>
-          <div>Riqueza: ${richness}%</div>
-          <div>Tipo: ${renewable}</div>
+          <div>Amount: ${amount}</div>
+          <div>Richness: ${richness}%</div>
+          <div>Type: ${renewable}</div>
         </div>
       </div>
     `;
@@ -246,7 +246,7 @@ export class CellTooltipController {
   private generateCitizensSection(citizens: Citizen[]): string {
     let html = `
       <div style="margin-bottom: 0.75rem; padding: 0.5rem; background: rgba(147, 51, 234, 0.1); border-radius: 6px;">
-        <div><strong>👥 Ciudadanos en la celda (${citizens.length}):</strong></div>
+        <div><strong>👥 Citizens in cell (${citizens.length}):</strong></div>
         <div style="margin-top: 0.5rem;">
     `;
 
@@ -261,9 +261,9 @@ export class CellTooltipController {
             <span style="color: ${healthColor}; font-size: 0.8rem;">${health}% ❤️</span>
           </div>
           <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem;">
-            ${this.getRoleName(citizen.role)} • Edad: ${Math.floor(citizen.age)}
+            ${this.getRoleName(citizen.role)} • Age: ${Math.floor(citizen.age)}
             ${citizen.carrying.food > 0 || citizen.carrying.stone > 0 || citizen.carrying.wood > 0 ?
-          ` • Carga: ${citizen.carrying.food}🌾 ${citizen.carrying.stone}🪨 ${citizen.carrying.wood}🌲` : ''}
+          ` • Carrying: ${citizen.carrying.food}🌾 ${citizen.carrying.stone}🪨 ${citizen.carrying.wood}🌲` : ''}
           </div>
         </div>
       `;
@@ -279,14 +279,14 @@ export class CellTooltipController {
 
     let html = `
       <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(233, 204, 152, 0.2); font-size: 0.8rem; color: #94a3b8;">
-        <div><strong>Propiedades del terreno:</strong></div>
+        <div><strong>Terrain properties:</strong></div>
         <div style="margin-top: 0.3rem;">
-          <div>Caminable: ${walkable ? "✅ Sí" : "❌ No"}</div>
-          <div>Cultivable: ${canFarm ? "✅ Sí" : "❌ No"}</div>
+          <div>Walkable: ${walkable ? "✅ Yes" : "❌ No"}</div>
+          <div>Farmable: ${canFarm ? "✅ Yes" : "❌ No"}</div>
         </div>
     `;
 
-    // Información específica del terreno
+    // Specific terrain info
     const terrainInfo = this.getSpecificTerrainInfo(cell.terrain);
     if (terrainInfo) {
       html += `<div style="margin-top: 0.5rem; font-style: italic; color: #cbd5e1;">${terrainInfo}</div>`;
@@ -314,16 +314,16 @@ export class CellTooltipController {
 
   private getTerrainName(terrain: string): string {
     const names: Record<string, string> = {
-      ocean: "Océano",
-      beach: "Playa",
-      grassland: "Pradera",
-      forest: "Bosque",
-      desert: "Desierto",
+      ocean: "Ocean",
+      beach: "Beach",
+      grassland: "Grassland",
+      forest: "Forest",
+      desert: "Desert",
       tundra: "Tundra",
-      snow: "Nieve",
-      mountain: "Montaña",
-      swamp: "Pantano",
-      river: "Río"
+      snow: "Snow",
+      mountain: "Mountain",
+      swamp: "Swamp",
+      river: "River"
     };
     return names[terrain] || terrain;
   }
@@ -340,10 +340,10 @@ export class CellTooltipController {
 
   private getResourceName(resourceType: string): string {
     const names: Record<string, string> = {
-      food: "Comida",
-      stone: "Piedra",
-      waterSpring: "Manantial",
-      wood: "Madera"
+      food: "Food",
+      stone: "Stone",
+      waterSpring: "Spring",
+      wood: "Wood"
     };
     return names[resourceType] || resourceType;
   }
@@ -363,22 +363,22 @@ export class CellTooltipController {
 
   private getStructureName(structure: string): string {
     const names: Record<string, string> = {
-      village: "Aldea",
-      granary: "Granero",
-      house: "Casa",
-      tower: "Torre",
-      temple: "Templo",
-      campfire: "Fogata",
-      warehouse: "Almacén",
+      village: "Village",
+      granary: "Granary",
+      house: "House",
+      tower: "Tower",
+      temple: "Temple",
+      campfire: "Campfire",
+      warehouse: "Warehouse",
     };
     return names[structure] || structure;
   }
 
   private getConstructionPhase(phase: ConstructionSite["phase"]): string {
     const labels: Record<ConstructionSite["phase"], string> = {
-      foundation: "Cimentación",
-      structure: "Estructura",
-      finishing: "Acabado",
+      foundation: "Foundation",
+      structure: "Structure",
+      finishing: "Finishing",
     };
     return labels[phase] ?? phase;
   }
@@ -397,42 +397,42 @@ export class CellTooltipController {
 
   private getRoleName(role: string): string {
     const names: Record<string, string> = {
-      worker: "Trabajador",
-      farmer: "Granjero",
-      warrior: "Guerrero",
-      scout: "Explorador",
-      child: "Niño",
-      elder: "Anciano"
+      worker: "Worker",
+      farmer: "Farmer",
+      warrior: "Warrior",
+      scout: "Scout",
+      child: "Child",
+      elder: "Elder"
     };
     return names[role] || role;
   }
 
   private getPriorityName(priority: string): string {
     const names: Record<string, string> = {
-      explore: "Explorar",
-      defend: "Defender",
-      farm: "Farmear",
-      mine: "Minar",
-      none: "Ninguna"
+      explore: "Explore",
+      defend: "Defend",
+      farm: "Farm",
+      mine: "Mine",
+      none: "None"
     };
     return names[priority] || priority;
   }
 
   private getCropStageLabel(stage: number): string {
     const labels: Record<number, string> = {
-      0: "Barbecho",
-      1: "Germinando",
-      2: "Madurando",
-      3: "Listo para cosechar",
+      0: "Fallow",
+      1: "Germinating",
+      2: "Maturing",
+      3: "Ready to harvest",
     };
-    return labels[stage] ?? "Desconocido";
+    return labels[stage] ?? "Unknown";
   }
 
   private getFarmTaskName(task: string): string {
     const names: Record<string, string> = {
-      sow: "Siembra necesaria",
-      fertilize: "Requiere fertilización",
-      harvest: "Requiere cosecha",
+      sow: "Sowing needed",
+      fertilize: "Needs fertilization",
+      harvest: "Needs harvest",
     };
     return names[task] ?? task;
   }
@@ -444,16 +444,16 @@ export class CellTooltipController {
 
   private getSpecificTerrainInfo(terrain: string): string | null {
     const info: Record<string, string> = {
-      ocean: "Proporciona recursos acuáticos. No se puede caminar.",
-      beach: "Zona costera con baja fertilidad.",
-      grassland: "Ideal para agricultura y pastoreo.",
-      forest: "Rica en recursos alimentarios y madera.",
-      desert: "Seco y árido, difícil para la vida.",
-      tundra: "Frío y poco fértil, recursos limitados.",
-      snow: "Zona helada e intransitable.",
-      mountain: "Rica en minerales. Caminable pero agota más (2x fatiga).",
-      swamp: "Húmedo y pantanoso, moderadamente fértil. Movimiento lento (1.3x fatiga).",
-      river: "Fuente de agua fresca. Movimiento lento (1.5x fatiga)."
+      ocean: "Provides aquatic resources. Not walkable.",
+      beach: "Coastal area with low fertility.",
+      grassland: "Ideal for agriculture and grazing.",
+      forest: "Rich in food and wood resources.",
+      desert: "Dry and arid, difficult for life.",
+      tundra: "Cold and infertile, limited resources.",
+      snow: "Frozen and impassable area.",
+      mountain: "Rich in minerals. Walkable but more exhausting (2x fatigue).",
+      swamp: "Wet and swampy, moderately fertile. Slow movement (1.3x fatigue).",
+      river: "Source of fresh water. Slow movement (1.5x fatigue)."
     };
     return info[terrain] || null;
   }
