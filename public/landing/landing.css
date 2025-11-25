@@ -438,6 +438,7 @@ body {
   display: flex;
   justify-content: flex-start;
   margin: 0.3rem 0 0.8rem;
+  position: relative;
 }
 
 .token-hero img {
@@ -458,6 +459,27 @@ body {
   color: var(--muted);
   font-size: 0.95rem;
   line-height: 1.4;
+}
+
+.token-hero::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(255, 107, 53, 0.35), rgba(110, 231, 255, 0.35), rgba(255, 107, 53, 0.35));
+  filter: blur(12px);
+  opacity: 0.9;
+  animation: token-glow 6s linear infinite;
+  z-index: -1;
+}
+
+@keyframes token-glow {
+  from {
+    transform: rotate(0deg) scale(1);
+  }
+  to {
+    transform: rotate(360deg) scale(1);
+  }
 }
 
 @media (max-width: 720px) {
