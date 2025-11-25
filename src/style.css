@@ -1,20 +1,26 @@
 :root {
   font-family: "Space Grotesk", "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #e8dcc5;
-  /* Parchment */
-  background-color: #1a120b;
-  /* Dark warm brown/black */
+  color: #eaf0ff;
 
-  --color-bg-main: #1a120b;
-  --color-bg-panel: rgba(44, 30, 20, 0.95);
-  /* Dark wood/leather */
-  --color-text-primary: #e8dcc5;
-  --color-text-secondary: #a89f91;
+  /* Modern color palette from landing/store pages */
+  --bg: #0b0f16;
+  --panel: rgba(12, 17, 25, 0.82);
+  --text: #eaf0ff;
+  --muted: #9fb2d7;
+  --accent: #ff6b35;
+  --accent-2: #6ee7ff;
+  --border: rgba(255, 255, 255, 0.1);
+  --shadow: 0 18px 38px rgba(0, 0, 0, 0.45);
+
+  /* Legacy variable mapping for compatibility */
+  --color-bg-main: #0b0f16;
+  --color-bg-panel: rgba(12, 17, 25, 0.82);
+  --color-text-primary: #eaf0ff;
+  --color-text-secondary: #9fb2d7;
   --color-accent-fire: #ff6b35;
-  --color-accent-wheat: #f4d03f;
-  --color-border: rgba(93, 64, 55, 0.5);
-  /* Dark Wood */
-  --color-btn-bg: rgba(60, 40, 30, 0.8);
+  --color-accent-wheat: #6ee7ff;
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-btn-bg: rgba(12, 17, 25, 0.7);
   --color-btn-hover: rgba(255, 107, 53, 0.2);
 }
 
@@ -25,7 +31,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at 50% 20%, #2c1e14, #1a120b 80%);
+  background: radial-gradient(circle at 20% 10%, #182132, #0b0f16 55%);
   display: flex;
   flex-direction: column;
 }
@@ -42,9 +48,10 @@ body {
 }
 
 #game-header {
-  background: linear-gradient(180deg, rgba(44, 30, 20, 0.98), rgba(26, 18, 11, 0.95));
-  border-bottom: 2px solid var(--color-border);
-  padding: 0.75rem 2rem;
+  background: rgba(8, 12, 19, 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 0.5rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -61,6 +68,13 @@ body {
   align-items: center;
   gap: 1rem;
   flex-shrink: 0;
+}
+
+.game-logo {
+  height: 40px;
+  max-width: 200px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(255, 107, 53, 0.3));
 }
 
 .game-title {
@@ -473,6 +487,7 @@ body {
   opacity: 1;
   pointer-events: auto;
 }
+
 .citizen-panel {
   display: flex;
   flex-direction: column;
