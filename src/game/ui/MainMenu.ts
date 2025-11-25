@@ -400,14 +400,12 @@ export class MainMenu {
 
     // 2K Screen adjustment (width > 2000)
     const is2K = canvasWidth > 2000;
-    const headerHeight = is2K ? 220 : 160; // Push down on large screens
+    const headerHeight = is2K ? 400 : 160; // Push down significantly on large screens
 
-    const configPanelHeight = 420; // Increased from 310 to 420 to fit icons
+    const configPanelHeight = is2K ? 500 : 420; // Increase panel height for 2K to fit larger icons
     const configPanelWidth = Math.min(500, canvasWidth - margin * 2);
     const configPanelX = centerX - configPanelWidth / 2;
     const configPanelY = headerHeight;
-
-    // Info panel removed
 
     const startButtonHeight = 56;
     const startButtonWidth = 360;
@@ -471,8 +469,12 @@ export class MainMenu {
 
   private renderTitle(centerX: number) {
     const ctx = this.ctx;
-    // Moved up by ~15px
-    const yPos = this.useMobileLayout ? 15 : 35;
+
+    // 2K Screen adjustment
+    const is2K = this.canvas.width > 2000;
+
+    // Moved up by ~15px for normal, but lowered for 2K
+    const yPos = is2K ? 100 : (this.useMobileLayout ? 15 : 35);
 
     if (this.logoImage.complete && this.logoImage.naturalWidth > 0) {
       // Check for small screen condition (mobile or width < 1000)
@@ -857,7 +859,8 @@ export class MainMenu {
     const centerX = centerXOverride ?? this.canvas.width / 2;
 
     // Icon button dimensions
-    const buttonSize = this.useMobileLayout ? 60 : 80;
+    const is2K = this.canvas.width > 2000;
+    const buttonSize = is2K ? 120 : (this.useMobileLayout ? 60 : 80);
     const spacing = 20;
 
     const totalWidth = options.length * buttonSize + (options.length - 1) * spacing;
