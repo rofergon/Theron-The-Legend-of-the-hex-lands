@@ -13,6 +13,8 @@ import { CellTooltipController } from "./ui/CellTooltip";
 import { getStructureDefinition } from "./data/structures";
 import type { StructureRequirements } from "./data/structures";
 import { axialToOffset, createHexGeometry, getHexCenter, getHexWorldBounds, pixelToAxial, roundAxial } from "./ui/hexGrid";
+import { convertFaithToHex, type TransactionStatus } from "./wallet/hexConversionService";
+import { isWalletConnected, connectOneWallet } from "./wallet/walletConfig";
 
 type AssignableRole = Extract<Role, "farmer" | "worker" | "warrior" | "scout">;
 type PlanningMode = "farm" | "mine" | "gather" | "build";
@@ -1018,26 +1020,117 @@ export class Game {
       this.tokenModalFaithValue.textContent = Math.floor(faith).toString();
     }
     if (this.tokenModalRate) {
-      this.tokenModalRate.textContent = `${rate} Faith → ${rate} Token1`;
+      this.tokenModalRate.textContent = `${rate} Faith → 1 HEX`;
     }
     if (this.tokenModalStatus) {
-      this.tokenModalStatus.textContent = faith <= 0 ? "No stored Faith to convert." : "Convert your Faith to Token1.";
+      if (faith <= 0) {
+        this.tokenModalStatus.textContent = "No stored Faith to convert.";
+      } else if (!isWalletConnected()) {
+        this.tokenModalStatus.textContent = "Conecta tu OneWallet para convertir Faith a HEX en blockchain.";
+      } else {
+        this.tokenModalStatus.textContent = "Convierte tu Faith a HEX tokens en OneChain.";
+      }
     }
   }
 
-  private convertAllFaithToToken1 = () => {
+  private convertAllFaithToToken1 = async () => {
     if (!this.simulation) {
       return;
     }
-    const result = this.simulation.convertFaithToToken1();
-    if (result.faithSpent <= 0) {
+
+    // Obtener la cantidad de Faith disponible
+    const faithAmount = Math.floor(this.simulation.getFaithSnapshot().value);
+    
+    if (faithAmount <= 0) {
       this.hud.updateStatus("No Faith available to convert.");
       this.closeTokenModal();
       return;
     }
-    this.logEvent(`You converted ${result.faithSpent.toFixed(1)} Faith into ${result.token1Gained.toFixed(1)} Token1.`);
-    this.updateHUD();
-    this.closeTokenModal();
+
+    // Verificar si la wallet está conectada
+    if (!isWalletConnected()) {
+      if (this.tokenModalStatus) {
+        this.tokenModalStatus.textContent = "Conectando wallet...";
+      }
+      
+      const connection = await connectOneWallet();
+      if (!connection.success) {
+        if (this.tokenModalStatus) {
+          this.tokenModalStatus.textContent = connection.error || "Error al conectar wallet";
+        }
+        this.hud.showNotification("No se pudo conectar la wallet", "critical");
+        return;
+      }
+      
+      this.hud.showNotification("Wallet conectada exitosamente", "success");
+    }
+
+    // Actualizar estado en el modal
+    const updateModalStatus = (status: TransactionStatus, message?: string) => {
+      if (this.tokenModalStatus) {
+        const statusMessages: Record<TransactionStatus, string> = {
+          'idle': 'Preparando...',
+          'connecting-wallet': 'Conectando wallet...',
+          'building-transaction': 'Preparando transacción...',
+          'signing': '✍️ Por favor firma la transacción en tu OneWallet',
+          'executing': '⏳ Ejecutando transacción en OneChain...',
+          'confirming': '🔄 Confirmando...',
+          'success': '✅ ¡Conversión exitosa!',
+          'error': '❌ Error en la transacción',
+        };
+        this.tokenModalStatus.textContent = message || statusMessages[status];
+      }
+    };
+
+    // Deshabilitar el botón durante la transacción
+    if (this.tokenModalConvertAll) {
+      this.tokenModalConvertAll.disabled = true;
+      this.tokenModalConvertAll.textContent = "Procesando...";
+    }
+
+    try {
+      // Llamar al servicio de conversión con firma de wallet
+      const result = await convertFaithToHex(faithAmount, updateModalStatus);
+
+      if (result.success && result.hexReceived) {
+        // Actualizar el estado del juego (restar la Faith gastada)
+        const gameResult = this.simulation.convertFaithToToken1();
+        
+        this.logEvent(
+          `✨ Convertiste ${result.faithSpent} Faith en ${result.hexReceived} HEX tokens on-chain. ` +
+          `TX: ${result.transactionDigest?.slice(0, 10)}...`
+        );
+        this.hud.showNotification(
+          `¡${result.hexReceived} HEX tokens recibidos!`,
+          "success",
+          6000
+        );
+        this.updateHUD();
+        
+        // Cerrar modal después de 2 segundos
+        setTimeout(() => {
+          this.closeTokenModal();
+        }, 2000);
+      } else {
+        this.hud.showNotification(
+          result.error || "Error al convertir Faith a HEX",
+          "critical",
+          5000
+        );
+      }
+    } catch (error: any) {
+      console.error("Error en convertAllFaithToToken1:", error);
+      if (this.tokenModalStatus) {
+        this.tokenModalStatus.textContent = `Error: ${error.message || 'Error desconocido'}`;
+      }
+      this.hud.showNotification("Error al convertir Faith a HEX", "critical");
+    } finally {
+      // Rehabilitar el botón
+      if (this.tokenModalConvertAll) {
+        this.tokenModalConvertAll.disabled = false;
+        this.tokenModalConvertAll.textContent = "Convert all";
+      }
+    }
   };
 
   private loop = (time: number) => {

@@ -445,6 +445,17 @@ body {
   gap: 0.5rem;
 }
 
+.modal-info {
+  background: rgba(110, 231, 255, 0.08);
+  border: 1px solid rgba(110, 231, 255, 0.2);
+  border-radius: 10px;
+  padding: 0.6rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
 .modal-row {
   display: flex;
   align-items: center;
@@ -465,6 +476,12 @@ body {
   background: rgba(255, 255, 255, 0.05);
   color: var(--color-text-primary);
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .modal-actions button.primary {
@@ -472,6 +489,12 @@ body {
   border-color: transparent;
   color: #1b0f0a;
   font-weight: 700;
+}
+
+.modal-actions button.primary:hover:not(:disabled) {
+  background: #ff8355;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
 }
 
 .modal:not(.hidden) {

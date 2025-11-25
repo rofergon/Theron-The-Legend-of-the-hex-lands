@@ -1,0 +1,424 @@
+/**
+ * HEX Token Conversion Service
+ * 
+ * Maneja la conversión de Faith a HEX mediante el contrato hex_token desplegado
+ * Integra con OneWallet para firmar transacciones en OneChain
+ */
+
+import { Transaction } from '@onelabs/sui/transactions';
+import { bcs } from '@onelabs/sui/bcs';
+import { onechainClient } from './onechainClient';
+import { getCurrentAccount, isWalletConnected, getWalletInstance } from './walletConfig';
+import { ONECHAIN_PACKAGE_ID, HEX_TOKEN, CONVERSION_RATES, NETWORK_CONFIG } from '../../config/contracts';
+
+/**
+ * Resultado de la conversión
+ */
+export interface ConversionResult {
+  success: boolean;
+  faithSpent?: number;
+  hexReceived?: number;
+  transactionDigest?: string;
+  error?: string;
+}
+
+/**
+ * Estado de la transacción
+ */
+export type TransactionStatus = 
+  | 'idle'
+  | 'connecting-wallet'
+  | 'building-transaction'
+  | 'signing'
+  | 'executing'
+  | 'confirming'
+  | 'success'
+  | 'error';
+
+/**
+ * Calcula cuánto HEX se recibirá por una cantidad de Faith
+ */
+export function calculateHexAmount(faithAmount: number): number {
+  return Math.floor(faithAmount / CONVERSION_RATES.FAITH_TO_HEX);
+}
+
+/**
+ * Valida que la cantidad de Faith sea válida para conversión
+ */
+export function validateFaithAmount(faithAmount: number): { valid: boolean; error?: string } {
+  if (faithAmount <= 0) {
+    return { valid: false, error: 'No hay Faith disponible para convertir' };
+  }
+  
+  if (faithAmount < CONVERSION_RATES.FAITH_TO_HEX) {
+    return { 
+      valid: false, 
+      error: `Necesitas al menos ${CONVERSION_RATES.FAITH_TO_HEX} Faith para convertir` 
+    };
+  }
+  
+  return { valid: true };
+}
+
+/**
+ * Convierte Faith a HEX llamando al contrato hex_token::mint_from_faith
+ * 
+ * @param faithAmount - Cantidad de Faith a convertir
+ * @param onStatusChange - Callback para actualizar el estado de la transacción
+ * @returns Resultado de la conversión
+ */
+export async function convertFaithToHex(
+  faithAmount: number,
+  onStatusChange?: (status: TransactionStatus, message?: string) => void
+): Promise<ConversionResult> {
+  try {
+    // Validar Faith
+    const validation = validateFaithAmount(faithAmount);
+    if (!validation.valid) {
+      return {
+        success: false,
+        error: validation.error,
+      };
+    }
+
+    // Verificar que la wallet esté conectada
+    onStatusChange?.('connecting-wallet', 'Verificando conexión de wallet...');
+    if (!isWalletConnected()) {
+      return {
+        success: false,
+        error: 'Wallet no conectada. Por favor, conecta tu OneWallet primero.',
+      };
+    }
+
+    const account = getCurrentAccount();
+    if (!account || !account.address) {
+      return {
+        success: false,
+        error: 'No se pudo obtener la cuenta de la wallet.',
+      };
+    }
+
+    // CRÍTICO: Verificar que la wallet esté en Testnet
+    console.log('🔍 Verificando red de la wallet...');
+    console.log('   Cuenta:', account.address);
+    
+    // Intentar obtener balance en Testnet para verificar conexión
+    try {
+      const testnetBalance = await onechainClient.getBalance({
+        owner: account.address,
+        coinType: '0x2::oct::OCT',
+      });
+      
+      const octBalance = Number(testnetBalance.totalBalance) / 1_000_000_000;
+      console.log('✅ Conexión a Testnet verificada');
+      console.log('   Balance en Testnet:', octBalance, 'OCT');
+      
+      if (octBalance < 0.1) {
+        return {
+          success: false,
+          error: `Balance insuficiente en Testnet: ${octBalance.toFixed(4)} OCT. Necesitas al menos 0.1 OCT.\n\n⚠️ IMPORTANTE: Asegúrate de que OneWallet esté conectada a TESTNET, no a Mainnet.\n\nPara cambiar de red en OneWallet:\n1. Abre OneWallet\n2. Haz clic en el selector de red (arriba)\n3. Selecciona "Testnet"\n4. Recarga la página`,
+        };
+      }
+    } catch (error: any) {
+      console.error('❌ Error verificando red:', error);
+      return {
+        success: false,
+        error: `No se pudo conectar a OneChain Testnet. \n\n⚠️ IMPORTANTE: Verifica que OneWallet esté conectada a TESTNET, no a Mainnet.\n\nPara cambiar de red en OneWallet:\n1. Abre OneWallet\n2. Haz clic en el selector de red (arriba)\n3. Selecciona "Testnet"\n4. Recarga la página\n\nError técnico: ${error.message}`,
+      };
+    }
+
+    // Calcular HEX a recibir
+    const hexAmount = calculateHexAmount(faithAmount);
+    
+    // Construir transacción
+    onStatusChange?.('building-transaction', `Preparando conversión de ${faithAmount} Faith a ${hexAmount} HEX...`);
+    
+    console.log('📞 Construyendo transacción para conversión de Faith a HEX...');
+    console.log('   Package:', ONECHAIN_PACKAGE_ID);
+    console.log('   Module:', HEX_TOKEN.MODULE);
+    console.log('   Function: mint_from_faith_public');
+    console.log('   Faith amount:', faithAmount);
+    console.log('   Conversion rate:', CONVERSION_RATES.FAITH_TO_HEX);
+    console.log('   Expected HEX:', hexAmount);
+    
+    // Crear la transacción usando PTB (Programmable Transaction Block)
+    const tx = new Transaction();
+    
+    // Configurar sender primero (requerido para objetos compartidos)
+    tx.setSender(account.address);
+    
+    // IMPORTANTE: Según la documentación de OneChain, para valores puros (u64)
+    // se debe usar tx.pure() directamente, que maneja la serialización BCS automáticamente
+    // NO necesitamos serializar manualmente con bcs.u64().serialize()
+    tx.moveCall({
+      target: `${ONECHAIN_PACKAGE_ID}::${HEX_TOKEN.MODULE}::mint_from_faith_public`,
+      arguments: [
+        // holder: &mut TreasuryCapHolder (shared object)
+        tx.object(HEX_TOKEN.TREASURY_HOLDER),
+        
+        // stats: &mut EconomyStats (shared object)  
+        tx.object(HEX_TOKEN.ECONOMY_STATS),
+        
+        // faith_amount: u64 (pure value)
+        // tx.pure() maneja automáticamente la serialización BCS según el tipo
+        tx.pure.u64(faithAmount),
+        
+        // conversion_rate: u64 (pure value)
+        tx.pure.u64(CONVERSION_RATES.FAITH_TO_HEX),
+        
+        // ctx: &mut TxContext <- El sistema lo inyecta automáticamente, NO se pasa
+      ],
+    });
+    
+    console.log('✅ Transacción PTB construida correctamente');
+
+    // Firmar y ejecutar transacción usando Wallet Standard
+    onStatusChange?.('signing', 'Esperando firma de la wallet...');
+    
+    // Obtener wallet del sistema
+    const wallet = getWalletInstance();
+    
+    if (!wallet) {
+      return {
+        success: false,
+        error: 'OneWallet no está disponible',
+      };
+    }
+
+    // Verificar que la wallet soporta la feature necesaria
+    const signAndExecuteFeature = wallet.features['sui:signAndExecuteTransactionBlock'] as any;
+    
+    if (!signAndExecuteFeature) {
+      return {
+        success: false,
+        error: 'La wallet no soporta signAndExecuteTransactionBlock',
+      };
+    }
+
+    console.log('📝 Enviando transacción a OneWallet para firma y ejecución...');
+    
+    // CRÍTICO: Construir y serializar la transacción ANTES de enviar a la wallet
+    // Esto resuelve los "UnresolvedObject" a objetos completos con versiones
+    console.log('🔧 Construyendo transacción (bytes de respaldo) con el cliente OneChain...');
+    let txBytes: Uint8Array | null = null;
+    
+    try {
+      txBytes = await tx.build({ client: onechainClient });
+      console.log('✅ Transacción construida y serializada');
+      console.log('   Tamaño:', txBytes.length, 'bytes');
+    } catch (error: any) {
+      console.warn('⚠️ No se pudo construir bytes de respaldo:', error.message);
+    }
+    
+    // Intentar con diferentes chain IDs porque OneWallet puede usar diferentes formatos.
+    // Preferimos los que contengan "testnet" y luego añadimos variantes conocidas.
+    const chainIdsToTry = Array.from(new Set([
+      ...(account.chains ?? []).filter(c => c.toLowerCase().includes('testnet')),
+      NETWORK_CONFIG.CHAIN_ID_ONECHAIN,
+      NETWORK_CONFIG.CHAIN_ID_ALT,
+      NETWORK_CONFIG.CHAIN_ID,
+      'sui:testnet',
+      'testnet',
+    ].filter(Boolean)));
+    
+    let lastError: any = null;
+    
+    for (const chainId of chainIdsToTry) {
+      try {
+        console.log(`🔄 Intentando firmar con chain ID: "${chainId}"`);
+        
+        // Primer intento: Transaction vivo (evita problemas de formato en algunas wallets)
+        onStatusChange?.('executing', 'Ejecutando transacción en OneChain...');
+        
+        const result = await signAndExecuteFeature.signAndExecuteTransactionBlock({
+          transactionBlock: tx,
+          account: account,
+          chain: chainId,
+          options: {
+            showEffects: true,
+            showEvents: true,
+            showObjectChanges: true,
+          },
+        });
+        
+        console.log(`✅ Transacción ejecutada exitosamente con chain ID: "${chainId}"`);
+        console.log('   Digest:', result.digest);
+
+        // Esperar confirmación
+        onStatusChange?.('confirming', 'Confirmando transacción...');
+        
+        if (!result || !result.digest) {
+          return {
+            success: false,
+            error: 'La transacción no retornó un digest válido',
+          };
+        }
+
+        // Verificar el resultado
+        const txResponse = await onechainClient.waitForTransaction({
+          digest: result.digest,
+          options: {
+            showEffects: true,
+            showEvents: true,
+          },
+        });
+
+        // Verificar si la transacción fue exitosa
+        if (txResponse.effects?.status?.status !== 'success') {
+          return {
+            success: false,
+            error: `Transacción fallida: ${txResponse.effects?.status?.error || 'Error desconocido'}`,
+          };
+        }
+
+        onStatusChange?.('success', `¡Conversión exitosa! ${hexAmount} HEX recibidos`);
+
+        return {
+          success: true,
+          faithSpent: faithAmount,
+          hexReceived: hexAmount,
+          transactionDigest: result.digest,
+        };
+      } catch (error: any) {
+        console.warn(`⚠️ Intento con chain ID "${chainId}" falló:`, error.message);
+        // Si la wallet se queja del formato, intentamos de nuevo con bytes/base64.
+        if (error?.message?.toLowerCase().includes('transaction format') && txBytes) {
+          try {
+            console.log(`🔁 Reintentando con bytes en chain ID: "${chainId}"`);
+            const result = await signAndExecuteFeature.signAndExecuteTransactionBlock({
+              transactionBlock: Buffer.from(txBytes).toString('base64'),
+              account: account,
+              chain: chainId,
+              options: {
+                showEffects: true,
+                showEvents: true,
+                showObjectChanges: true,
+              },
+            });
+
+            console.log(`✅ Transacción ejecutada exitosamente con chain ID: "${chainId}" (bytes)`);
+            console.log('   Digest:', result.digest);
+
+            onStatusChange?.('confirming', 'Confirmando transacción...');
+            
+            if (!result || !result.digest) {
+              return {
+                success: false,
+                error: 'La transacción no retornó un digest válido',
+              };
+            }
+
+            const txResponse = await onechainClient.waitForTransaction({
+              digest: result.digest,
+              options: {
+                showEffects: true,
+                showEvents: true,
+              },
+            });
+
+            if (txResponse.effects?.status?.status !== 'success') {
+              return {
+                success: false,
+                error: `Transacción fallida: ${txResponse.effects?.status?.error || 'Error desconocido'}`,
+              };
+            }
+
+            onStatusChange?.('success', `¡Conversión exitosa! ${hexAmount} HEX recibidos`);
+
+            return {
+              success: true,
+              faithSpent: faithAmount,
+              hexReceived: hexAmount,
+              transactionDigest: result.digest,
+            };
+          } catch (fallbackError: any) {
+            console.warn(`⚠️ Reintento con bytes falló:`, fallbackError.message);
+          }
+        }
+        lastError = error;
+        // Continuar con el siguiente chain ID
+        continue;
+      }
+    }
+    
+    // Si llegamos aquí, todos los intentos fallaron
+    console.error('❌ Todos los intentos de firma fallaron');
+    console.error('   Último error:', lastError);
+    
+    // Si llegamos aquí, todos los intentos fallaron
+    console.error('❌ Todos los intentos de firma fallaron');
+    console.error('   Último error:', lastError);
+    
+    // Verificar si el error es por red incorrecta
+    const errorMsg = lastError?.message || '';
+    const isNetworkError = errorMsg.includes('network') || errorMsg.includes('endpoint') || errorMsg.includes('chain') || errorMsg.includes('failed');
+    
+    return {
+      success: false,
+      error: `Error ejecutando transacción: ${lastError?.message || 'Error desconocido'}\n\n${
+        isNetworkError 
+          ? '⚠️ PROBLEMA DE RED DETECTADO\n\nOneWallet parece estar conectada a la red incorrecta.\n\nSOLUCIÓN:\n1. Abre OneWallet\n2. Haz clic en el selector de red (parte superior)\n3. Selecciona "Testnet" (NO Mainnet)\n4. Recarga esta página\n5. Intenta de nuevo'
+          : 'Asegúrate de que OneWallet esté conectada a OneChain Testnet.'
+      }`,
+    };
+  } catch (error: any) {
+    console.error('❌ Error general en convertFaithToHex:', error);
+    return {
+      success: false,
+      error: error.message || 'Error al convertir Faith a HEX',
+    };
+  }
+}
+
+/**
+ * Obtiene el balance de HEX tokens de una dirección
+ */
+export async function getHexBalance(address: string): Promise<number> {
+  try {
+    const balance = await onechainClient.getBalance({
+      owner: address,
+      coinType: HEX_TOKEN.TYPE,
+    });
+    
+    // Convertir de unidades más pequeñas a HEX (9 decimales)
+    return Number(balance.totalBalance) / 1_000_000_000;
+  } catch (error) {
+    console.error('❌ Error obteniendo balance de HEX:', error);
+    return 0;
+  }
+}
+
+/**
+ * Obtiene las estadísticas del contrato HEX
+ */
+export async function getHexEconomyStats(): Promise<{
+  totalMinted: number;
+  totalBurned: number;
+  faithConverted: number;
+  circulatingSupply: number;
+} | null> {
+  try {
+    const statsObject = await onechainClient.getObject({
+      id: HEX_TOKEN.ECONOMY_STATS,
+      options: {
+        showContent: true,
+      },
+    });
+
+    if (!statsObject.data || !statsObject.data.content || statsObject.data.content.dataType !== 'moveObject') {
+      return null;
+    }
+
+    const fields = (statsObject.data.content as any).fields;
+    
+    return {
+      totalMinted: Number(fields.total_minted) / 1_000_000_000,
+      totalBurned: Number(fields.total_burned) / 1_000_000_000,
+      faithConverted: Number(fields.faith_converted),
+      circulatingSupply: (Number(fields.total_minted) - Number(fields.total_burned)) / 1_000_000_000,
+    };
+  } catch (error) {
+    console.error('❌ Error obteniendo estadísticas de HEX:', error);
+    return null;
+  }
+}

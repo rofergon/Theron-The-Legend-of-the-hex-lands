@@ -7,6 +7,7 @@ module theron_game::hex_token {
     use sui::transfer;
     use sui::object::{Self, UID};
     use sui::balance::{Self, Balance};
+    use std::option;
 
     /// Token HEX - moneda débil del juego
     public struct HEX_TOKEN has drop {}
@@ -117,6 +118,38 @@ module theron_game::hex_token {
         });
     }
 
+    /// Mint de HEX tokens desde conversión de Faith (versión pública para testnet)
+    /// ADVERTENCIA: Esta función NO valida que el jugador tenga Faith.
+    /// Solo para uso en testnet/demo. El sender recibe los tokens.
+    public entry fun mint_from_faith_public(
+        holder: &mut TreasuryCapHolder,
+        stats: &mut EconomyStats,
+        faith_amount: u64,
+        conversion_rate: u64,
+        ctx: &mut TxContext
+    ) {
+        // Calcular HEX a mintear
+        let hex_amount = faith_amount / conversion_rate;
+        assert!(hex_amount > 0, 2); // E_ZERO_AMOUNT
+
+        let recipient = tx_context::sender(ctx);
+
+        // Mintear tokens
+        let coin = coin::mint(&mut holder.treasury_cap, hex_amount, ctx);
+        transfer::public_transfer(coin, recipient);
+
+        // Actualizar stats
+        stats.total_minted = stats.total_minted + hex_amount;
+        stats.faith_converted = stats.faith_converted + faith_amount;
+
+        // Emitir evento
+        sui::event::emit(FaithConverted {
+            player: recipient,
+            faith_amount,
+            hex_minted: hex_amount,
+        });
+    }
+
     /// Quemar HEX tokens (para upgrades, consumos, conversión a THERON)
     public entry fun burn_tokens(
         holder: &mut TreasuryCapHolder,
@@ -173,5 +206,105 @@ module theron_game::hex_token {
 
     public fun get_circulating_supply(stats: &EconomyStats): u64 {
         stats.total_minted - stats.total_burned
+    }
+
+    // === Tests ===
+    #[test_only] use sui::test_scenario;
+
+    #[test]
+    fun test_init_sets_admin_and_stats() {
+        let admin = @0xA;
+        let mut scenario = test_scenario::begin(admin);
+        {
+            init(HEX_TOKEN {}, scenario.ctx());
+        };
+
+        scenario.next_tx(admin);
+        {
+            let holder = scenario.take_shared<TreasuryCapHolder>();
+            let stats = scenario.take_shared<EconomyStats>();
+
+            assert!(holder.authorized_minter == admin, 100);
+            assert!(stats.total_minted == 0 && stats.total_burned == 0 && stats.faith_converted == 0, 101);
+
+            transfer::share_object(holder);
+            transfer::share_object(stats);
+        };
+        scenario.end();
+    }
+
+    #[test]
+    fun test_mint_and_burn_flow() {
+        let admin = @0xA;
+        let minter = @0xB;
+        let player = @0xC;
+
+        // Deploy package
+        let mut scenario = test_scenario::begin(admin);
+        {
+            init(HEX_TOKEN {}, scenario.ctx());
+        };
+
+        // Admin delega minteo al backend autorizado
+        scenario.next_tx(admin);
+        {
+            let mut holder = scenario.take_shared<TreasuryCapHolder>();
+            let stats = scenario.take_shared<EconomyStats>();
+            update_authorized_minter(&mut holder, minter, scenario.ctx());
+            transfer::share_object(holder);
+            transfer::share_object(stats);
+        };
+
+        // Backend mintea para el jugador usando conversión de Faith
+        scenario.next_tx(minter);
+        {
+            let mut holder = scenario.take_shared<TreasuryCapHolder>();
+            let mut stats = scenario.take_shared<EconomyStats>();
+            mint_from_faith(&mut holder, &mut stats, 200, 100, player, scenario.ctx()); // 2 HEX
+            transfer::share_object(holder);
+            transfer::share_object(stats);
+        };
+
+        // Jugador recibe y quema los tokens
+        scenario.next_tx(player);
+        {
+            let mut holder = scenario.take_shared<TreasuryCapHolder>();
+            let mut stats = scenario.take_shared<EconomyStats>();
+            let coin: Coin<HEX_TOKEN> = scenario.take_from_sender();
+            assert!(coin::value(&coin) == 2, 102);
+
+            burn_tokens(&mut holder, &mut stats, coin, b"upgrade", scenario.ctx());
+            assert!(get_total_minted(&stats) == 2, 103);
+            assert!(get_total_burned(&stats) == 2, 104);
+            assert!(get_faith_converted(&stats) == 200, 105);
+
+            transfer::share_object(holder);
+            transfer::share_object(stats);
+        };
+        scenario.end();
+    }
+
+    #[test, expected_failure(abort_code = 1)]
+    fun test_mint_requires_authorized_minter() {
+        let admin = @0xA;
+        let attacker = @0xB;
+
+        let mut scenario = test_scenario::begin(admin);
+        {
+            init(HEX_TOKEN {}, scenario.ctx());
+        };
+
+        // Attacker intenta mintear sin ser el authorized_minter
+        scenario.next_tx(attacker);
+        {
+            let mut holder = scenario.take_shared<TreasuryCapHolder>();
+            let mut stats = scenario.take_shared<EconomyStats>();
+            mint_from_faith(&mut holder, &mut stats, 100, 50, attacker, scenario.ctx());
+            transfer::share_object(holder);
+            transfer::share_object(stats);
+        };
+        scenario.end();
+        abort 1;
+        // Abort esperado por E_NOT_AUTHORIZED (código 1)
     }
 }

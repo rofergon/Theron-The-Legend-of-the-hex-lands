@@ -2,6 +2,7 @@ import { clamp } from "./utils";
 import type { ClimateState, PriorityMark, ResourceTrend, Role, StructureType, ToastNotification, Vec2 } from "./types";
 import { WorldEngine } from "./world/WorldEngine";
 import { CitizenSystem, type CitizenSystemEvent } from "../systems/CitizenSystem";
+import { CONVERSION_RATES } from "../../config/contracts";
 
 type SimulationConfig = {
   worldSize: number;
@@ -32,7 +33,7 @@ export class SimulationSession {
   private faithPerHour = 0;
   private token1 = 0;
   private token2 = 0;
-  private faithToToken1Rate = 1;
+  private faithToToken1Rate = CONVERSION_RATES.FAITH_TO_HEX;
 
   constructor(private playerTribeId: number, private hooks: SimulationHooks = {}) { }
 
@@ -331,9 +332,17 @@ export class SimulationSession {
     if (spend <= 0) {
       return { faithSpent: 0, token1Gained: 0 };
     }
-    const gained = spend * this.faithToToken1Rate;
-    this.faith -= spend;
-    this.token1 += gained;
-    return { faithSpent: spend, token1Gained: gained };
+
+    // Alinear con el contrato: floor(spend / rate)
+    const rate = this.faithToToken1Rate;
+    const minted = Math.floor(spend / rate);
+    if (minted <= 0) {
+      return { faithSpent: 0, token1Gained: 0 };
+    }
+
+    const faithConsumed = minted * rate;
+    this.faith -= faithConsumed;
+    this.token1 += minted;
+    return { faithSpent: faithConsumed, token1Gained: minted };
   }
 }

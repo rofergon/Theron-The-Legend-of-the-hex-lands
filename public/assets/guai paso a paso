@@ -1,0 +1,146 @@
+# Guía Paso a Paso: Crear una dApp con Vite, TypeScript y Sui Move
+
+En esta guía veremos cómo crear una dApp React + TypeScript usando Vite e integrar un contrato Move ya desplegado en la blockchain de Sui. Necesitarás las IDs de paquete y objetos del contrato desplegado para la integración.
+
+---
+
+## Prerrequisitos
+- Node.js y npm instalados.
+- Una wallet compatible con Sui (Sui Wallet, Ethos, etc.).
+- IDs del paquete y objetos del contrato desplegado.
+
+---
+
+## Paso 1 — Inicializar el proyecto con Vite y TypeScript
+
+1. Crear el proyecto Vite (elija React + TypeScript):
+```bash
+npm init vite@latest
+# seguir la interacción y elegir React + TypeScript
+```
+
+2. Instalar dependencias Sui y React Query:
+```bash
+npm install @mysten/sui @mysten/dapp-kit @tanstack/react-query
+```
+
+3. Revisar la estructura: asegúrate de tener `src/main.tsx` y `src/App.tsx`.
+
+---
+
+## Paso 2 — Configurar providers en `src/main.tsx`
+
+Importa y configura providers de dApp Kit y React Query, además de utilidades del SDK de Sui. Ejemplo de imports:
+```ts
+import { SuiClientProvider, WalletProvider } from '@mysten/dapp-kit';
+import { getFullnodeUrl } from '@mysten/sui/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import ReactDOM from 'react-dom/client';
+```
+Envuelve tu aplicación con los providers apropiados para conectar wallets y usar queries.
+
+---
+
+## Paso 3 — Conectar wallet y obtener cuenta
+
+Usa el componente de conexión de dApp Kit en `src/App.tsx`:
+```tsx
+import { ConnectButton } from '@mysten/dapp-kit';
+
+function App() {
+    return (
+        <div>
+            <header>
+                <ConnectButton />
+            </header>
+            {/* ... resto de UI ... */}
+        </div>
+    );
+}
+```
+- `ConnectButton` abre la ventana/modal para elegir y autorizar una wallet.
+- Una vez conectado, muestra automáticamente la dirección Sui y permite desconectar.
+
+Si necesitas la cuenta en código:
+```ts
+import { useCurrentAccount } from '@mysten/dapp-kit';
+
+const account = useCurrentAccount();
+if (account) {
+    console.log("Cuenta conectada:", account.address);
+}
+```
+
+---
+
+## Paso 4 — Llamadas a funciones Move desde el frontend
+
+Construiremos un `Transaction` y usaremos `tx.moveCall` para invocar la entry function Move. Asumimos que el paquete y objetos ya están desplegados.
+
+### Constantes del contrato (ejemplo)
+```ts
+const ONECHAIN_PACKAGE_ID = "0xee46771b757523af06d19cff029366b81b6716715bea7bb58d0d5013b0e5c73d";
+const THERON_TREASURY_ID  = "0x7a3a35803966fc82d77c5a1f9dd02859b32321a7131a4f7db8dd5542227c00d2";
+const THERON_STATS_ID     = "0x9c97a8b23df2254b648851b30f322571fee31fd346f827c8b2340b3152b41cf8";
+```
+Usa las IDs reales de tu despliegue.
+
+### Ejemplo: llamar a `burn_for_purchase`
+
+Firma de la función Move:
+```
+burn_for_purchase(&mut TreasuryCapHolder, &mut TheronStats, Coin<THERON_TOKEN>, vector<u8> item_type, &TxContext)
+```
+
+Código TypeScript para construir y enviar la transacción:
+```ts
+import { Transaction } from '@mysten/sui/transactions';
+import { useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+
+const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction();
+
+async function comprarLand(coinId: string) {
+    // coinId: ID del objeto Coin<THERON_TOKEN> que el usuario desea gastar
+    const tx = new Transaction();
+    tx.moveCall({
+        target: `${ONECHAIN_PACKAGE_ID}::theron_token::burn_for_purchase`, // Paquete::Módulo::Función
+        arguments: [
+            tx.object(THERON_TREASURY_ID), // &mut TreasuryCapHolder
+            tx.object(THERON_STATS_ID),    // &mut TheronStats
+            tx.object(coinId),             // Coin<THERON_TOKEN> a quemar
+            tx.pure.string("land")         // vector<u8> indicando el tipo de ítem
+        ],
+        // typeArguments: [] // si la función Move tuviera genéricos
+    });
+
+    // Enviar para firmar y ejecutar
+    signAndExecuteTransaction(
+        { transaction: tx },
+        {
+            onSuccess: (result) => {
+                console.log('Transacción ejecutada. Digest:', result.digest);
+            },
+            onError: (error) => {
+                console.error('Error ejecutando transacción:', error);
+            }
+        }
+    );
+}
+```
+
+Notas:
+- `tx.object(id)` incluye ese objeto on-chain en la transacción.
+- `tx.pure.string("land")` convierte la cadena a `vector<u8>`.
+- No pases manualmente `TxContext`: Sui lo gestiona al invocar una entry function.
+- Si configuraste `defaultNetwork` en el provider, no hace falta especificar la red; si lo necesitas, pasa `{ transaction: tx, chain: 'sui:testnet' }`.
+
+### Ejemplo en UI
+```jsx
+<button onClick={() => comprarLand(idDeMiCoin)}>
+    Comprar Land
+</button>
+```
+
+---
+
+Eso cubre la creación del proyecto, configuración de providers, conexión de wallet y la construcción/envío de una llamada Move desde el frontend. Ajusta nombres de módulos, funciones e IDs según tu paquete Move desplegado.

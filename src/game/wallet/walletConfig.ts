@@ -11,7 +11,7 @@
  */
 
 import type { Wallet, WalletAccount } from '@mysten/wallet-standard';
-import { findOneWallet, isOneWalletInstalled } from './onewalletDetector';
+import { findOneWallet, isOneWalletInstalled, diagnoseOneWallet } from './onewalletDetector';
 import { onechainClient, getOctBalance, formatAddress, type OneChainNetwork } from './onechainClient';
 
 // Global wallet state
@@ -44,7 +44,12 @@ export interface ConnectionResult {
 /**
  * Checks if OneWallet is installed
  */
-export { isOneWalletInstalled };
+export { isOneWalletInstalled, diagnoseOneWallet };
+
+// Ejecutar diagnóstico al cargar (solo en desarrollo)
+if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+  setTimeout(() => diagnoseOneWallet(), 1000);
+}
 
 /**
  * Gets the current wallet instance (not connected)
@@ -57,53 +62,105 @@ export function getWalletInstance(): Wallet | null {
 }
 
 /**
- * Connects to OneWallet using the Wallet Standard
+ * Connects to OneWallet using Wallet Standard
  * This is the main method to authenticate users
  */
 export async function connectOneWallet(): Promise<ConnectionResult> {
   try {
+    console.log('🔌 Intentando conectar OneWallet...');
+    
     // 1. Detect OneWallet
     const wallet = getWalletInstance();
     
     if (!wallet) {
       return {
         success: false,
-        error: 'OneWallet is not installed. Please install it from the Chrome Web Store.',
+        error: 'OneWallet no está instalada o no se detectó correctamente.\n\n' +
+               'Por favor:\n' +
+               '1. Instala OneWallet desde https://wallet.onelab.cc/\n' +
+               '2. Reinicia el navegador\n' +
+               '3. Recarga esta página',
       };
     }
 
-    // 2. Connect using standard:connect
-    // If there are already authorized accounts, no need to ask for permission again
-    if (wallet.accounts.length === 0) {
-      const connectFeature = (wallet.features as any)['standard:connect'];
-      
-      if (!connectFeature) {
-        return {
-          success: false,
-          error: 'OneWallet does not support standard:connect',
-        };
-      }
+    console.log('✅ OneWallet detectada:', wallet.name);
+    console.log('📡 Chains soportadas por wallet:', wallet.chains);
 
-      // Request authorization from the user
-      await connectFeature.connect();
+    // CRÍTICO: Verificar que la wallet soporte testnet
+    if (!wallet.chains.includes('sui:testnet')) {
+      return {
+        success: false,
+        error: '⚠️ OneWallet no está configurada para Testnet.\n\n' +
+               'DEBES CAMBIAR A TESTNET:\n' +
+               '1. Abre OneWallet\n' +
+               '2. Haz clic en el selector de red (arriba)\n' +
+               '3. Selecciona "Testnet" (NO Mainnet)\n' +
+               '4. Recarga esta página',
+      };
     }
 
-    // 3. Get the first authorized account
+    // 2. Get connect feature
+    const connectFeature = wallet.features['standard:connect'] as any;
+    
+    if (!connectFeature) {
+      return {
+        success: false,
+        error: 'OneWallet no soporta standard:connect',
+      };
+    }
+
+    // 3. Connect if no accounts authorized
+    if (wallet.accounts.length === 0) {
+      console.log('🔐 Solicitando autorización al usuario...');
+      
+      // Intentar especificar testnet en el connect
+      // Algunos wallets aceptan chains en el connect, otros solo usan la chain activa
+      try {
+        await connectFeature.connect({ chains: ['sui:testnet'] });
+      } catch (error) {
+        // Si no acepta el parámetro chains, intentar sin él
+        console.log('⚠️ Connect con chains falló, intentando sin parámetros');
+        await connectFeature.connect();
+      }
+    } else {
+      console.log('✅ Ya hay cuentas autorizadas');
+    }
+
+    // 4. Get the first account
     const account = wallet.accounts[0];
     
     if (!account) {
       return {
         success: false,
-        error: 'No authorized accounts in OneWallet',
+        error: 'No hay cuentas autorizadas en OneWallet',
       };
     }
 
-    // 4. Save state
+    console.log('📋 Cuenta obtenida:', account.address);
+    console.log('📡 Chains de la cuenta:', account.chains);
+    
+    // CRÍTICO: Verificar que la cuenta esté autorizada en testnet
+    if (!account.chains.includes('sui:testnet')) {
+      return {
+        success: false,
+        error: '⚠️ ERROR: Cuenta autorizada solo en ' + account.chains.join(', ') + '\n\n' +
+               'Tu OneWallet está en MAINNET pero el contrato está en TESTNET.\n\n' +
+               'SOLUCIÓN:\n' +
+               '1. Abre OneWallet\n' +
+               '2. Haz clic en el selector de red (parte superior)\n' +
+               '3. Selecciona "Testnet" (NO Mainnet)\n' +
+               '4. IMPORTANTE: Desconecta y vuelve a conectar la wallet en esta página\n' +
+               '5. Recarga la página si es necesario\n\n' +
+               '⚠️ NO uses Mainnet con contratos de Testnet.',
+      };
+    }
+
+    // 5. Save state
     currentWallet = wallet;
     currentAccount = account;
     isConnected = true;
 
-    // 5. Get OCT balance
+    // 6. Get OCT balance
     let balance: number | undefined;
     try {
       balance = await getOctBalance(account.address);
@@ -121,6 +178,27 @@ export async function connectOneWallet(): Promise<ConnectionResult> {
     };
 
     console.log('✅ Connected to OneWallet:', formatAddress(account.address));
+    
+    // 7. Suscribirse a eventos de cambio de red
+    const eventsFeature = wallet.features['standard:events'] as any;
+    if (eventsFeature && eventsFeature.on) {
+      eventsFeature.on('change', (event: any) => {
+        console.log('🔄 Wallet event:', event);
+        
+        // Si cambió la chain, alertar al usuario
+        if (event.chains && event.chains.length > 0) {
+          console.log('⚠️ Red cambiada:', event.chains);
+          alert('⚠️ CAMBIO DE RED DETECTADO\n\nOneWallet cambió de red.\nRecarga la página para actualizar la conexión.');
+        }
+        
+        // Si cambió la cuenta, alertar
+        if (event.accounts && event.accounts.length > 0) {
+          console.log('⚠️ Cuenta cambiada:', event.accounts);
+          alert('⚠️ CAMBIO DE CUENTA DETECTADO\n\nOneWallet cambió de cuenta.\nRecarga la página para actualizar la conexión.');
+        }
+      });
+      console.log('✅ Suscrito a eventos de wallet');
+    }
     
     return {
       success: true,
@@ -143,7 +221,7 @@ export async function connectOneWallet(): Promise<ConnectionResult> {
 }
 
 /**
- * Disconnects the wallet (revokes authorization)
+ * Disconnects the wallet
  */
 export async function disconnectOneWallet(): Promise<void> {
   if (!currentWallet) {
@@ -156,8 +234,6 @@ export async function disconnectOneWallet(): Promise<void> {
     if (disconnectFeature) {
       await disconnectFeature.disconnect();
       console.log('✅ Disconnected from OneWallet');
-    } else {
-      console.warn('⚠️ OneWallet does not support standard:disconnect');
     }
   } catch (error) {
     console.error('❌ Error disconnecting:', error);
@@ -180,7 +256,7 @@ export function getCurrentAccount(): WalletAccount | null {
  * Gets full account info with updated balance
  */
 export async function getCurrentAccountInfo(): Promise<OneWalletAccountInfo | null> {
-  if (!currentAccount) {
+  if (!currentAccount || !currentAccount.address) {
     return null;
   }
 
@@ -189,9 +265,9 @@ export async function getCurrentAccountInfo(): Promise<OneWalletAccountInfo | nu
     
     return {
       address: currentAccount.address,
-      publicKey: new Uint8Array(currentAccount.publicKey),
-      chains: currentAccount.chains,
-      features: currentAccount.features,
+      publicKey: new Uint8Array(0),
+      chains: ['sui:testnet'],
+      features: ['signAndExecuteTransactionBlock'],
       balance,
     };
   } catch (error) {
@@ -234,39 +310,19 @@ export async function getBalance(): Promise<number> {
 }
 
 /**
- * Signs a message with the current account
- * Uses the standard:signMessage feature of the Wallet Standard
+ * Signs a message with the current account (not implemented for OneWallet native)
  */
 export async function signMessage(message: string): Promise<any> {
   if (!isWalletConnected() || !currentWallet) {
     throw new Error('No wallet connected');
   }
 
-  try {
-    const signFeature = (currentWallet.features as any)['standard:signMessage'];
-    
-    if (!signFeature) {
-      throw new Error('OneWallet does not support message signing');
-    }
-
-    const encoder = new TextEncoder();
-    const messageBytes = encoder.encode(message);
-
-    const signature = await signFeature.signMessage({
-      message: messageBytes,
-      account: currentAccount!,
-    });
-
-    return signature;
-  } catch (error) {
-    console.error('❌ Error signing message:', error);
-    throw error;
-  }
+  throw new Error('Message signing not implemented for OneWallet native API');
 }
 
 /**
  * Hook to listen for account changes
- * Polls every 2 seconds to detect changes
+ * Simplified for OneWallet using Wallet Standard events
  */
 export function onAccountChanged(
   callback: (account: WalletAccount | null) => void
@@ -277,18 +333,18 @@ export function onAccountChanged(
     }
 
     try {
-      // Check if the account is still the same
-      const accounts = currentWallet.accounts;
+      // Check if accounts changed
+      const currentAccounts = currentWallet.accounts;
       
-      if (accounts.length === 0) {
-        // User disconnected from the extension
+      if (currentAccounts.length === 0) {
+        // User disconnected
         currentAccount = null;
         isConnected = false;
         callback(null);
         return;
       }
 
-      const newAccount = accounts[0];
+      const newAccount = currentAccounts[0];
       
       if (newAccount && newAccount.address !== currentAccount?.address) {
         // User switched account

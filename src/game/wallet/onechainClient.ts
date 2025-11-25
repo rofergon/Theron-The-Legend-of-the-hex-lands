@@ -5,7 +5,7 @@
  * Handles balance queries, transactions, and network status
  */
 
-import { getFullnodeUrl, SuiClient } from '@onelabs/sui/client';
+import { SuiClient } from '@onelabs/sui/client';
 import { MIST_PER_SUI } from '@onelabs/sui/utils';
 
 /**
@@ -14,19 +14,31 @@ import { MIST_PER_SUI } from '@onelabs/sui/utils';
 export type OneChainNetwork = 'mainnet' | 'testnet' | 'devnet' | 'localnet';
 
 /**
+ * OneChain Network URLs
+ */
+const ONECHAIN_URLS = {
+  mainnet: 'https://rpc-mainnet.onelabs.cc:443',
+  testnet: 'https://rpc-testnet.onelabs.cc:443',
+  devnet: 'https://rpc-devnet.onelabs.cc:443',
+  localnet: 'http://127.0.0.1:9000',
+};
+
+/**
  * Client configured for OneChain Testnet by default
  * Uses the official OneChain SDK (@onelabs/sui)
  */
 export const onechainClient = new SuiClient({
-  url: getFullnodeUrl('testnet'), // Change as needed for the hackathon
+  url: ONECHAIN_URLS.testnet,
 });
+
+console.log('🌐 OneChain Client initialized with:', ONECHAIN_URLS.testnet);
 
 /**
  * Creates a OneChain client for a specific network
  */
 export function createOneChainClient(network: OneChainNetwork = 'testnet'): SuiClient {
   return new SuiClient({
-    url: getFullnodeUrl(network),
+    url: ONECHAIN_URLS[network],
   });
 }
 
