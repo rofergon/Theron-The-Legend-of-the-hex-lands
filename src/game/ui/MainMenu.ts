@@ -46,16 +46,19 @@ export class MainMenu {
   private useMobileLayout: boolean;
   private readonly onStartCallback?: (config: WorldGenerationConfig) => void;
   private keyListenerAttached = false;
-  private logoImage: HTMLImageElement | null = null;
-  private goldChestImage: HTMLImageElement | null = null;
-  private silverChestImage: HTMLImageElement | null = null;
-  private copperChestImage: HTMLImageElement | null = null;
 
   // Animation and visual effects
   private particles: Array<{ x: number, y: number, vx: number, vy: number, life: number, maxLife: number, size: number, opacity: number }> = [];
   private animationFrame: number = 0;
   private menuOpenTime: number = 0;
   private lastAnimationTime: number = 0;
+  private logoImage: HTMLImageElement;
+
+  // Icons for buttons
+  private sizeImages: Record<number, HTMLImageElement> = {};
+  private difficultyImages: Record<string, HTMLImageElement> = {};
+
+
   private keydownHandler = (e: KeyboardEvent) => {
     if (!this.isVisible) return;
     if (this.focusedInput === "seed") {
@@ -83,8 +86,28 @@ export class MainMenu {
 
     this.menuOpenTime = performance.now();
     this.lastAnimationTime = this.menuOpenTime;
+
+    this.logoImage = new Image();
+    this.logoImage.src = "/assets/Landing/Theron_game_logo.png";
+
+    // Load Size Icons (Land Chests)
+    this.sizeImages[24] = new Image(); // Small
+    this.sizeImages[24].src = "/assets/Chest/Land_chest_common_1.png";
+    this.sizeImages[36] = new Image(); // Normal
+    this.sizeImages[36].src = "/assets/Chest/Land_chest_rare_1.png";
+    this.sizeImages[48] = new Image(); // Large
+    this.sizeImages[48].src = "/assets/Chest/Land_chest_epic.png";
+
+    // Load Difficulty Icons (Reward Chests)
+    this.difficultyImages["easy"] = new Image();
+    this.difficultyImages["easy"].src = "/assets/Chest/Gold_chest.png";
+    this.difficultyImages["normal"] = new Image();
+    this.difficultyImages["normal"].src = "/assets/Chest/Silver_chest.png";
+    this.difficultyImages["hard"] = new Image();
+    this.difficultyImages["hard"].src = "/assets/Chest/Copper_Chest.png";
+
+
     this.initParticles();
-    this.loadLogo();
 
     this.setupEventListeners();
     this.requestPreviewUpdate();
@@ -96,21 +119,6 @@ export class MainMenu {
 
     // Capture keyboard input for seed input while menu is visible
     this.attachKeyListener();
-  }
-
-  private loadLogo() {
-    this.logoImage = new Image();
-    this.logoImage.src = "/assets/Landing/Theron_game_logo.png";
-
-    // Load chest images for difficulty options
-    this.goldChestImage = new Image();
-    this.goldChestImage.src = "/assets/Chest/Gold_chest.png";
-
-    this.silverChestImage = new Image();
-    this.silverChestImage.src = "/assets/Chest/Silver_chest.png";
-
-    this.copperChestImage = new Image();
-    this.copperChestImage.src = "/assets/Chest/Copper_Chest.png";
   }
 
   private initParticles() {
@@ -164,11 +172,11 @@ export class MainMenu {
       ctx.save();
       ctx.globalAlpha = alpha;
 
-      // Create glow effect
+      // Create glow effect - Cyan/Orange theme
       const gradient = ctx.createRadialGradient(particle.x, particle.y, 0, particle.x, particle.y, particle.size * 3);
-      gradient.addColorStop(0, "#ff6b35");
-      gradient.addColorStop(0.5, "#6ee7ff");
-      gradient.addColorStop(1, "rgba(110, 231, 255, 0)");
+      gradient.addColorStop(0, "rgba(110, 231, 255, 0.8)"); // Cyan
+      gradient.addColorStop(0.5, "rgba(255, 107, 53, 0.4)"); // Orange
+      gradient.addColorStop(1, "rgba(255, 107, 53, 0)");
 
       ctx.fillStyle = gradient;
       ctx.beginPath();
@@ -324,10 +332,8 @@ export class MainMenu {
     // Configuration panel (overlaid on map)
     this.renderConfigPanel(layout.configPanel);
 
-    // Info panel (desktop only or very minimalist on mobile)
-    if (!this.useMobileLayout) {
-      this.renderInfoPanel(layout.infoPanel);
-    }
+    // Info panel removed to save space
+
 
     // Start button
     this.renderStartButton(layout.startButton);
@@ -398,26 +404,25 @@ export class MainMenu {
     const previewY = previewMargin;
 
     const headerHeight = 160;
-    const configPanelHeight = 310;
+    // Increased height for icon buttons (was 310)
+    const configPanelHeight = 420;
     const configPanelWidth = Math.min(500, canvasWidth - margin * 2);
     const configPanelX = centerX - configPanelWidth / 2;
     const configPanelY = headerHeight;
 
-    const infoPanelHeight = 85;
-    const infoPanelWidth = Math.min(500, canvasWidth - margin * 2);
-    const infoPanelX = centerX - infoPanelWidth / 2;
-    const infoPanelY = configPanelY + configPanelHeight + 15;
+    // Info panel removed
 
     const startButtonHeight = 56;
     const startButtonWidth = 360;
     const startButtonX = centerX - startButtonWidth / 2;
-    const startButtonY = infoPanelY + infoPanelHeight + 15;
+    // Position start button below config panel with some gap
+    const startButtonY = configPanelY + configPanelHeight + 30;
 
     return {
       centerX,
       useColumns: false,
       preview: { x: previewX, y: previewY, width: previewWidth, height: previewHeight },
-      infoPanel: { x: infoPanelX, y: infoPanelY, width: infoPanelWidth, height: infoPanelHeight },
+      infoPanel: { x: 0, y: 0, width: 0, height: 0 }, // Removed
       startButton: {
         x: startButtonX,
         y: startButtonY,
@@ -431,99 +436,89 @@ export class MainMenu {
   private renderBackground() {
     const ctx = this.ctx;
 
-    // Animated gradient background
-    const time = (performance.now() - this.menuOpenTime) * 0.0003;
-    const offset = Math.sin(time) * 20;
-
-    const gradient = ctx.createLinearGradient(0, 0, 0, this.canvas.height);
-    gradient.addColorStop(0, `rgb(${11 + offset * 0.2}, ${15 + offset * 0.15}, ${22 + offset * 0.1})`);
-    gradient.addColorStop(0.5, "#0b0f16");
-    gradient.addColorStop(1, `rgb(${24 + offset * 0.15}, ${33 + offset * 0.1}, ${50 + offset * 0.1})`);
+    // Dark blue/cosmic background from store.css
+    // radial-gradient(circle at 20% 10%, #182132, #0b0f16 55%)
+    const gradient = ctx.createRadialGradient(
+      this.canvas.width * 0.2, this.canvas.height * 0.1, 0,
+      this.canvas.width * 0.2, this.canvas.height * 0.1, this.canvas.width
+    );
+    gradient.addColorStop(0, "#182132");
+    gradient.addColorStop(0.55, "#0b0f16");
+    gradient.addColorStop(1, "#0b0f16");
 
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Vignette effect
-    const vignetteGradient = ctx.createRadialGradient(
-      this.canvas.width / 2,
-      this.canvas.height / 2,
-      this.canvas.height * 0.3,
-      this.canvas.width / 2,
-      this.canvas.height / 2,
-      this.canvas.height * 0.9
-    );
-    vignetteGradient.addColorStop(0, "rgba(0, 0, 0, 0)");
-    vignetteGradient.addColorStop(1, "rgba(0, 0, 0, 0.3)");
+    // Subtle grid overlay
+    ctx.save();
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+    ctx.lineWidth = 1;
+    const gridSize = 40;
 
-    ctx.fillStyle = vignetteGradient;
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    // Draw grid lines
+    /*
+    for (let x = 0; x < this.canvas.width; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, this.canvas.height);
+      ctx.stroke();
+    }
+    for (let y = 0; y < this.canvas.height; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(this.canvas.width, y);
+      ctx.stroke();
+    }
+    */
+    ctx.restore();
   }
 
   private renderTitle(centerX: number) {
     const ctx = this.ctx;
-    const logoWidth = this.useMobileLayout ? 120 : 200;
-    const subtitleSize = this.useMobileLayout ? 11 : 16;
-    const yPos = this.useMobileLayout ? 28 : 70;
+    const yPos = this.useMobileLayout ? 28 : 50;
 
-    // Animated glow effect
-    const glowIntensity = 0.3 + Math.sin((performance.now() - this.menuOpenTime) * 0.002) * 0.2;
+    if (this.logoImage.complete && this.logoImage.naturalWidth > 0) {
+      const maxWidth = this.useMobileLayout ? 170 : 340; // Reduced by ~15%
+      const scale = maxWidth / this.logoImage.naturalWidth;
+      const width = maxWidth;
+      const height = this.logoImage.naturalHeight * scale;
 
-    // Logo with glow - maintain aspect ratio
-    if (this.logoImage && this.logoImage.complete) {
+      // Move up slightly
+      const adjustedY = yPos - (this.useMobileLayout ? 10 : 20);
+
       ctx.save();
-      ctx.shadowColor = `rgba(255, 107, 53, ${glowIntensity})`;
+      // Glow effect behind logo
+      ctx.shadowColor = "rgba(255, 107, 53, 0.3)";
+      ctx.shadowBlur = 40;
+      ctx.drawImage(this.logoImage, centerX - width / 2, adjustedY, width, height);
+      ctx.restore();
+    } else {
+      // Fallback text if image fails
+      const titleSize = this.useMobileLayout ? 24 : 48;
+      ctx.save();
+      ctx.shadowColor = "rgba(255, 107, 53, 0.5)";
       ctx.shadowBlur = 30;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-
-      // Calculate height to maintain aspect ratio
-      const aspectRatio = this.logoImage.width / this.logoImage.height;
-      const logoHeight = logoWidth / aspectRatio;
-
-      const logoX = centerX - logoWidth / 2;
-      const logoY = yPos - logoHeight / 2;
-      ctx.drawImage(this.logoImage, logoX, logoY, logoWidth, logoHeight);
+      ctx.fillStyle = "#eaf0ff";
+      ctx.font = `bold ${titleSize}px "Space Grotesk", Arial`;
+      ctx.textAlign = "center";
+      ctx.fillText("THERON", centerX, yPos + 40);
       ctx.restore();
     }
 
     if (!this.useMobileLayout) {
-      // Fade in subtitle
-      const fadeInProgress = Math.min(1, (performance.now() - this.menuOpenTime) / 1000);
+      const subtitleSize = 16;
+      const subtitleY = yPos + (this.useMobileLayout ? 60 : 130);
+
       ctx.save();
-      ctx.globalAlpha = fadeInProgress;
       ctx.font = `${subtitleSize}px "Space Grotesk", Arial`;
-      ctx.fillStyle = "#9fb2d7";
+      ctx.fillStyle = "#9fb2d7"; // muted
       ctx.textAlign = "center";
-      ctx.fillText("Configure your civilization before starting", centerX, yPos + 50);
+      ctx.fillText("LEGENDS OF THE HEX LANDS", centerX, subtitleY);
       ctx.restore();
     }
   }
 
-  private renderInfoPanel(bounds: { x: number; y: number; width: number; height: number }) {
-    const ctx = this.ctx;
-    ctx.fillStyle = "rgba(12, 17, 25, 0.82)";
-    ctx.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
 
-    ctx.fillStyle = "#6ee7ff";
-    ctx.font = "bold 13px 'Space Grotesk', Arial";
-    ctx.textAlign = "left";
-    ctx.fillText("Information:", bounds.x + 16, bounds.y + 22);
-
-    ctx.fillStyle = "#9fb2d7";
-    ctx.font = "12px 'Space Grotesk', Arial";
-    const tips = [
-      "• Same seed generates the same world",
-      "• Larger worlds = more exploration",
-      "• You can copy the seed to share"
-    ];
-
-    tips.forEach((tip, i) => {
-      ctx.fillText(tip, bounds.x + 16, bounds.y + 44 + i * 18);
-    });
-  }
 
   private renderStartButton(bounds: { x: number; y: number; width: number; height: number }) {
     const ctx = this.ctx;
@@ -531,64 +526,61 @@ export class MainMenu {
 
     const isHovered = this.hoveredButton === "start";
 
-    // Pulsing glow animation
-    const pulseIntensity = 0.2 + Math.sin((performance.now() - this.menuOpenTime) * 0.003) * 0.15;
-
-    // Button gradient
+    // Button gradient: #ff8455 to #ff6b35
     const gradient = ctx.createLinearGradient(bounds.x, bounds.y, bounds.x, bounds.y + bounds.height);
     if (isHovered) {
+      gradient.addColorStop(0, "#ff9a75");
+      gradient.addColorStop(1, "#ff8455");
+    } else {
       gradient.addColorStop(0, "#ff8455");
       gradient.addColorStop(1, "#ff6b35");
-    } else {
-      gradient.addColorStop(0, "#ff6b35");
-      gradient.addColorStop(1, "#d84315");
     }
 
-    // Enhanced shadow with pulse
     ctx.save();
-    ctx.shadowColor = `rgba(255, 107, 53, ${isHovered ? 0.6 : pulseIntensity + 0.2})`;
+    // Shadow: 0 12px 30px rgba(255, 107, 53, 0.35)
+    ctx.shadowColor = "rgba(255, 107, 53, 0.35)";
     ctx.shadowBlur = isHovered ? 30 : 20;
-    ctx.shadowOffsetY = 5;
+    ctx.shadowOffsetY = 12;
 
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.roundRect(bounds.x, bounds.y, bounds.width, bounds.height, 16);
+    ctx.roundRect(bounds.x, bounds.y, bounds.width, bounds.height, 12);
     ctx.fill();
 
-    ctx.shadowColor = "transparent"; // Reset shadow
-
-    ctx.strokeStyle = isHovered ? "#ff8a65" : "rgba(255, 255, 255, 0.22)";
-    ctx.lineWidth = 2;
+    // Border
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+    ctx.lineWidth = 1;
     ctx.stroke();
     ctx.restore();
 
-    // Button text with scale effect on hover
+    // Button text
     ctx.save();
     if (isHovered) {
-      const scale = 1.05;
+      const scale = 1.02;
       ctx.translate(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
       ctx.scale(scale, scale);
       ctx.translate(-(bounds.x + bounds.width / 2), -(bounds.y + bounds.height / 2));
     }
 
-    ctx.fillStyle = "#eaf0ff";
-    ctx.font = "bold 20px 'Space Grotesk', Arial";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 18px 'Space Grotesk', Arial";
     ctx.textAlign = "center";
-    ctx.fillText("⚡ START", bounds.x + bounds.width / 2, bounds.y + bounds.height / 2 + 7);
+    ctx.letterSpacing = "1px";
+    ctx.fillText("PLAY DEMO", bounds.x + bounds.width / 2, bounds.y + bounds.height / 2 + 6);
     ctx.restore();
   }
 
   private renderConfigPanel(bounds: { x: number; y: number; width: number; height: number }) {
     const ctx = this.ctx;
 
-    // Enhanced shadow for depth
+    // Panel background - Glassmorphism
+    // rgba(12, 17, 25, 0.82)
     ctx.save();
-    ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
-    ctx.shadowBlur = 40;
-    ctx.shadowOffsetY = 10;
+    ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+    ctx.shadowBlur = 38;
+    ctx.shadowOffsetY = 18;
 
-    // Panel background
-    ctx.fillStyle = "rgba(12, 17, 25, 0.95)";
+    ctx.fillStyle = "rgba(12, 17, 25, 0.82)";
     ctx.beginPath();
     ctx.roundRect(bounds.x, bounds.y, bounds.width, bounds.height, 16);
     ctx.fill();
@@ -596,9 +588,8 @@ export class MainMenu {
     ctx.shadowColor = "transparent";
     ctx.restore();
 
-    // Subtle border glow
-    const borderGlow = 0.3 + Math.sin((performance.now() - this.menuOpenTime) * 0.002) * 0.1;
-    ctx.strokeStyle = `rgba(255, 255, 255, ${borderGlow * 0.3 + 0.1})`;
+    // Border
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
     ctx.lineWidth = 1;
     ctx.stroke();
 
@@ -623,7 +614,7 @@ export class MainMenu {
     const ctx = this.ctx;
 
     // Title
-    ctx.fillStyle = "#6ee7ff";
+    ctx.fillStyle = "#ff6b35"; // accent
     ctx.font = this.useMobileLayout ? "bold 12px 'Space Grotesk', Arial" : "bold 14px 'Space Grotesk', Arial";
     ctx.textAlign = "left";
     ctx.fillText("SEED", x, y);
@@ -631,7 +622,7 @@ export class MainMenu {
     y += this.useMobileLayout ? 12 : 15;
 
     const inputHeight = this.useMobileLayout ? 36 : 44;
-    const randomWidth = this.useMobileLayout ? 42 : 50; // Botón cuadrado para aleatorio
+    const randomWidth = this.useMobileLayout ? 42 : 50;
     const spacing = 10;
     const inputWidth = width - randomWidth - spacing;
 
@@ -639,45 +630,45 @@ export class MainMenu {
     const isInputFocused = this.focusedInput === "seed";
     this.setButtonRegion("seedInput", x, y, inputWidth, inputHeight);
 
-    ctx.fillStyle = isInputFocused ? "rgba(110, 231, 255, 0.1)" : "rgba(12, 17, 25, 0.8)";
+    ctx.fillStyle = isInputFocused ? "rgba(255, 107, 53, 0.1)" : "rgba(255, 255, 255, 0.05)";
     ctx.beginPath();
-    ctx.roundRect(x, y, inputWidth, inputHeight, 10);
+    ctx.roundRect(x, y, inputWidth, inputHeight, 8);
     ctx.fill();
 
-    ctx.strokeStyle = isInputFocused ? "#6ee7ff" : "rgba(255, 255, 255, 0.2)";
+    ctx.strokeStyle = isInputFocused ? "#ff6b35" : "rgba(255, 255, 255, 0.1)";
     ctx.lineWidth = 1;
     ctx.stroke();
 
     ctx.fillStyle = "#eaf0ff";
-    ctx.font = this.useMobileLayout ? "15px 'Courier New'" : "18px 'Courier New'";
+    ctx.font = this.useMobileLayout ? "15px 'Space Grotesk'" : "16px 'Space Grotesk'";
     ctx.textAlign = "left";
     ctx.fillText(this.seedInputValue || "0", x + 12, y + 28);
 
     // Cursor
     if (isInputFocused && Math.floor(Date.now() / 500) % 2 === 0) {
       const textWidth = ctx.measureText(this.seedInputValue).width;
-      ctx.fillStyle = "#6ee7ff";
+      ctx.fillStyle = "#ff6b35";
       ctx.fillRect(x + 14 + textWidth, y + 12, 2, 20);
     }
 
-    // Random button (Dice icon)
+    // Random button
     const randomX = x + inputWidth + spacing;
     const isRandomHovered = this.hoveredButton === "randomSeed";
 
     this.setButtonRegion("randomSeed", randomX, y, randomWidth, inputHeight);
 
-    ctx.fillStyle = isRandomHovered ? "rgba(110, 231, 255, 0.25)" : "rgba(110, 231, 255, 0.1)";
+    ctx.fillStyle = isRandomHovered ? "rgba(255, 255, 255, 0.1)" : "rgba(255, 255, 255, 0.05)";
     ctx.beginPath();
-    ctx.roundRect(randomX, y, randomWidth, inputHeight, 10);
+    ctx.roundRect(randomX, y, randomWidth, inputHeight, 8);
     ctx.fill();
 
-    ctx.strokeStyle = isRandomHovered ? "#6ee7ff" : "rgba(110, 231, 255, 0.4)";
+    ctx.strokeStyle = isRandomHovered ? "#ff6b35" : "rgba(255, 255, 255, 0.1)";
     ctx.stroke();
 
-    ctx.fillStyle = "#eaf0ff";
-    ctx.font = this.useMobileLayout ? "16px Arial" : "20px Arial";
+    ctx.fillStyle = isRandomHovered ? "#ff6b35" : "#9fb2d7";
+    ctx.font = this.useMobileLayout ? "14px Arial" : "16px Arial";
     ctx.textAlign = "center";
-    ctx.fillText("⚄", randomX + randomWidth / 2, y + 29);
+    ctx.fillText("RND", randomX + randomWidth / 2, y + 27);
 
     return y + inputHeight;
   }
@@ -685,36 +676,41 @@ export class MainMenu {
   private renderWorldSizeSection(x: number, y: number, centerX: number): number {
     const ctx = this.ctx;
 
-    ctx.fillStyle = "#f4d03f";
-    ctx.font = this.useMobileLayout ? "bold 12px Arial" : "bold 14px Arial";
+    ctx.fillStyle = "#ff6b35";
+    ctx.font = this.useMobileLayout ? "bold 12px 'Space Grotesk', Arial" : "bold 14px 'Space Grotesk', Arial";
     ctx.textAlign = "left";
     ctx.fillText("SIZE", x, y);
 
     y += this.useMobileLayout ? 12 : 15;
 
-    const sizeOptions: Array<{ label: string; value: number; key: MenuButtonKey; icon?: string }> = [
+    const sizeOptions: Array<{ label: string; value: number; key: MenuButtonKey }> = [
       { label: "Small", value: 24, key: "sizeSmall" },
-      { label: "Medium", value: 36, key: "sizeNormal" },
+      { label: "Normal", value: 36, key: "sizeNormal" },
       { label: "Large", value: 48, key: "sizeLarge" }
     ];
 
-    this.renderOptionButtons(sizeOptions, y, this.config.worldSize, centerX);
+    this.renderIconButtons(sizeOptions, y, this.config.worldSize, centerX, "size");
 
-    return y + (this.useMobileLayout ? 40 : 50);
+    return y + (this.useMobileLayout ? 80 : 100);
   }
 
   private renderDifficultySection(x: number, y: number, centerX: number) {
     const ctx = this.ctx;
 
-    ctx.fillStyle = "#6ee7ff";
+    ctx.fillStyle = "#ff6b35";
     ctx.font = this.useMobileLayout ? "bold 12px 'Space Grotesk', Arial" : "bold 14px 'Space Grotesk', Arial";
     ctx.textAlign = "left";
     ctx.fillText("DIFFICULTY", x, y);
 
     y += this.useMobileLayout ? 12 : 15;
 
-    // Render difficulty options with chest icons
-    this.renderDifficultyButtons(y, centerX);
+    const difficultyOptions: Array<{ label: string; value: "easy" | "normal" | "hard"; key: MenuButtonKey }> = [
+      { label: "Easy", value: "easy", key: "difficultyEasy" },
+      { label: "Normal", value: "normal", key: "difficultyNormal" },
+      { label: "Hard", value: "hard", key: "difficultyHard" }
+    ];
+
+    this.renderIconButtons(difficultyOptions, y, this.config.difficulty, centerX, "difficulty");
   }
 
   private renderWorldPreview(x: number, y: number, width: number, height: number): void {
@@ -726,7 +722,7 @@ export class MainMenu {
     ctx.shadowBlur = 20;
     ctx.shadowOffsetY = 5;
 
-    ctx.fillStyle = "rgba(12, 17, 25, 0.85)";
+    ctx.fillStyle = "rgba(12, 17, 25, 0.6)";
     ctx.fillRect(x, y, width, height);
 
     ctx.shadowColor = "transparent";
@@ -734,16 +730,16 @@ export class MainMenu {
 
     // Animated border glow
     const borderPulse = 0.3 + Math.sin((performance.now() - this.menuOpenTime) * 0.0025) * 0.2;
-    ctx.strokeStyle = `rgba(255, 255, 255, ${borderPulse * 0.3 + 0.15})`;
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = `rgba(110, 231, 255, ${borderPulse + 0.1})`; // Cyan accent
+    ctx.lineWidth = 1;
     ctx.strokeRect(x, y, width, height);
 
-    ctx.fillStyle = "#6ee7ff";
+    ctx.fillStyle = "#ff6b35";
     ctx.font = "bold 15px 'Space Grotesk', Arial";
     ctx.textAlign = "left";
-    ctx.fillText("🗺️ World Preview", x + 12, y + 24);
+    ctx.fillText("WORLD PREVIEW", x + 12, y + 24);
 
-    ctx.font = "12px 'Space Grotesk', Arial";
+    ctx.font = "12px 'Inter', Arial";
     ctx.fillStyle = "#9fb2d7";
     ctx.fillText(`Seed ${this.config.seed} • ${this.config.worldSize}x${this.config.worldSize}`, x + 12, y + 42);
 
@@ -757,8 +753,8 @@ export class MainMenu {
       const loadingAlpha = 0.5 + Math.sin((performance.now() - this.menuOpenTime) * 0.005) * 0.3;
       ctx.save();
       ctx.globalAlpha = loadingAlpha;
-      ctx.fillStyle = "#9fb2d7";
-      ctx.font = "13px 'Space Grotesk', Arial";
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "13px Arial";
       ctx.fillText("Generating preview...", x + 12, y + gridTopOffset + 30);
       ctx.restore();
       return;
@@ -798,9 +794,9 @@ export class MainMenu {
     ctx.stroke();
     ctx.restore();
 
-    ctx.fillStyle = "rgba(12, 17, 25, 0.7)";
+    ctx.fillStyle = "rgba(12, 17, 25, 0.8)";
     ctx.fillRect(x + 10, y + height - 26, width - 20, 18);
-    ctx.font = "11px 'Space Grotesk', Arial";
+    ctx.font = "11px 'Inter', Arial";
     ctx.fillStyle = "#9fb2d7";
     ctx.fillText("Change seed or size to regenerate preview.", x + 15, y + height - 13);
   }
@@ -850,142 +846,72 @@ export class MainMenu {
     return this.previewWorld;
   }
 
-  private renderOptionButtons(
-    options: Array<{ label: string; value: number | string; key: MenuButtonKey; icon?: string }>,
+  private renderIconButtons(
+    options: Array<{ label: string; value: number | string; key: MenuButtonKey }>,
     y: number,
     currentValue: number | string,
-    centerXOverride?: number,
-    isDifficulty = false
+    centerXOverride: number,
+    type: "size" | "difficulty"
   ) {
     const ctx = this.ctx;
-    const centerX = centerXOverride ?? this.canvas.width / 2;
+    const centerX = centerXOverride;
 
-    // More compact buttons
-    // Calculate button width based on available space if needed
-    const maxButtonWidth = this.useMobileLayout ? (this.canvas.width - 40) / options.length - 10 : 100;
-    const buttonWidth = Math.min(this.useMobileLayout ? 70 : 100, maxButtonWidth);
-    const buttonHeight = this.useMobileLayout ? 42 : 50;
-    const spacing = 8; // Reduced spacing
-
-    const totalWidth = options.length * buttonWidth + (options.length - 1) * spacing;
+    const iconSize = this.useMobileLayout ? 60 : 80;
+    const spacing = this.useMobileLayout ? 15 : 30;
+    const totalWidth = options.length * iconSize + (options.length - 1) * spacing;
     let startX = centerX - totalWidth / 2;
 
     options.forEach((option) => {
       const isSelected = option.value === currentValue;
       const isHovered = this.hoveredButton === option.key;
 
-      this.setButtonRegion(option.key, startX, y, buttonWidth, buttonHeight);
+      // Hitbox
+      this.setButtonRegion(option.key, startX, y, iconSize, iconSize);
 
-      if (isSelected) {
-        ctx.save();
-        ctx.shadowColor = "rgba(110, 231, 255, 0.4)";
-        ctx.shadowBlur = 15;
+      // Get image
+      let img: HTMLImageElement | undefined;
+      if (type === "size") {
+        img = this.sizeImages[option.value as number];
+      } else {
+        img = this.difficultyImages[option.value as string];
       }
 
-      // Background
-      ctx.fillStyle = isSelected
-        ? "rgba(110, 231, 255, 0.2)"
-        : isHovered
-          ? "rgba(255, 255, 255, 0.08)"
-          : "rgba(12, 17, 25, 0.8)";
+      // Selection/Hover Glow
+      if (isSelected || isHovered) {
+        ctx.save();
+        const glowColor = isSelected ? "rgba(255, 107, 53, 0.6)" : "rgba(255, 255, 255, 0.3)";
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = isSelected ? 30 : 20;
 
-      ctx.beginPath();
-      ctx.roundRect(startX, y, buttonWidth, buttonHeight, 10);
-      ctx.fill();
+        // Draw a background circle/rounded rect for the glow
+        ctx.fillStyle = isSelected ? "rgba(255, 107, 53, 0.1)" : "rgba(255, 255, 255, 0.05)";
+        ctx.beginPath();
+        ctx.roundRect(startX - 5, y - 5, iconSize + 10, iconSize + 10, 12);
+        ctx.fill();
 
-      if (isSelected) {
-        ctx.shadowColor = "transparent";
+        // Border for selection
+        if (isSelected) {
+          ctx.strokeStyle = "#ff6b35";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
         ctx.restore();
       }
 
-      // Border
-      ctx.strokeStyle = isSelected ? "#6ee7ff" : isHovered ? "rgba(110, 231, 255, 0.4)" : "rgba(255, 255, 255, 0.15)";
-      ctx.lineWidth = isSelected ? 2 : 1;
-      ctx.stroke();
+      // Draw Image
+      if (img && img.complete && img.naturalWidth > 0) {
+        const scale = isHovered || isSelected ? 1.1 : 1.0;
+        const drawSize = iconSize * scale;
+        const offset = (drawSize - iconSize) / 2;
 
-      // Icon
-      if (option.icon) {
-        ctx.font = this.useMobileLayout ? "16px Arial" : "20px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText(option.icon, startX + buttonWidth / 2, y + 24);
+        ctx.drawImage(img, startX - offset, y - offset, drawSize, drawSize);
+      } else {
+        // Fallback placeholder
+        ctx.fillStyle = "#333";
+        ctx.fillRect(startX, y, iconSize, iconSize);
       }
 
-      // Label
-      ctx.fillStyle = isSelected ? "#eaf0ff" : isHovered ? "#9fb2d7" : "#9fb2d7";
-      ctx.font = this.useMobileLayout ? (isSelected ? "bold 11px 'Space Grotesk', Arial" : "11px 'Space Grotesk', Arial") : (isSelected ? "bold 12px 'Space Grotesk', Arial" : "12px 'Space Grotesk', Arial");
-      ctx.textAlign = "center";
-      ctx.fillText(option.label, startX + buttonWidth / 2, y + 42);
-
-      startX += buttonWidth + spacing;
-    });
-  }
-
-  private renderDifficultyButtons(y: number, centerX: number) {
-    const ctx = this.ctx;
-
-    const buttonWidth = this.useMobileLayout ? 70 : 100;
-    const buttonHeight = this.useMobileLayout ? 75 : 95;
-    const spacing = 8;
-
-    const options: Array<{ value: "easy" | "normal" | "hard"; key: MenuButtonKey; chest: HTMLImageElement | null; label: string }> = [
-      { value: "easy", key: "difficultyEasy", chest: this.goldChestImage, label: "Easy" },
-      { value: "normal", key: "difficultyNormal", chest: this.silverChestImage, label: "Normal" },
-      { value: "hard", key: "difficultyHard", chest: this.copperChestImage, label: "Hard" }
-    ];
-
-    const totalWidth = options.length * buttonWidth + (options.length - 1) * spacing;
-    let startX = centerX - totalWidth / 2;
-
-    options.forEach((option) => {
-      const isSelected = option.value === this.config.difficulty;
-      const isHovered = this.hoveredButton === option.key;
-
-      this.setButtonRegion(option.key, startX, y, buttonWidth, buttonHeight);
-
-      // Add glow for selected
-      if (isSelected) {
-        ctx.save();
-        ctx.shadowColor = "rgba(110, 231, 255, 0.4)";
-        ctx.shadowBlur = 15;
-      }
-
-      // Background
-      ctx.fillStyle = isSelected
-        ? "rgba(110, 231, 255, 0.2)"
-        : isHovered
-          ? "rgba(255, 255, 255, 0.08)"
-          : "rgba(12, 17, 25, 0.8)";
-
-      ctx.beginPath();
-      ctx.roundRect(startX, y, buttonWidth, buttonHeight, 10);
-      ctx.fill();
-
-      if (isSelected) {
-        ctx.shadowColor = "transparent";
-        ctx.restore();
-      }
-
-      // Border
-      ctx.strokeStyle = isSelected ? "#6ee7ff" : isHovered ? "rgba(110, 231, 255, 0.4)" : "rgba(255, 255, 255, 0.15)";
-      ctx.lineWidth = isSelected ? 2 : 1;
-      ctx.stroke();
-
-      // Draw chest icon if loaded
-      if (option.chest && option.chest.complete) {
-        const iconSize = this.useMobileLayout ? 40 : 50;
-        const iconX = startX + buttonWidth / 2 - iconSize / 2;
-        const iconY = y + 8;
-        ctx.drawImage(option.chest, iconX, iconY, iconSize, iconSize);
-      }
-
-      // Label
-      ctx.fillStyle = isSelected ? "#eaf0ff" : isHovered ? "#9fb2d7" : "#9fb2d7";
-      ctx.font = this.useMobileLayout ? (isSelected ? "bold 10px 'Space Grotesk', Arial" : "10px 'Space Grotesk', Arial") : (isSelected ? "bold 11px 'Space Grotesk', Arial" : "11px 'Space Grotesk', Arial");
-      ctx.textAlign = "center";
-      const labelY = this.useMobileLayout ? y + 62 : y + 72;
-      ctx.fillText(option.label, startX + buttonWidth / 2, labelY);
-
-      startX += buttonWidth + spacing;
+      startX += iconSize + spacing;
     });
   }
 
@@ -1016,8 +942,8 @@ export class MainMenu {
   }
   private renderFooter(centerX: number, canvasHeight: number) {
     const ctx = this.ctx;
-    ctx.fillStyle = "rgba(159, 178, 215, 0.5)";
-    ctx.font = "11px 'Space Grotesk', Arial";
+    ctx.fillStyle = "rgba(159, 178, 215, 0.5)"; // muted
+    ctx.font = "11px 'Inter', Arial";
     ctx.textAlign = "center";
     ctx.fillText("v1.0.0 - Alpha Build", centerX, canvasHeight - 20);
   }
