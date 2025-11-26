@@ -88,29 +88,15 @@ export class SoundEngine {
     this.current = target;
 
     const played = await this.tryPlay(name, opts);
-    if (!played) return;
-
-    target.volume = 0;
-    const start = performance.now();
-    const fade = (time: number) => {
-      const elapsed = time - start;
-      const fadeInProgress = Math.min(1, elapsed / opts.fadeInMs);
-      target.volume = opts.targetVolume * fadeInProgress;
-
+    if (!played) {
       if (previous) {
-        const fadeOutProgress = Math.min(1, elapsed / opts.fadeOutMs);
-        previous.volume = opts.targetVolume * (1 - fadeOutProgress);
-        if (fadeOutProgress >= 1) {
-          previous.pause();
-        }
+        previous.pause();
+        previous.currentTime = 0;
       }
+      return;
+    }
 
-      if (fadeInProgress < 1 || (previous && previous.volume > 0.01)) {
-        this.fadeHandle = requestAnimationFrame(fade);
-      }
-    };
-
-    this.fadeHandle = requestAnimationFrame(fade);
+    this.fadeBetween(target, previous, opts);
   }
 
   private async switchToMenu(opts: { fadeInMs: number; fadeOutMs: number; targetVolume: number }) {
@@ -123,24 +109,38 @@ export class SoundEngine {
     this.current = this.menuTrack;
 
     const played = await this.tryPlay("menu", opts);
-    if (!played) return;
+    if (!played) {
+      if (previous) {
+        previous.pause();
+        previous.currentTime = 0;
+      }
+      return;
+    }
 
-    this.menuTrack.volume = 0;
+    this.fadeBetween(this.menuTrack, previous, opts);
+  }
+
+  private fadeBetween(
+    incoming: HTMLAudioElement,
+    outgoing: HTMLAudioElement | null,
+    opts: { fadeInMs: number; fadeOutMs: number; targetVolume: number },
+  ) {
+    incoming.volume = 0;
     const start = performance.now();
     const fade = (time: number) => {
       const elapsed = time - start;
       const fadeInProgress = Math.min(1, elapsed / opts.fadeInMs);
-      this.menuTrack.volume = opts.targetVolume * fadeInProgress;
+      incoming.volume = opts.targetVolume * fadeInProgress;
 
-      if (previous) {
+      if (outgoing) {
         const fadeOutProgress = Math.min(1, elapsed / opts.fadeOutMs);
-        previous.volume = opts.targetVolume * (1 - fadeOutProgress);
+        outgoing.volume = opts.targetVolume * (1 - fadeOutProgress);
         if (fadeOutProgress >= 1) {
-          previous.pause();
+          outgoing.pause();
         }
       }
 
-      if (fadeInProgress < 1 || (previous && previous.volume > 0.01)) {
+      if (fadeInProgress < 1 || (outgoing && outgoing.volume > 0.01)) {
         this.fadeHandle = requestAnimationFrame(fade);
       }
     };
