@@ -35,7 +35,7 @@ export class CitizenActionExecutor {
     private resourceEngine: ResourceCollectionEngine,
     private taskManager: CellTaskManager,
     private hooks: ActionHooks,
-  ) {}
+  ) { }
 
   execute(citizen: Citizen, decision: BehaviorDecision, tickHours: number, context: ExecutionContext) {
     this.updateActiveTask(citizen, decision.action);
@@ -58,7 +58,8 @@ export class CitizenActionExecutor {
         this.refillFood(citizen, action.amount);
         break;
       case "rest":
-        citizen.fatigue = clamp(citizen.fatigue - 3 * 1.25 * tickHours, 0, 100);
+        // 50% faster fatigue recovery: -3 * 1.25 * 1.5 = -5.625 per tick
+        citizen.fatigue = clamp(citizen.fatigue - 3 * 1.25 * 1.5 * tickHours, 0, 100);
         citizen.hunger = clamp(citizen.hunger - 0.5 * tickHours, 0, 100);
         citizen.morale = clamp(citizen.morale + 2 * tickHours, 0, 100);
         break;

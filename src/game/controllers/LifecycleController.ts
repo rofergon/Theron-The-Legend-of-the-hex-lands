@@ -10,6 +10,9 @@ import type { ThreatController } from "./ThreatController";
 import type { TravelersController } from "./TravelersController";
 import type { TokenController } from "./TokenController";
 
+/**
+ * Dependencies required by the LifecycleController.
+ */
 interface LifecycleDependencies {
   playerTribeId: number;
   mainMenu: MainMenu;
@@ -35,6 +38,9 @@ interface LifecycleDependencies {
   onGameStarted?: () => void;
 }
 
+/**
+ * Manages the main game loop, initialization, and pause/resume states.
+ */
 export class LifecycleController {
   private running = false;
   private paused = false;
@@ -43,8 +49,11 @@ export class LifecycleController {
   private initialized = false;
   private speedMultiplier = 1;
 
-  constructor(private readonly deps: LifecycleDependencies) {}
+  constructor(private readonly deps: LifecycleDependencies) { }
 
+  /**
+   * Starts the animation loop.
+   */
   start() {
     this.running = true;
     this.paused = false;
@@ -52,18 +61,31 @@ export class LifecycleController {
     requestAnimationFrame(this.loop);
   }
 
+  /**
+   * Checks if the simulation is currently running (initialized and not paused).
+   */
   isRunning() {
     return this.initialized && !this.paused;
   }
 
+  /**
+   * Checks if the game has been initialized.
+   */
   isInitialized() {
     return this.initialized;
   }
 
+  /**
+   * Gets the current simulation speed multiplier.
+   */
   getSpeedMultiplier() {
     return this.speedMultiplier;
   }
 
+  /**
+   * Sets the simulation speed multiplier.
+   * @param multiplier The new speed multiplier (must be positive).
+   */
   setSpeedMultiplier(multiplier: number) {
     if (!Number.isFinite(multiplier) || multiplier <= 0) {
       return;
@@ -73,6 +95,10 @@ export class LifecycleController {
     this.deps.onSpeedChange?.(multiplier, changed);
   }
 
+  /**
+   * Toggles the pause state of the simulation.
+   * If the game is not initialized, it starts the game.
+   */
   handlePauseToggle = () => {
     if (!this.initialized) {
       if (this.deps.mainMenu.isMenuVisible()) {
@@ -83,6 +109,9 @@ export class LifecycleController {
     this.paused ? this.resume() : this.pause();
   };
 
+  /**
+   * Pauses the simulation.
+   */
   pause = () => {
     if (!this.initialized) return;
     this.paused = true;
@@ -90,6 +119,9 @@ export class LifecycleController {
     this.deps.hud.setPauseButtonState(false);
   };
 
+  /**
+   * Resumes the simulation.
+   */
   resume = () => {
     if (!this.initialized || !this.paused) return;
     this.paused = false;
@@ -98,11 +130,17 @@ export class LifecycleController {
     this.deps.hud.setPauseButtonState(true);
   };
 
+  /**
+   * Hides the main menu and initializes the game.
+   */
   private initializeAndStart() {
     this.deps.mainMenu.hide();
     this.initializeGame();
   }
 
+  /**
+   * Initializes the game simulation, world, and dependencies.
+   */
   private initializeGame() {
     if (this.initialized) return;
 
@@ -137,6 +175,11 @@ export class LifecycleController {
     this.deps.onGameStarted?.();
   }
 
+  /**
+   * The main game loop driven by requestAnimationFrame.
+   * Handles updates, rendering, and time accumulation.
+   * @param time The current timestamp.
+   */
   private loop = (time: number) => {
     if (!this.running) return;
 

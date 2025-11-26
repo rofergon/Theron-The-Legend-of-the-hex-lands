@@ -6,7 +6,7 @@ import type { CellTask } from "../task/CellTaskManager";
 import { CellTaskManager } from "../task/CellTaskManager";
 
 const REST_START_FATIGUE = 70;
-const REST_STOP_FATIGUE = 35;
+const REST_STOP_FATIGUE = 20; // Citizens must recover to at least 80% energy before resuming activities
 
 type BehaviorHooks = {
   emit: (event: CitizenSystemEvent) => void;
