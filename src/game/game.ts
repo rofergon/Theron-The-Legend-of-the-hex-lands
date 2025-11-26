@@ -13,6 +13,7 @@ import { CellTooltipController } from "./ui/CellTooltip";
 import { PlanningController } from "./controllers/PlanningController";
 import { TokenController } from "./controllers/TokenController";
 import { ThreatController } from "./controllers/ThreatController";
+import { TravelersController } from "./controllers/TravelersController";
 import { RoleController } from "./controllers/RoleController";
 import { InteractionController } from "./controllers/InteractionController";
 import { LifecycleController } from "./controllers/LifecycleController";
@@ -50,6 +51,7 @@ export class Game {
   // Feature Controllers
   private readonly tokens: TokenController;
   private readonly threats: ThreatController;
+  private readonly travelers: TravelersController;
   private readonly lifecycle: LifecycleController;
   
   // Debug and state tracking
@@ -152,6 +154,15 @@ export class Game {
       onRequestRender: () => this.draw(),
       playerTribeId: this.playerTribeId,
     });
+
+    // Travelers arrival controller for migrant events
+    this.travelers = new TravelersController({
+      hud: this.hud,
+      camera: this.camera,
+      onPause: () => this.lifecycle.pause(),
+      onResume: () => this.lifecycle.resume(),
+      onRequestRender: () => this.draw(),
+    });
     
     // Initialize lifecycle controller (start, pause, resume, tick management)
     this.lifecycle = new LifecycleController({
@@ -163,6 +174,7 @@ export class Game {
       tokens: this.tokens,
       roles: this.roles,
       threats: this.threats,
+      travelers: this.travelers,
       logEvent: (message, notificationType) => this.logEvent(message, notificationType),
       onExtinction: this.handleExtinction,
       resetExtinctionAnnouncement: () => {
@@ -204,6 +216,7 @@ export class Game {
     this.planning.init();
     this.tokens.init();
     this.threats.init();
+    this.travelers.init();
     this.interactions.bind();
     this.debugExportButton?.addEventListener("click", this.exportDebugLog);
 

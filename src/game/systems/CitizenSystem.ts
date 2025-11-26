@@ -18,7 +18,8 @@ export type CitizenSystemEvent =
     spawn: Vec2[];
     icon: string;
     flavor: "raid" | "beast";
-  };
+  }
+  | { type: "travelers"; count: number; positions: Vec2[]; attitude: "neutral" | "friendly" };
 
 type AssignableRole = Extract<Role, "farmer" | "worker" | "warrior" | "scout">;
 const ASSIGNABLE_ROLES: AssignableRole[] = ["farmer", "worker", "warrior", "scout"];
@@ -158,6 +159,12 @@ export class CitizenSystem {
           message: "A hostile tribe approaches from the horizon.",
         });
       } else {
+        this.emit({
+          type: "travelers",
+          count: arrivals.length,
+          positions,
+          attitude,
+        });
         this.emit({
           type: "log",
           message: "Travelers approach seeking shelter.",

@@ -250,6 +250,29 @@
     </div>
   </div>
 
+  <!-- Travelers arrival modal -->
+  <div id="travelers-modal-backdrop" class="modal-backdrop hidden"></div>
+  <div id="travelers-modal" class="modal modal-arrival hidden" role="dialog" aria-modal="true" aria-labelledby="travelers-modal-title">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="travelers-modal-title">🛖 Travelers seeking shelter</h3>
+        <button type="button" class="modal-close" id="travelers-modal-close" aria-label="Close travelers alert">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="travelers-modal-subtitle">A weary group asks to join your tribe.</p>
+        <div class="arrival-avatars" id="travelers-modal-avatars"></div>
+        <p class="arrival-count" id="travelers-modal-count">+3 villagers joined your tribe</p>
+        <p class="modal-info">
+          🕒 Game paused. Center on them to assign jobs and supplies.
+        </p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="travelers-modal-focus" class="primary">Focus on arrivals</button>
+        <button type="button" id="travelers-modal-resume">Resume</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Token conversion modal -->
   <div id="token-modal-backdrop" class="modal-backdrop hidden"></div>
   <div id="token-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="token-modal-title">

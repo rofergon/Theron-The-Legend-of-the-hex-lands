@@ -278,7 +278,8 @@ export class ResourceGenerator {
             let richness = 0.8;
 
             if (cell.terrain === "mountain") {
-                amount += 2;
+                // Buff mountain deposits: 9–14 stone per node
+                amount = 9 + Math.floor(this.rng() * 6);
                 richness = 1.3;
             } else if (cell.terrain === "desert") {
                 amount = Math.max(1, amount - 1);

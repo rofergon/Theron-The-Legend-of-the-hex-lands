@@ -7,6 +7,7 @@ import type { MainMenu } from "../ui/MainMenu";
 import type { PlanningController } from "./PlanningController";
 import type { RoleController } from "./RoleController";
 import type { ThreatController } from "./ThreatController";
+import type { TravelersController } from "./TravelersController";
 import type { TokenController } from "./TokenController";
 
 interface LifecycleDependencies {
@@ -18,6 +19,7 @@ interface LifecycleDependencies {
   tokens: TokenController;
   roles: RoleController;
   threats: ThreatController;
+  travelers: TravelersController;
   logEvent: (message: string, notificationType?: ToastNotification["type"]) => void;
   onExtinction: () => void;
   resetExtinctionAnnouncement: () => void;
@@ -109,6 +111,7 @@ export class LifecycleController {
       onLog: (message, notificationType) => this.deps.logEvent(message, notificationType),
       onExtinction: this.deps.onExtinction,
       onThreat: (alert) => this.deps.threats.handleThreat(alert),
+      onTravelers: (arrival) => this.deps.travelers.handleArrival(arrival),
     });
     simulation.initialize(config);
     this.deps.resetExtinctionAnnouncement();

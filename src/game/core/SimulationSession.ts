@@ -12,6 +12,12 @@ export type ThreatAlert = {
   flavor: "raid" | "beast";
 };
 
+export type TravelerArrival = {
+  count: number;
+  positions: Vec2[];
+  attitude: "neutral" | "friendly";
+};
+
 type SimulationConfig = {
   worldSize: number;
   seed: number;
@@ -22,6 +28,7 @@ type SimulationHooks = {
   onLog?: (message: string, notificationType?: ToastNotification["type"]) => void;
   onExtinction?: () => void;
   onThreat?: (alert: ThreatAlert) => void;
+  onTravelers?: (arrival: TravelerArrival) => void;
 };
 
 type RunTickOptions = {
@@ -318,6 +325,12 @@ export class SimulationSession {
         spawn: event.spawn,
         icon: event.icon,
         flavor: event.flavor,
+      });
+    } else if (event.type === "travelers") {
+      this.hooks.onTravelers?.({
+        count: event.count,
+        positions: event.positions,
+        attitude: event.attitude,
       });
     }
   }

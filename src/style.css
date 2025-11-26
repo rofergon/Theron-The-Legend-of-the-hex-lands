@@ -669,6 +669,48 @@ body {
   box-shadow: 0 12px 40px rgba(255, 87, 87, 0.2);
 }
 
+.modal.modal-arrival .modal-header {
+  background: linear-gradient(135deg, #12333f, #0f4c5c);
+  color: #c4f1ff;
+}
+
+.modal.modal-arrival .modal-content {
+  border: 1px solid rgba(110, 231, 255, 0.3);
+  box-shadow: 0 12px 40px rgba(110, 231, 255, 0.18);
+}
+
+.arrival-count {
+  font-weight: 800;
+  color: #d8f3ff;
+  margin: 0.2rem 0;
+  letter-spacing: 0.03em;
+}
+
+.arrival-avatars {
+  display: flex;
+  gap: 10px;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.arrival-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.35));
+  border: 1px solid rgba(110, 231, 255, 0.18);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  display: grid;
+  place-items: center;
+}
+
+.arrival-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .threat-icons {
   display: flex;
   flex-wrap: wrap;
