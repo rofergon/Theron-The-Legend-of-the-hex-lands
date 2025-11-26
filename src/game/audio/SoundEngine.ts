@@ -63,6 +63,14 @@ export class SoundEngine {
     return this.muted;
   }
 
+  isPlaying() {
+    return !!this.current && !this.current.paused;
+  }
+
+  private isCurrentTrackActive(target: HTMLAudioElement) {
+    return this.current === target && !target.paused;
+  }
+
   private createAudio(config: TrackConfig) {
     const audio = new Audio(config.src);
     audio.loop = config.loop ?? false;
@@ -78,6 +86,9 @@ export class SoundEngine {
   ) {
     const target = this.tracks[name];
     if (!target) return;
+    if (this.isCurrentTrackActive(target)) {
+      return;
+    }
 
     if (this.fadeHandle !== null) {
       cancelAnimationFrame(this.fadeHandle);
@@ -100,6 +111,10 @@ export class SoundEngine {
   }
 
   private async switchToMenu(opts: { fadeInMs: number; fadeOutMs: number; targetVolume: number }) {
+    if (this.isCurrentTrackActive(this.menuTrack)) {
+      return;
+    }
+
     if (this.fadeHandle !== null) {
       cancelAnimationFrame(this.fadeHandle);
       this.fadeHandle = null;
