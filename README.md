@@ -195,6 +195,10 @@ Paint the map to guide villager behavior:
 - **Late game**: Build temples, generate Faith, defend against threats
 - **Endgame**: Convert Faith to HEX, purchase rare Land NFTs
 
+## 🖼️ Assets & Art
+
+All in-game graphical assets, textures, and artwork were generated with the assistance of ChatGPT and GoogleBanana.
+
 ## 🌍 World & Biomes
 
 ### Terrain Types
