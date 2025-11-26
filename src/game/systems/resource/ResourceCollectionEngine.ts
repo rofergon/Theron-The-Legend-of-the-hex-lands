@@ -1,6 +1,7 @@
 import { clamp } from "../../core/utils";
 import type { Citizen, CitizenAction, GathererBrain, Vec2, WorldCell, WorldView } from "../../core/types";
 import type { WorldEngine } from "../../core/world/WorldEngine";
+import { CellTaskManager } from "../task/CellTaskManager";
 
 export type GatherableResourceType = "food" | "stone" | "wood";
 
@@ -15,15 +16,14 @@ const MAX_CARRY: Record<GatherableResourceType, number> = {
 const MIN_FOOD_NODE_AMOUNT = 0.95;
 
 export class ResourceCollectionEngine {
-  private cellReservations = new Map<string, number>();
-
-  constructor(private world: WorldEngine) { }
+  constructor(private world: WorldEngine, private taskManager: CellTaskManager) { }
 
   runGathererBrain(citizen: Citizen, view: WorldView, resourceType: GatherableResourceType): CitizenAction {
     const brain = this.ensureGathererBrain(citizen, resourceType);
     const carryAmount = citizen.carrying[resourceType];
     const hasCargo = carryAmount > 0;
-    const releaseReservation = () => this.releaseReservationFor(citizen.id);
+    const releaseReservation = () => this.taskManager.releaseForCitizen(citizen.id);
+    const taskType = this.taskKeyFor(resourceType);
 
     // Set currentGoal based on resource type for proper icon display
     if (resourceType === "stone") {
@@ -47,7 +47,7 @@ export class ResourceCollectionEngine {
       if (nextCell) {
         brain.phase = "goingToResource";
         brain.target = { x: nextCell.x, y: nextCell.y };
-        this.reserveCell(nextCell.x, nextCell.y, citizen.id);
+        this.taskManager.claim({ x: nextCell.x, y: nextCell.y, type: taskType }, citizen.id);
         citizen.target = { x: nextCell.x, y: nextCell.y };
         return { type: "move", x: nextCell.x, y: nextCell.y };
       }
@@ -71,11 +71,11 @@ export class ResourceCollectionEngine {
         if (!brain.target) {
           return redirectToNewResource();
         }
-        const occupiedByOther = this.isCellReservedByOther(brain.target.x, brain.target.y, citizen.id);
+        const occupiedByOther = this.taskManager.isReservedByOther(brain.target.x, brain.target.y, citizen.id);
         if (occupiedByOther) {
           return redirectToNewResource();
         }
-        this.reserveCell(brain.target.x, brain.target.y, citizen.id);
+        this.taskManager.claim({ x: brain.target.x, y: brain.target.y, type: taskType }, citizen.id);
         citizen.target = { x: brain.target.x, y: brain.target.y };
         if (citizen.x === brain.target.x && citizen.y === brain.target.y) {
           brain.phase = "gathering";
@@ -85,11 +85,11 @@ export class ResourceCollectionEngine {
       }
       case "gathering": {
         const target = brain.target;
-        if (target && this.isCellReservedByOther(target.x, target.y, citizen.id)) {
+        if (target && this.taskManager.isReservedByOther(target.x, target.y, citizen.id)) {
           return redirectToNewResource();
         }
         if (target) {
-          this.reserveCell(target.x, target.y, citizen.id);
+          this.taskManager.claim({ x: target.x, y: target.y, type: taskType }, citizen.id);
           citizen.target = { x: target.x, y: target.y };
         }
         if (this.isInventoryFull(citizen, resourceType)) {
@@ -267,12 +267,14 @@ export class ResourceCollectionEngine {
   private findClosestResourceCell(citizen: Citizen, view: WorldView, resourceType: GatherableResourceType) {
     let closest: (typeof view.cells)[number] | null = null;
     let minScore = Infinity;
+    const taskType = this.taskKeyFor(resourceType);
 
     for (const cell of view.cells) {
       if (!cell.resource || cell.resource.type !== resourceType) continue;
       const amount = cell.resource.amount ?? 0;
       if (amount <= 0) continue;
       if (resourceType === "food" && amount < MIN_FOOD_NODE_AMOUNT) continue;
+      if (cell.visibility === "hidden") continue;
 
       // Check for occupancy
       if (this.isCellOccupied(cell, view, citizen.id)) {
@@ -284,7 +286,12 @@ export class ResourceCollectionEngine {
         (resourceType === "food" && cell.priority === "gather") ||
         (resourceType === "stone" && cell.priority === "mine") ||
         (resourceType === "wood" && cell.priority === "gather");
-      const score = distance - (matchesPriority ? 0.75 : 0);
+      const spreadPenalty = this.taskManager.spreadPenalty(
+        { x: cell.x, y: cell.y, type: taskType },
+        citizen.id,
+        { desiredSpacing: 4, spreadWeight: 1.25, scope: "sameType" },
+      );
+      const score = distance - (matchesPriority ? 0.75 : 0) + spreadPenalty;
       if (score < minScore) {
         minScore = score;
         closest = cell;
@@ -301,7 +308,7 @@ export class ResourceCollectionEngine {
       return false;
     }
 
-    if (this.isCellReservedByOther(targetCell.x, targetCell.y, selfId)) {
+    if (this.taskManager.isReservedByOther(targetCell.x, targetCell.y, selfId)) {
       return true;
     }
 
@@ -370,31 +377,10 @@ export class ResourceCollectionEngine {
   }
 
   clearReservationForCitizen(citizenId: number) {
-    for (const [key, owner] of Array.from(this.cellReservations.entries())) {
-      if (owner === citizenId) {
-        this.cellReservations.delete(key);
-      }
-    }
+    this.taskManager.releaseForCitizen(citizenId);
   }
 
-  private cellKey(x: number, y: number) {
-    return `${x},${y}`;
-  }
-
-  private reserveCell(x: number, y: number, citizenId: number) {
-    this.cellReservations.set(this.cellKey(x, y), citizenId);
-  }
-
-  private releaseReservationFor(citizenId: number) {
-    for (const [key, owner] of Array.from(this.cellReservations.entries())) {
-      if (owner === citizenId) {
-        this.cellReservations.delete(key);
-      }
-    }
-  }
-
-  private isCellReservedByOther(x: number, y: number, selfId: number) {
-    const owner = this.cellReservations.get(this.cellKey(x, y));
-    return owner !== undefined && owner !== selfId;
+  private taskKeyFor(resourceType: GatherableResourceType) {
+    return `gather:${resourceType}`;
   }
 }
