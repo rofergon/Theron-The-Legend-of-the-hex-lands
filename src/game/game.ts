@@ -17,47 +17,83 @@ import { RoleController } from "./controllers/RoleController";
 import { InteractionController } from "./controllers/InteractionController";
 import { LifecycleController } from "./controllers/LifecycleController";
 
+/**
+ * Main game class that orchestrates all game systems
+ * Manages rendering, simulation, UI controllers, and user interactions
+ */
 export class Game {
+  // Core input and rendering systems
   private readonly input = new InputHandler();
   private mainMenu: MainMenu;
   private readonly renderer: GameRenderer;
+  
+  // UI Controllers
   private readonly hud = new HUDController();
   private readonly portraitBar = new CitizenPortraitBarController({ onSelectCitizen: (id) => this.handleCitizenSelection(id) });
   private readonly citizenPanel = new CitizenControlPanelController({ onClose: () => this.handlePanelClose() });
   private readonly cellTooltip: CellTooltipController;
+  
+  // Game Controllers
   private readonly planning: PlanningController;
   private readonly roles: RoleController;
   private readonly interactions: InteractionController;
+  
+  // Player identification
   private readonly playerTribeId = 1;
+  
+  // Core simulation session
   private simulation: SimulationSession | null = null;
+  
+  // Feature Controllers
   private readonly tokens: TokenController;
   private readonly threats: ThreatController;
   private readonly lifecycle: LifecycleController;
+  
+  // Debug and state tracking
   private debugExportButton = document.querySelector<HTMLButtonElement>("#debug-export");
   private extinctionAnnounced = false;
   private readonly camera: CameraController;
 
+  // Priority mark queued for next tick
   private pendingPriority: PriorityMark | null = null;
 
+  // Selection state
   private selectedCitizen: Citizen | null = null;
   private hoveredCell: Vec2 | null = null;
 
+  // Zoom controls and limits
   private readonly minZoom = 2;
   private readonly maxZoom = 10;
   private zoomInButton = document.querySelector<HTMLButtonElement>("#zoom-in");
   private zoomOutButton = document.querySelector<HTMLButtonElement>("#zoom-out");
+  
+  // Speed control buttons
   private speedButtons: HTMLButtonElement[] = [];
+  
+  // Projectile animation tracking (tower attacks, etc.)
   private projectileAnimations: Array<{ from: Vec2; to: Vec2; spawnedAt: number; duration: number }> = [];
   private readonly projectileDurationMs = 650;
 
+  /**
+   * Initialize the game with all controllers and systems
+   * Sets up camera, UI, interactions, and lifecycle management
+   */
   constructor(private canvas: HTMLCanvasElement) {
     this.renderer = new GameRenderer(canvas);
+    
+    // Initialize cell tooltip with action handlers
     this.cellTooltip = new CellTooltipController({
       onCancelConstruction: this.handleCancelConstruction,
       onClearPriority: this.handleClearPriority,
     });
+    
+    // Initialize camera controller with zoom constraints
     this.camera = new CameraController({ canvas, minZoom: this.minZoom, maxZoom: this.maxZoom }, () => this.simulation?.getWorld() ?? null);
+    
+    // Initialize main menu
     this.mainMenu = new MainMenu(canvas, { isMobile: false });
+    
+    // Initialize planning controller for building, farming, mining, etc.
     this.planning = new PlanningController({
       hud: this.hud,
       camera: this.camera,
@@ -68,11 +104,15 @@ export class Game {
       getHoveredCell: () => this.hoveredCell,
       isRunning: () => this.lifecycle?.isRunning() ?? false,
     });
+    
+    // Initialize role assignment controller (farmer, worker, warrior, etc.)
     this.roles = new RoleController({
       hud: this.hud,
       getSimulation: () => this.simulation,
       playerTribeId: this.playerTribeId,
     });
+    
+    // Initialize interaction controller for mouse/touch input
     this.interactions = new InteractionController({
       canvas,
       camera: this.camera,
@@ -90,12 +130,16 @@ export class Game {
       showCellTooltip: (cell, event) => this.showCellTooltip(cell, event),
       hideOverlayTooltip: () => this.cellTooltip.hide(),
     });
+    
+    // Initialize token controller for Faith to HEX conversion
     this.tokens = new TokenController({
       hud: this.hud,
       getSimulation: () => this.simulation,
       logEvent: (message, notificationType) => this.logEvent(message, notificationType),
       onBalancesChanged: () => this.updateHUD(),
     });
+    
+    // Initialize threat controller for raids and beast attacks
     this.threats = new ThreatController({
       hud: this.hud,
       camera: this.camera,
@@ -105,6 +149,8 @@ export class Game {
       onRequestRender: () => this.draw(),
       playerTribeId: this.playerTribeId,
     });
+    
+    // Initialize lifecycle controller (start, pause, resume, tick management)
     this.lifecycle = new LifecycleController({
       playerTribeId: this.playerTribeId,
       mainMenu: this.mainMenu,
@@ -137,13 +183,17 @@ export class Game {
         }
       },
     });
+    
+    // Center camera on world
     this.camera.setViewTarget({ x: WORLD_SIZE / 2, y: WORLD_SIZE / 2 });
 
+    // Setup HUD and initial state
     this.hud.setupHeaderButtons(() => this.lifecycle.handlePauseToggle());
-    this.hud.hideOverlay(); // Hide the overlay immediately
+    this.hud.hideOverlay();
     this.hud.updateStatus("🎮 Configure your world and press START");
-    this.hud.setPauseButtonState(false); // Show button as if paused
+    this.hud.setPauseButtonState(false);
 
+    // Initialize all UI controls
     this.planning.registerZoomButtons(this.zoomInButton, this.zoomOutButton);
     this.setupZoomControls();
     this.roles.init();
@@ -154,6 +204,7 @@ export class Game {
     this.interactions.bind();
     this.debugExportButton?.addEventListener("click", this.exportDebugLog);
 
+    // Handle window resizing
     window.addEventListener("resize", this.handleResize);
     this.handleResize();
 
@@ -161,6 +212,9 @@ export class Game {
     this.lifecycle.start();
   }
 
+  /**
+   * Initialize speed control buttons (1x, 2x, 4x simulation speed)
+   */
   private setupSpeedControls() {
     const container = document.querySelector<HTMLDivElement>(".speed-controls-header");
     if (!container) {
@@ -182,6 +236,9 @@ export class Game {
     this.updateSpeedButtons();
   }
 
+  /**
+   * Update visual state of speed buttons to reflect current speed
+   */
   private updateSpeedButtons(activeMultiplier = this.lifecycle.getSpeedMultiplier()) {
     if (this.speedButtons.length === 0) {
       return;
@@ -194,6 +251,9 @@ export class Game {
     });
   }
 
+  /**
+   * Cancel a construction site and reclaim materials
+   */
   private handleCancelConstruction = (siteId: number) => {
     if (!this.simulation) return;
     const result = this.simulation.cancelConstruction(siteId, { reclaimMaterials: true });
@@ -215,6 +275,9 @@ export class Game {
     this.cellTooltip.hide();
   };
 
+  /**
+   * Clear priority designation (farm, mine, gather) from a cell
+   */
   private handleClearPriority = (cell: Vec2) => {
     if (!this.simulation) return;
     const result = this.simulation.clearPriorityAt(cell);
@@ -224,13 +287,19 @@ export class Game {
     this.cellTooltip.hide();
   };
 
+  /**
+   * Process keyboard input for planning modes and priority assignment
+   * Called every frame while simulation is running
+   */
   private handleRealtimeInput() {
+    // Check for priority number keys (1-9)
     Object.entries(PRIORITY_KEYMAP).forEach(([key, priority]) => {
       if (this.input.consumeKey(key)) {
         this.pendingPriority = priority;
       }
     });
 
+    // Planning mode hotkeys
     if (this.input.consumeKey("KeyF")) {
       this.planning.togglePlanningMode("farm");
     }
@@ -246,6 +315,7 @@ export class Game {
     if (this.input.consumeKey("Escape")) {
       this.planning.clearPlanningMode();
     }
+    // Cycle through available structures in build mode
     if (this.planning.isBuildMode()) {
       if (this.input.consumeKey("BracketLeft")) {
         this.planning.cycleStructure(-1);
@@ -256,14 +326,21 @@ export class Game {
     }
   }
 
+  /**
+   * Execute one simulation tick
+   * Updates game state, processes events, and refreshes UI
+   */
   private runTick(tickHours: number) {
     if (!this.lifecycle.isInitialized() || !this.simulation) return;
 
     const priority = this.pendingPriority;
 
+    // Run simulation tick with any pending priority
     this.simulation.runTick(tickHours, {
       priority: priority ?? null,
     });
+    
+    // Process visual events (projectiles, etc.)
     const visualEvents = this.simulation.consumeVisualEvents();
     if (visualEvents.length > 0) {
       this.enqueueProjectileVisuals(visualEvents);
@@ -271,10 +348,12 @@ export class Game {
 
     this.pendingPriority = null;
 
+    // Clear selection if citizen died
     if (this.selectedCitizen?.state === "dead") {
       this.selectedCitizen = null;
     }
 
+    // Update all UI systems
     this.hud.tickNotifications();
     this.roles.refresh();
     this.updateHUD();
@@ -282,6 +361,9 @@ export class Game {
     this.planning.refreshStructureSelection();
   }
 
+  /**
+   * Queue projectile animations from simulation events
+   */
   private enqueueProjectileVisuals(events: SimulationVisualEvent[]) {
     const now = performance.now();
     events.forEach((event) => {
@@ -296,6 +378,10 @@ export class Game {
     });
   }
 
+  /**
+   * Collect active projectile animation frames for current render
+   * Removes expired animations
+   */
   private collectProjectileFrames(): RenderState["projectiles"] {
     const now = performance.now();
     const active: typeof this.projectileAnimations = [];
@@ -317,8 +403,10 @@ export class Game {
     return frames;
   }
 
-
-
+  /**
+   * Update HUD with current game state
+   * Shows resources, population, climate, tokens, etc.
+   */
   private updateHUD() {
     if (!this.lifecycle.isInitialized() || !this.simulation) return;
     const citizenSystem = this.simulation.getCitizenSystem();
@@ -355,6 +443,9 @@ export class Game {
     this.hud.updateHUD(hudSnapshot);
   }
 
+  /**
+   * Update citizen portrait bar and control panel
+   */
   private updateCitizenControlPanel() {
     if (!this.simulation) return;
     const citizens = this.simulation.getCitizenSystem().getCitizens();
@@ -367,6 +458,10 @@ export class Game {
     }
   }
 
+  /**
+   * Handle tribe extinction event
+   * Shows notification and enables debug export
+   */
   private handleExtinction = () => {
     if (this.extinctionAnnounced) {
       return;
@@ -383,6 +478,9 @@ export class Game {
     }
   }
 
+  /**
+   * Export game history as a downloadable text file
+   */
   private exportDebugLog = () => {
     const entries = this.hud.getHistoryArchive();
     if (entries.length === 0) {
@@ -405,6 +503,10 @@ export class Game {
     this.logEvent("Debug log exported.");
   };
 
+  /**
+   * Log an event to history and optionally show as notification
+   * Automatically categorizes messages by severity
+   */
   private logEvent(message: string, notificationType?: ToastNotification["type"]) {
     // Skip DEBUG messages completely - don't add to history
     if (message.startsWith("[DEBUG]")) {
@@ -415,6 +517,7 @@ export class Game {
 
     this.hud.appendHistory(message);
 
+    // Show notification based on explicit type or auto-detect from message content
     if (notificationType) {
       this.hud.showNotification(message, notificationType);
     } else if (normalizedMessage.includes("dead") || normalizedMessage.includes("beast") || normalizedMessage.includes("hostile")) {
@@ -426,6 +529,9 @@ export class Game {
     }
   }
 
+  /**
+   * Render the current game state to canvas
+   */
   private draw() {
     if (!this.lifecycle.isInitialized() || !this.simulation) return;
 
@@ -442,6 +548,10 @@ export class Game {
     this.renderer.render(renderState);
   }
 
+  /**
+   * Handle citizen selection from portrait bar
+   * Focuses camera on selected citizen
+   */
   private handleCitizenPanelSelection = (citizenId: number) => {
     if (!this.lifecycle.isInitialized() || !this.simulation) {
       return;
@@ -454,6 +564,10 @@ export class Game {
     this.updateCitizenControlPanel();
   };
 
+  /**
+   * Show tooltip for a hovered cell
+   * Displays terrain, citizens, and construction information
+   */
   private showCellTooltip(cellPos: Vec2, event: MouseEvent) {
     if (!this.simulation) return;
     const cell = this.simulation.getWorld().getCell(cellPos.x, cellPos.y);
@@ -473,6 +587,9 @@ export class Game {
     });
   }
 
+  /**
+   * Setup zoom in/out button event handlers
+   */
   private setupZoomControls() {
     const hoverAnchor = () => (this.hoveredCell ? { x: this.hoveredCell.x + 0.5, y: this.hoveredCell.y + 0.5 } : null);
 
@@ -491,6 +608,9 @@ export class Game {
     });
   }
 
+  /**
+   * Handle window resize - adjust canvas size and hide tooltip
+   */
   private handleResize = () => {
     const gameWrapper = this.canvas.parentElement;
     if (!gameWrapper) return;
@@ -511,6 +631,9 @@ export class Game {
     this.cellTooltip.hide();
   };
 
+  /**
+   * Handle citizen selection and show control panel
+   */
   private handleCitizenSelection(citizenId: number) {
     if (!this.simulation) return;
     const citizen = this.simulation.getCitizenSystem().getCitizens().find((c) => c.id === citizenId);
@@ -521,11 +644,17 @@ export class Game {
     this.updateCitizenControlPanel();
   }
 
+  /**
+   * Handle citizen panel close - clear selection
+   */
   private handlePanelClose() {
     this.selectedCitizen = null;
     this.updateCitizenControlPanel();
   }
 
+  /**
+   * Clean up game resources and event listeners
+   */
   destroy() {
     this.cellTooltip.destroy();
     this.planning.destroy();
