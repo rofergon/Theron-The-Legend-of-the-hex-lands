@@ -7,6 +7,7 @@ import { CitizenNeedsSimulator } from "./citizen/CitizenNeedsSimulator";
 import { Navigator } from "./citizen/Navigator";
 import { CitizenActionExecutor } from "./citizen/CitizenActionExecutor";
 import { ResourceCollectionEngine } from "./resource/ResourceCollectionEngine";
+import { CellTaskManager } from "./task/CellTaskManager";
 
 export type CitizenSystemEvent =
   | { type: "log"; message: string; notificationType?: ToastNotification["type"] }
@@ -41,6 +42,7 @@ export class CitizenSystem {
   private readonly navigator: Navigator;
   private readonly actionExecutor: CitizenActionExecutor;
   private readonly resourceEngine: ResourceCollectionEngine;
+  private readonly taskManager: CellTaskManager;
   private debugLogging = true;
   private elapsedHours = 0;
   private playerTribeId = 1;
@@ -52,14 +54,15 @@ export class CitizenSystem {
       inflictDamage: (citizen, amount, cause) => this.inflictDamage(citizen, amount, cause),
       tryEatFromStockpile: (citizen) => this.tryEatFromStockpile(citizen),
     });
-    this.resourceEngine = new ResourceCollectionEngine(world);
+    this.taskManager = new CellTaskManager();
+    this.resourceEngine = new ResourceCollectionEngine(world, this.taskManager);
     this.behaviorDirector = new CitizenBehaviorDirector(world, {
       emit: (event) => this.emit(event),
       tryEatFromStockpile: (citizen) => this.tryEatFromStockpile(citizen),
       inflictDamage: (citizen, amount, cause) => this.inflictDamage(citizen, amount, cause),
-    }, this.resourceEngine);
+    }, this.resourceEngine, this.taskManager);
     this.navigator = new Navigator(world);
-    this.actionExecutor = new CitizenActionExecutor(world, this.repository, this.navigator, this.resourceEngine, {
+    this.actionExecutor = new CitizenActionExecutor(world, this.repository, this.navigator, this.resourceEngine, this.taskManager, {
       emit: (event) => this.emit(event),
       finalizeCitizenDeath: (citizen) => this.finalizeCitizenDeath(citizen),
       createCitizen: (role, x, y, tribeId) => this.createCitizen(role, x, y, tribeId),
@@ -398,6 +401,7 @@ export class CitizenSystem {
         delete citizen.currentGoal;
         citizen.brain = undefined;
         this.resourceEngine.clearReservationForCitizen(citizen.id);
+        this.taskManager.releaseForCitizen(citizen.id);
       }
       delete citizen.pendingRoleChange;
 
@@ -436,6 +440,8 @@ export class CitizenSystem {
       // Check if citizen is still busy
       if (!this.isCitizenBusy(citizen)) {
         citizen.role = citizen.pendingRoleChange;
+        this.resourceEngine.clearReservationForCitizen(citizen.id);
+        this.taskManager.releaseForCitizen(citizen.id);
         delete citizen.pendingRoleChange;
       }
     }
@@ -531,6 +537,7 @@ export class CitizenSystem {
     this.repository.removeLookup(citizen);
     this.devoteeAssignments.delete(citizen.id);
     this.resourceEngine.clearReservationForCitizen(citizen.id);
+    this.taskManager.releaseForCitizen(citizen.id);
     const reason = citizen.lastDamageCause ?? "unknown cause";
     const isFriendly = citizen.tribeId === this.playerTribeId;
     const isBeast = citizen.currentGoal === "beast" || citizen.tribeId === 120;
