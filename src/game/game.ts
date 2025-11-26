@@ -1,23 +1,20 @@
 import { HOURS_PER_SECOND, PRIORITY_KEYMAP, TICK_HOURS, WORLD_SIZE } from "./core/constants";
 import { InputHandler } from "./core/InputHandler";
 import { clamp } from "./core/utils";
-import type { Citizen, PriorityMark, Role, StructureType, ToastNotification, Vec2 } from "./core/types";
+import type { Citizen, PriorityMark, Role, ToastNotification, Vec2 } from "./core/types";
 import { SimulationSession, type ThreatAlert, type SimulationVisualEvent } from "./core/SimulationSession";
 import { CameraController } from "./core/CameraController";
 import { HUDController, type HUDSnapshot } from "./ui/HUDController";
 import { CitizenPortraitBarController } from "./ui/CitizenPortraitBar";
 import { CitizenControlPanelController } from "./ui/CitizenControlPanel";
-import { GameRenderer, type RenderState, type ViewMetrics } from "./ui/GameRenderer";
+import { GameRenderer, type RenderState } from "./ui/GameRenderer";
 import { MainMenu } from "./ui/MainMenu";
 import { CellTooltipController } from "./ui/CellTooltip";
-import { getStructureDefinition } from "./data/structures";
-import type { StructureRequirements } from "./data/structures";
-import { axialToOffset, createHexGeometry, getHexCenter, getHexWorldBounds, pixelToAxial, roundAxial } from "./ui/hexGrid";
-import { convertFaithToHex, type TransactionStatus, getOnChainBalances, burnHexForRaidBlessing, type BurnResult } from "./wallet/hexConversionService";
-import { isWalletConnected, connectOneWallet, getCurrentAccount, getWalletInstance } from "./wallet/walletConfig";
+import { PlanningController } from "./controllers/PlanningController";
+import { TokenController } from "./controllers/TokenController";
+import { burnHexForRaidBlessing, type BurnResult, type TransactionStatus } from "./wallet/hexConversionService";
 
 type AssignableRole = Extract<Role, "farmer" | "worker" | "warrior" | "scout">;
-type PlanningMode = "farm" | "mine" | "gather" | "build";
 
 export class Game {
   private running = false;
@@ -31,6 +28,7 @@ export class Game {
   private readonly portraitBar = new CitizenPortraitBarController({ onSelectCitizen: (id) => this.handleCitizenSelection(id) });
   private readonly citizenPanel = new CitizenControlPanelController({ onClose: () => this.handlePanelClose() });
   private readonly cellTooltip: CellTooltipController;
+  private readonly planning: PlanningController;
   private readonly playerTribeId = 1;
   private simulation: SimulationSession | null = null;
   private readonly assignableRoles: AssignableRole[] = ["farmer", "worker", "warrior", "scout"];
@@ -53,15 +51,7 @@ export class Game {
   };
   private readonly devoteeSlotsPerTemple = 3;
   private devoteeTarget = 0;
-  private token1Pill = document.querySelector<HTMLDivElement>("#token1-pill");
-  private tokenModal = document.querySelector<HTMLDivElement>("#token-modal");
-  private tokenModalBackdrop = document.querySelector<HTMLDivElement>("#token-modal-backdrop");
-  private tokenModalClose = document.querySelector<HTMLButtonElement>("#token-modal-close");
-  private tokenModalCancel = document.querySelector<HTMLButtonElement>("#token-modal-cancel");
-  private tokenModalConvertAll = document.querySelector<HTMLButtonElement>("#token-convert-all");
-  private tokenModalFaithValue = document.querySelector<HTMLSpanElement>("#token-modal-faith");
-  private tokenModalRate = document.querySelector<HTMLSpanElement>("#token-modal-rate");
-  private tokenModalStatus = document.querySelector<HTMLParagraphElement>("#token-modal-status");
+  private readonly tokens: TokenController;
   private debugExportButton = document.querySelector<HTMLButtonElement>("#debug-export");
   private threatModal = document.querySelector<HTMLDivElement>("#threat-modal");
   private threatBackdrop = document.querySelector<HTMLDivElement>("#threat-modal-backdrop");
@@ -81,40 +71,13 @@ export class Game {
 
   private selectedCitizen: Citizen | null = null;
   private hoveredCell: Vec2 | null = null;
-  private planningPriority: PlanningMode | null = null;
-  private planningStrokeActive = false;
-  private planningStrokeCells = new Set<string>();
-  private skipNextCanvasClick = false;
-  private skipClickReset: number | null = null;
-  private planningButtons: HTMLButtonElement[] = [];
-  private buildSelector = document.querySelector<HTMLDivElement>("#build-selector");
-  private structurePrevButton = document.querySelector<HTMLButtonElement>("#build-prev");
-  private structureNextButton = document.querySelector<HTMLButtonElement>("#build-next");
-  private structureLabel = document.querySelector<HTMLSpanElement>("#build-name");
-  private structureStatusLabel = document.querySelector<HTMLSpanElement>("#build-status");
-  private buildDetailsContainer = document.querySelector<HTMLDivElement>("#build-details");
-  private buildDetailsSummary = document.querySelector<HTMLParagraphElement>("#build-details-summary");
-  private buildDetailsCost = document.querySelector<HTMLSpanElement>("#build-details-cost");
-  private buildDetailsRequirements = document.querySelector<HTMLSpanElement>("#build-details-requirements");
-  private planningHintLabel = document.querySelector<HTMLDivElement>("#planning-hint");
-  private selectedStructureType: StructureType | null = null;
-  private availableStructures: StructureType[] = [];
 
-  private zoom = 5;
   private readonly minZoom = 2;
   private readonly maxZoom = 10;
-  private viewTarget: Vec2 = { x: (WORLD_SIZE - 1) / 2, y: (WORLD_SIZE - 1) / 2 };
   private zoomInButton = document.querySelector<HTMLButtonElement>("#zoom-in");
   private zoomOutButton = document.querySelector<HTMLButtonElement>("#zoom-out");
   private speedButtons: HTMLButtonElement[] = [];
   private speedMultiplier = 1;
-  private mobileMediaQuery: MediaQueryList;
-  private useMobileLayout = false;
-  private mobileActionBar: HTMLDivElement | null = null;
-  private mobileHintBubble: HTMLDivElement | null = null;
-  private mobileHintTimeout: number | null = null;
-  private mobileBuildLabel: HTMLSpanElement | null = null;
-  private mobilePlanningButtons: Partial<Record<PlanningMode, HTMLButtonElement>> = {};
   private touchStart: { x: number; y: number } | null = null;
   private touchLast: { x: number; y: number } | null = null;
   private touchMoved = false;
@@ -132,23 +95,33 @@ export class Game {
   private preThreatWarriors: number[] = [];
   private blessingApplied = false;
   private burningHex = false;
-  private onChainBalances: { hex: number; theron: number } | null = null;
-  private onChainBalanceInterval: number | null = null;
   private projectileAnimations: Array<{ from: Vec2; to: Vec2; spawnedAt: number; duration: number }> = [];
   private readonly projectileDurationMs = 650;
 
   constructor(private canvas: HTMLCanvasElement) {
-    this.mobileMediaQuery = window.matchMedia("(max-width: 900px)");
-    this.useMobileLayout = this.shouldUseMobileLayout();
-    document.body.classList.toggle("is-mobile", this.useMobileLayout);
-
     this.renderer = new GameRenderer(canvas);
     this.cellTooltip = new CellTooltipController({
       onCancelConstruction: this.handleCancelConstruction,
       onClearPriority: this.handleClearPriority,
     });
     this.camera = new CameraController({ canvas, minZoom: this.minZoom, maxZoom: this.maxZoom }, () => this.simulation?.getWorld() ?? null);
-    this.mainMenu = new MainMenu(canvas, { isMobile: this.useMobileLayout });
+    this.mainMenu = new MainMenu(canvas, { isMobile: false });
+    this.planning = new PlanningController({
+      hud: this.hud,
+      camera: this.camera,
+      mainMenu: this.mainMenu,
+      getSimulation: () => this.simulation,
+      onPauseToggle: this.handlePauseToggle,
+      onResize: this.handleResize,
+      getHoveredCell: () => this.hoveredCell,
+      isRunning: () => this.running,
+    });
+    this.tokens = new TokenController({
+      hud: this.hud,
+      getSimulation: () => this.simulation,
+      logEvent: (message, notificationType) => this.logEvent(message, notificationType),
+      onBalancesChanged: () => this.updateHUD(),
+    });
     this.camera.setViewTarget({ x: WORLD_SIZE / 2, y: WORLD_SIZE / 2 });
 
     this.hud.setupHeaderButtons(this.handlePauseToggle);
@@ -156,13 +129,13 @@ export class Game {
     this.hud.updateStatus("🎮 Configure your world and press START");
     this.hud.setPauseButtonState(false); // Show button as if paused
 
+    this.planning.registerZoomButtons(this.zoomInButton, this.zoomOutButton);
     this.setupZoomControls();
     this.setupRoleControls();
     this.setupSpeedControls();
-    this.setupPlanningControls();
-    this.setupTokenUI();
+    this.planning.init();
+    this.tokens.init();
     this.setupThreatModal();
-    this.startOnChainBalancePolling();
     this.bindCanvasEvents();
     this.debugExportButton?.addEventListener("click", this.exportDebugLog);
 
@@ -170,63 +143,12 @@ export class Game {
     window.addEventListener("mouseup", this.handleMouseUp);
     window.addEventListener("mousemove", this.handlePanMove);
     window.addEventListener("blur", this.stopPanning);
-    this.mobileMediaQuery.addEventListener("change", this.syncMobileLayout);
-    window.addEventListener("orientationchange", this.syncMobileLayout);
     this.handleResize();
-    this.initializeMobileUI();
 
     // Start the render loop immediately to show the menu
     this.running = true;
     this.lastTime = performance.now();
     requestAnimationFrame(this.loop);
-  }
-
-  private shouldUseMobileLayout() {
-    const prefersSmallScreen =
-      typeof window !== "undefined" && "matchMedia" in window && this.mobileMediaQuery.matches;
-    const touchCapable = (typeof window !== "undefined" && "ontouchstart" in window) || (typeof navigator !== "undefined" && navigator.maxTouchPoints > 1);
-    return Boolean(prefersSmallScreen || touchCapable);
-  }
-
-  private syncMobileLayout = () => {
-    const next = this.shouldUseMobileLayout();
-    if (next === this.useMobileLayout) {
-      return;
-    }
-    this.useMobileLayout = next;
-    document.body.classList.toggle("is-mobile", this.useMobileLayout);
-    this.mainMenu.setMobileMode(this.useMobileLayout);
-    if (this.useMobileLayout) {
-      this.initializeMobileUI();
-    } else {
-      this.teardownMobileUI();
-    }
-    this.handleResize();
-  };
-
-  private initializeMobileUI() {
-    if (!this.useMobileLayout) {
-      return;
-    }
-    this.createMobileActionBar();
-    this.setupMobileTooltips();
-    this.updatePlanningButtons();
-    this.updateStructureDetails();
-    if (this.planningHintLabel?.textContent) {
-      this.updateMobileHint(this.planningHintLabel.textContent, true);
-    }
-  }
-
-  private teardownMobileUI() {
-    this.mobileActionBar?.remove();
-    this.mobileActionBar = null;
-    this.mobilePlanningButtons = {};
-    this.mobileHintBubble = null;
-    this.mobileBuildLabel = null;
-    if (this.mobileHintTimeout) {
-      window.clearTimeout(this.mobileHintTimeout);
-      this.mobileHintTimeout = null;
-    }
   }
 
   private initializeGame() {
@@ -247,14 +169,14 @@ export class Game {
     this.selectedCitizen = null;
     this.hoveredCell = null;
 
-    this.onChainBalances = null;
+    this.tokens.resetBalances();
     this.gameInitialized = true;
     this.updateRoleControls(true);
-    this.refreshStructureSelection();
-    this.updatePlanningHint();
+    this.planning.refreshStructureSelection();
+    this.planning.updatePlanningHint();
     this.updateCitizenControlPanel();
     // Si la wallet ya está conectada, sincronizar balances on-chain al arrancar
-    void this.refreshOnChainBalances();
+    void this.tokens.refreshOnChainBalances();
 
     this.hud.setPauseButtonState(true);
     this.hud.updateStatus("▶️ Simulation in progress.");
@@ -264,154 +186,6 @@ export class Game {
     this.mainMenu.hide();
     this.initializeGame();
     // The loop will continue automatically after closing the menu
-  }
-
-  private createMobileActionBar() {
-    if (this.mobileActionBar) {
-      return;
-    }
-    const bar = document.createElement("div");
-    bar.id = "mobile-action-bar";
-    bar.innerHTML = `
-      <div class="mobile-action-row">
-        <button type="button" data-mobile-mode="farm" aria-label="Crops" data-mobile-tip="Mark fertile zones for sowing.">🌾</button>
-        <button type="button" data-mobile-mode="mine" aria-label="Mining" data-mobile-tip="Prioritize quarries and hills.">🪨</button>
-        <button type="button" data-mobile-mode="gather" aria-label="Gathering" data-mobile-tip="Gather quick natural resources.">🍃</button>
-        <button type="button" data-mobile-mode="build" class="mobile-build-button" aria-label="Construction" data-mobile-tip="Create building blueprints where you touch.">
-          🧱 <span id="mobile-build-label">-</span>
-        </button>
-      </div>
-      <div class="mobile-action-row mobile-secondary-row">
-        <button type="button" data-mobile-action="prev-structure" aria-label="Previous building" data-mobile-tip="Switch to previous building.">◀</button>
-        <button type="button" data-mobile-action="pause" aria-label="Pause or resume" data-mobile-tip="Pause or resume the simulation.">⏯️</button>
-        <button type="button" data-mobile-action="next-structure" aria-label="Next building" data-mobile-tip="Switch to next building.">▶</button>
-        <button type="button" data-mobile-action="zoom-out" aria-label="Zoom out" data-mobile-tip="Zoom out map.">−</button>
-        <button type="button" data-mobile-action="zoom-in" aria-label="Zoom in" data-mobile-tip="Zoom in map.">+</button>
-      </div>
-      <div id="mobile-hint-bubble" aria-live="polite"></div>
-    `;
-    document.body.appendChild(bar);
-    this.mobileActionBar = bar;
-    this.mobileHintBubble = bar.querySelector<HTMLDivElement>("#mobile-hint-bubble");
-    this.mobileBuildLabel = bar.querySelector<HTMLSpanElement>("#mobile-build-label");
-    this.mobilePlanningButtons = {
-      farm: bar.querySelector<HTMLButtonElement>('[data-mobile-mode="farm"]') ?? undefined,
-      mine: bar.querySelector<HTMLButtonElement>('[data-mobile-mode="mine"]') ?? undefined,
-      gather: bar.querySelector<HTMLButtonElement>('[data-mobile-mode="gather"]') ?? undefined,
-      build: bar.querySelector<HTMLButtonElement>('[data-mobile-mode="build"]') ?? undefined,
-    };
-    this.registerMobileActionHandlers(bar);
-  }
-
-  private registerMobileActionHandlers(bar: HTMLDivElement) {
-    const modeButtons = bar.querySelectorAll<HTMLButtonElement>("[data-mobile-mode]");
-    modeButtons.forEach((btn) => {
-      const mode = btn.dataset.mobileMode as PlanningMode | undefined;
-      if (!mode) return;
-      btn.addEventListener("click", () => {
-        this.togglePlanningMode(mode);
-        this.updateMobileHint(btn.dataset.mobileTip ?? `Mode ${mode}`);
-      });
-      this.attachMobileTip(btn, btn.dataset.mobileTip ?? "");
-    });
-
-    const prevButton = bar.querySelector<HTMLButtonElement>('[data-mobile-action="prev-structure"]');
-    const nextButton = bar.querySelector<HTMLButtonElement>('[data-mobile-action="next-structure"]');
-    const pauseButton = bar.querySelector<HTMLButtonElement>('[data-mobile-action="pause"]');
-    const zoomInButton = bar.querySelector<HTMLButtonElement>('[data-mobile-action="zoom-in"]');
-    const zoomOutButton = bar.querySelector<HTMLButtonElement>('[data-mobile-action="zoom-out"]');
-
-    prevButton?.addEventListener("click", () => {
-      this.activatePlanningMode("build");
-      this.cycleStructure(-1);
-      this.updateMobileHint("Previous building");
-    });
-    nextButton?.addEventListener("click", () => {
-      this.activatePlanningMode("build");
-      this.cycleStructure(1);
-      this.updateMobileHint("Next building");
-    });
-    pauseButton?.addEventListener("click", () => {
-      this.handlePauseToggle();
-      this.updateMobileHint(this.running ? "▶️ Simulation in progress" : "⏸️ Paused");
-    });
-    zoomInButton?.addEventListener("click", () => {
-      const anchor = this.hoveredCell ? { x: this.hoveredCell.x + 0.5, y: this.hoveredCell.y + 0.5 } : null;
-      this.camera.adjustZoom(0.25, anchor ?? undefined);
-      this.updateMobileHint("Zoom in map");
-    });
-    zoomOutButton?.addEventListener("click", () => {
-      const anchor = this.hoveredCell ? { x: this.hoveredCell.x + 0.5, y: this.hoveredCell.y + 0.5 } : null;
-      this.camera.adjustZoom(-0.25, anchor ?? undefined);
-      this.updateMobileHint("Zoom out map");
-    });
-
-    [prevButton, nextButton, pauseButton, zoomInButton, zoomOutButton].forEach((btn) => {
-      this.attachMobileTip(btn, btn?.dataset.mobileTip ?? "");
-    });
-  }
-
-  private setupMobileTooltips() {
-    if (!this.useMobileLayout) {
-      return;
-    }
-    const tipTargets: Array<[HTMLElement | null, string]> = [
-      [this.zoomInButton, "Zoom in map"],
-      [this.zoomOutButton, "Zoom out map"],
-      [this.structurePrevButton, "Previous building"],
-      [this.structureNextButton, "Next building"],
-      [this.planningHintLabel, "Choose a mode and paint over the map."],
-    ];
-    this.planningButtons.forEach((button) => {
-      const mode = button.dataset.planningMode as PlanningMode | undefined;
-      if (!mode) return;
-      const defaultHints: Record<PlanningMode, string> = {
-        farm: "Mark crop fields.",
-        mine: "Mark mines and quarries.",
-        gather: "Gather natural resources.",
-        build: "Place building blueprints.",
-      };
-      tipTargets.push([button, defaultHints[mode]]);
-    });
-    tipTargets.forEach(([el, message]) => this.attachMobileTip(el, message));
-  }
-
-  private attachMobileTip(element: HTMLElement | null, message: string) {
-    if (!element || !message) {
-      return;
-    }
-    if ((element as HTMLElement).dataset.tipBound === "true") {
-      return;
-    }
-    element.dataset.tipBound = "true";
-    element.setAttribute("data-mobile-tip", message);
-    element.addEventListener("pointerup", () => this.updateMobileHint(message));
-    element.addEventListener("focus", () => this.updateMobileHint(message, true));
-  }
-
-  private updateMobileHint(text: string, sticky = false) {
-    if (!this.useMobileLayout || !this.mobileHintBubble) {
-      return;
-    }
-    this.mobileHintBubble.textContent = this.formatMobileHint(text);
-    this.mobileHintBubble.classList.add("visible");
-    if (this.mobileHintTimeout) {
-      window.clearTimeout(this.mobileHintTimeout);
-      this.mobileHintTimeout = null;
-    }
-    if (!sticky) {
-      this.mobileHintTimeout = window.setTimeout(() => {
-        this.mobileHintBubble?.classList.remove("visible");
-      }, 2600);
-    }
-  }
-
-  private formatMobileHint(text: string) {
-    const trimmed = text.trim();
-    if (trimmed.length <= 90) {
-      return trimmed;
-    }
-    return `${trimmed.slice(0, 88)}…`;
   }
 
   start() {
@@ -550,53 +324,6 @@ export class Game {
       button.classList.toggle("active", isActive);
       button.setAttribute("aria-pressed", isActive ? "true" : "false");
     });
-  }
-
-  private setupPlanningControls() {
-    this.planningButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".planning-hex-button"));
-    this.planningButtons.forEach((button) => {
-      const mode = button.dataset.planningMode as PlanningMode | undefined;
-      if (!mode) return;
-      button.addEventListener("click", () => this.togglePlanningMode(mode));
-    });
-
-    // Setup hexagonal construction button event listeners
-    const hexButtons = document.querySelectorAll<HTMLButtonElement>(".construction-hex-button");
-    hexButtons.forEach((button) => {
-      const structureType = button.dataset.structure as StructureType | undefined;
-      if (!structureType) return;
-      button.addEventListener("click", () => {
-        // Activate build mode
-        this.activatePlanningMode("build");
-        // Set the selected structure
-        this.selectedStructureType = structureType;
-        // Update UI
-        this.updateStructureDetails();
-        this.updatePlanningHint();
-      });
-    });
-
-    this.updatePlanningButtons();
-    this.updatePlanningHint();
-    this.updateBuildSelectorVisibility();
-    this.updateStructureDetails();
-  }
-
-  private setupTokenUI() {
-    const open = (event?: KeyboardEvent | MouseEvent) => {
-      if (event && event.type === "keydown") {
-        const key = (event as KeyboardEvent).key;
-        if (key !== "Enter" && key !== " ") return;
-        event.preventDefault();
-      }
-      this.openTokenModal();
-    };
-    this.token1Pill?.addEventListener("click", open);
-    this.token1Pill?.addEventListener("keydown", open);
-    this.tokenModalConvertAll?.addEventListener("click", this.convertAllFaithToToken1);
-    this.tokenModalClose?.addEventListener("click", this.closeTokenModal);
-    this.tokenModalCancel?.addEventListener("click", this.closeTokenModal);
-    this.tokenModalBackdrop?.addEventListener("click", this.closeTokenModal);
   }
 
   private setupThreatModal() {
@@ -758,310 +485,6 @@ export class Game {
     return finalTargets;
   }
 
-  private togglePlanningMode(mode: PlanningMode) {
-    if (this.planningPriority === mode) {
-      this.clearPlanningMode();
-      return;
-    }
-    this.activatePlanningMode(mode);
-  }
-
-  private activatePlanningMode(mode: PlanningMode) {
-    this.planningPriority = mode;
-    if (mode !== "build") {
-      this.planningStrokeActive = false;
-      this.planningStrokeCells.clear();
-    } else {
-      this.ensureStructureSelection();
-    }
-    this.updatePlanningButtons();
-    this.updatePlanningHint();
-    this.updateBuildSelectorVisibility();
-  }
-
-  private clearPlanningMode() {
-    if (!this.planningPriority) {
-      return;
-    }
-    this.planningPriority = null;
-    this.planningStrokeActive = false;
-    this.planningStrokeCells.clear();
-    this.updatePlanningButtons();
-    this.updatePlanningHint();
-    this.updateBuildSelectorVisibility();
-  }
-
-  private updatePlanningButtons() {
-    if (this.planningButtons.length === 0) {
-      return;
-    }
-    this.planningButtons.forEach((button) => {
-      const mode = button.dataset.planningMode as PlanningMode | undefined;
-      if (!mode) return;
-      const active = mode === this.planningPriority;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-pressed", active ? "true" : "false");
-    });
-    Object.entries(this.mobilePlanningButtons).forEach(([mode, button]) => {
-      if (!button) return;
-      const active = mode === this.planningPriority;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-pressed", active ? "true" : "false");
-    });
-  }
-
-  private updatePlanningHint(message?: string) {
-    if (message) {
-      this.setPlanningHint(message);
-      return;
-    }
-    if (!this.planningHintLabel) {
-      return;
-    }
-    if (!this.planningPriority) {
-      this.setPlanningHint("Select a mode to start marking zones.");
-      return;
-    }
-    if (this.planningPriority === "build") {
-      const isSelectedAvailable = this.selectedStructureType
-        ? this.availableStructures.includes(this.selectedStructureType)
-        : false;
-      if (!this.selectedStructureType) {
-        this.setPlanningHint("No buildings available yet. Increase population to unlock them.");
-      } else if (!isSelectedAvailable) {
-        this.setPlanningHint("Building locked. Meet the requirements to plan it.");
-      } else {
-        this.setPlanningHint("Click on the map to place the blueprint of the selected building.");
-      }
-      return;
-    }
-    const labels: Record<Exclude<PlanningMode, "build">, string> = {
-      farm: "Drag over the map to mark crop zones.",
-      mine: "Paint over hills or mountains to prioritize mining.",
-      gather: "Designate natural gathering zones for your workers.",
-    };
-    this.setPlanningHint(labels[this.planningPriority]);
-  }
-
-  private setPlanningHint(text: string) {
-    if (!this.planningHintLabel) return;
-    this.planningHintLabel.textContent = text;
-    this.updateMobileHint(text, true);
-  }
-
-  private suppressNextCanvasClick(delayMs = 400) {
-    this.skipNextCanvasClick = true;
-    if (this.skipClickReset !== null) {
-      window.clearTimeout(this.skipClickReset);
-    }
-    this.skipClickReset = window.setTimeout(() => {
-      this.skipNextCanvasClick = false;
-      this.skipClickReset = null;
-    }, delayMs);
-  }
-
-  private updateBuildSelectorVisibility() {
-    if (!this.buildSelector) {
-      return;
-    }
-    const show = this.planningPriority === "build";
-    this.buildSelector.classList.toggle("collapsed", !show);
-    this.buildSelector.setAttribute("aria-hidden", show ? "false" : "true");
-  }
-
-  private refreshStructureSelection() {
-    if (!this.simulation) {
-      if (this.availableStructures.length > 0 || this.selectedStructureType) {
-        this.availableStructures = [];
-        this.selectedStructureType = null;
-        this.updateStructureDetails();
-      }
-      return;
-    }
-    const unlocked = this.simulation.getAvailableStructures();
-    const prevKey = this.availableStructures.join(",");
-    const nextKey = unlocked.join(",");
-    if (prevKey === nextKey) {
-      return;
-    }
-    this.availableStructures = unlocked;
-    this.ensureStructureSelection();
-    this.updateStructureDetails();
-    this.updatePlanningHint();
-  }
-
-  private ensureStructureSelection() {
-    if (!this.selectedStructureType && this.availableStructures.length > 0) {
-      this.selectedStructureType = this.availableStructures[0] ?? null;
-    }
-  }
-
-  private cycleStructure(direction: number) {
-    if (this.availableStructures.length === 0) {
-      return;
-    }
-    if (!this.selectedStructureType) {
-      this.selectedStructureType = this.availableStructures[0] ?? null;
-      this.updateStructureDetails();
-      this.updatePlanningHint();
-      return;
-    }
-    const index = this.availableStructures.indexOf(this.selectedStructureType);
-    const length = this.availableStructures.length;
-    const nextIndex = (index + direction + length) % length;
-    this.selectedStructureType = this.availableStructures[nextIndex] ?? null;
-    this.updateStructureDetails();
-    this.updatePlanningHint();
-  }
-
-  private updateStructureDetails() {
-    const hasOptions = this.availableStructures.length > 0 || !!this.selectedStructureType;
-    const disableCyclers = this.availableStructures.length <= 1;
-    if (this.structurePrevButton) {
-      this.structurePrevButton.disabled = disableCyclers;
-    }
-    if (this.structureNextButton) {
-      this.structureNextButton.disabled = disableCyclers;
-    }
-
-    // Update hexagonal button states
-    const hexButtons = document.querySelectorAll<HTMLButtonElement>(".construction-hex-button");
-    hexButtons.forEach((button) => {
-      const structureType = button.dataset.structure as StructureType | undefined;
-      if (!structureType) return;
-
-      const isAvailable = this.availableStructures.includes(structureType);
-      button.disabled = false;
-      button.classList.toggle("locked", !isAvailable);
-      button.setAttribute("aria-disabled", isAvailable ? "false" : "true");
-
-      // Add/remove selected class
-      const isSelected = structureType === this.selectedStructureType;
-      button.classList.toggle("selected", isSelected);
-    });
-
-    if (!this.selectedStructureType) {
-      if (this.structureLabel) this.structureLabel.textContent = "None";
-      if (this.structureStatusLabel) {
-        this.structureStatusLabel.textContent = hasOptions
-          ? "Select a building to start."
-          : "Increase population to unlock buildings.";
-      }
-      if (this.buildDetailsContainer) {
-        this.buildDetailsContainer.hidden = true;
-      }
-      if (this.buildDetailsSummary) {
-        this.buildDetailsSummary.textContent = "Select a building to see its details.";
-      }
-      if (this.buildDetailsCost) {
-        this.buildDetailsCost.textContent = "-";
-      }
-      if (this.buildDetailsRequirements) {
-        this.buildDetailsRequirements.textContent = "-";
-      }
-      if (this.mobileBuildLabel) {
-        this.mobileBuildLabel.textContent = "—";
-        this.mobileBuildLabel.title = "No buildings available";
-      }
-      return;
-    }
-
-    const definition = getStructureDefinition(this.selectedStructureType);
-    const isSelectedAvailable = this.selectedStructureType
-      ? this.availableStructures.includes(this.selectedStructureType)
-      : false;
-    if (this.structureLabel) {
-      if (definition) {
-        this.structureLabel.textContent = `${definition.icon} ${definition.displayName}`;
-      } else {
-        this.structureLabel.textContent = this.selectedStructureType;
-      }
-    }
-    if (this.structureStatusLabel) {
-      this.structureStatusLabel.textContent = isSelectedAvailable
-        ? "Click on the map to plan this building."
-        : "Locked: meet requirements to plan this building.";
-    }
-    if (this.buildDetailsContainer) {
-      this.buildDetailsContainer.hidden = !definition;
-    }
-    if (definition) {
-      if (this.buildDetailsSummary) {
-        this.buildDetailsSummary.textContent = definition.summary;
-      }
-      if (this.buildDetailsCost) {
-        this.buildDetailsCost.textContent = this.formatStructureCosts(definition.costs);
-      }
-      if (this.buildDetailsRequirements) {
-        this.buildDetailsRequirements.textContent = this.formatStructureRequirements(definition.requirements);
-      }
-    }
-    if (this.mobileBuildLabel) {
-      this.mobileBuildLabel.textContent = definition?.icon ?? "🧱";
-      this.mobileBuildLabel.title = definition?.displayName ?? this.selectedStructureType;
-    }
-  }
-
-  private formatStructureCosts(costs: { stone?: number; food?: number; wood?: number }) {
-    const parts: string[] = [];
-    if (costs.stone && costs.stone > 0) {
-      parts.push(`${costs.stone} stone${costs.stone > 1 ? "s" : ""}`);
-    }
-    if (costs.food && costs.food > 0) {
-      parts.push(`${costs.food} food`);
-    }
-    if (costs.wood && costs.wood > 0) {
-      parts.push(`${costs.wood} wood${costs.wood > 1 ? "s" : ""}`);
-    }
-    return parts.length > 0 ? parts.join(" · ") : "No cost";
-  }
-
-  private formatStructureRequirements(req: StructureRequirements) {
-    const parts: string[] = [];
-    if (req.population) {
-      parts.push(`Population ${req.population}+`);
-    }
-    if (req.structures && req.structures.length > 0) {
-      const names = req.structures
-        .map((type) => getStructureDefinition(type)?.displayName ?? type)
-        .join(", ");
-      parts.push(`Structures: ${names}`);
-    }
-    return parts.length > 0 ? parts.join(" | ") : "None";
-  }
-
-  private applyPlanningAtCell(cell: Vec2) {
-    if (!this.simulation || !this.planningPriority || this.planningPriority === "build") {
-      return;
-    }
-    const key = this.planningCellKey(cell);
-    if (this.planningStrokeCells.has(key)) {
-      return;
-    }
-    this.planningStrokeCells.add(key);
-    this.simulation.getWorld().setPriorityAt(cell.x, cell.y, this.planningPriority);
-  }
-
-  private applyStructurePlan(cell: Vec2) {
-    if (!this.simulation) {
-      return;
-    }
-    if (!this.selectedStructureType) {
-      const message = "No buildings unlocked yet.";
-      this.hud.updateStatus(message);
-      this.updatePlanningHint(message);
-      this.clearPlanningMode();
-      return;
-    }
-    const result = this.simulation.planConstruction(this.selectedStructureType, cell);
-    const message = result.ok
-      ? `Blueprint placed at (${cell.x}, ${cell.y}).`
-      : result.reason ?? "Could not place blueprint here.";
-    this.hud.updateStatus(message);
-    this.updatePlanningHint(message);
-    this.clearPlanningMode();
-  }
-
   private handleCancelConstruction = (siteId: number) => {
     if (!this.simulation) return;
     const result = this.simulation.cancelConstruction(siteId, { reclaimMaterials: true });
@@ -1079,7 +502,7 @@ export class Game {
     const reclaimed = parts.length > 0 ? ` Materials reclaimed: ${parts.join(", ")}.` : "";
     this.hud.updateStatus(`Construction canceled.${reclaimed}`.trim());
     this.updateHUD();
-    this.refreshStructureSelection();
+    this.planning.refreshStructureSelection();
     this.cellTooltip.hide();
   };
 
@@ -1091,10 +514,6 @@ export class Game {
     );
     this.cellTooltip.hide();
   };
-
-  private planningCellKey(cell: Vec2) {
-    return `${cell.x},${cell.y}`;
-  }
 
   private updateRoleControls(force = false) {
     if (!this.simulation) {
@@ -1168,20 +587,6 @@ export class Game {
             : `Available devotee slots: ${maxSlots}`;
     }
   }
-
-  private openTokenModal = () => {
-    if (!this.simulation || !this.tokenModal || !this.tokenModalBackdrop) {
-      return;
-    }
-    this.updateTokenModalStats();
-    this.tokenModal.classList.remove("hidden");
-    this.tokenModalBackdrop.classList.remove("hidden");
-  };
-
-  private closeTokenModal = () => {
-    this.tokenModal?.classList.add("hidden");
-    this.tokenModalBackdrop?.classList.add("hidden");
-  };
 
   private handleThreatAlert = (alert: ThreatAlert) => {
     this.burningHex = false;
@@ -1302,194 +707,19 @@ export class Game {
     );
     this.blessingApplied = boosted > 0;
   }
-
-  private updateTokenModalStats() {
-    if (!this.simulation) return;
-    const faith = this.simulation.getFaithSnapshot().value;
-    const rate = this.simulation.getFaithConversionRate();
-    if (this.tokenModalFaithValue) {
-      this.tokenModalFaithValue.textContent = Math.floor(faith).toString();
-    }
-    if (this.tokenModalRate) {
-      this.tokenModalRate.textContent = `${rate} Faith → 1 HEX`;
-    }
-    if (this.tokenModalStatus) {
-      if (faith <= 0) {
-        this.tokenModalStatus.textContent = "No stored Faith to convert.";
-      } else if (!isWalletConnected()) {
-        this.tokenModalStatus.textContent = "Connect your OneWallet to convert Faith to HEX on-chain.";
-      } else {
-        this.tokenModalStatus.textContent = "Convert your Faith to HEX tokens on OneChain.";
-      }
-    }
-  }
-
-  private async refreshOnChainBalances() {
-    // Usar la cuenta actual si existe; si no, intentar la primera cuenta visible de la wallet
-    const current = getCurrentAccount();
-    const fallbackAccount = getWalletInstance()?.accounts?.[0];
-    const account = current ?? fallbackAccount ?? null;
-    if (!account?.address) return;
-    try {
-      const { hex, theron } = await getOnChainBalances(account.address);
-      const token1El = document.querySelector<HTMLSpanElement>("#token1-value");
-      const token2El = document.querySelector<HTMLSpanElement>("#token2-value");
-      if (token1El) token1El.textContent = hex.toFixed(2);
-      if (token2El) token2El.textContent = theron.toFixed(2);
-      this.onChainBalances = { hex, theron };
-      this.updateHUD();
-    } catch (error) {
-      console.warn("No se pudo refrescar balances on-chain:", error);
-    }
-  }
-
-  private startOnChainBalancePolling() {
-    if (this.onChainBalanceInterval !== null) return;
-    this.onChainBalanceInterval = window.setInterval(() => {
-      void this.refreshOnChainBalances();
-    }, 30_000);
-  }
-
-  private convertAllFaithToToken1 = async () => {
-    if (!this.simulation) {
-      return;
-    }
-
-    // Obtener la cantidad de Faith disponible
-    const faithAmount = Math.floor(this.simulation.getFaithSnapshot().value);
-    
-    if (faithAmount <= 0) {
-      this.hud.updateStatus("No Faith available to convert.");
-      this.closeTokenModal();
-      return;
-    }
-
-    // Verificar si la wallet está conectada
-    if (!isWalletConnected()) {
-      if (this.tokenModalStatus) {
-        this.tokenModalStatus.textContent = "Connecting wallet...";
-      }
-      
-      const connection = await connectOneWallet();
-      if (!connection.success) {
-        if (this.tokenModalStatus) {
-          this.tokenModalStatus.textContent = connection.error || "Error connecting wallet";
-        }
-        this.hud.showNotification("Could not connect wallet", "critical");
-        return;
-      }
-      
-      this.hud.showNotification("Wallet connected successfully", "success");
-      await this.refreshOnChainBalances();
-    }
-
-    // Actualizar estado en el modal
-    const updateModalStatus = (status: TransactionStatus, message?: string) => {
-      if (this.tokenModalStatus) {
-        const statusMessages: Record<TransactionStatus, string> = {
-          'idle': 'Preparing...',
-          'connecting-wallet': 'Connecting wallet...',
-          'building-transaction': 'Preparing transaction...',
-          'signing': '✍️ Please sign the transaction in OneWallet',
-          'executing': '⏳ Executing transaction on OneChain...',
-          'confirming': '🔄 Confirming...',
-          'success': '✅ Conversion successful!',
-          'error': '❌ Transaction error',
-        };
-        this.tokenModalStatus.textContent = message || statusMessages[status];
-      }
-    };
-
-    // Deshabilitar el botón durante la transacción
-    if (this.tokenModalConvertAll) {
-      this.tokenModalConvertAll.disabled = true;
-      this.tokenModalConvertAll.textContent = "Procesando...";
-    }
-
-    try {
-      // Llamar al servicio de conversión con firma de wallet
-      const result = await convertFaithToHex(faithAmount, updateModalStatus);
-
-      if (result.success && result.hexReceived) {
-        // Actualizar el estado del juego (restar la Faith gastada)
-        const gameResult = this.simulation.convertFaithToToken1();
-        
-        this.logEvent(
-          `✨ Convertiste ${result.faithSpent} Faith en ${result.hexReceived} HEX tokens on-chain. ` +
-          `TX: ${result.transactionDigest?.slice(0, 10)}...`
-        );
-        this.hud.showNotification(
-          `¡${result.hexReceived} HEX tokens recibidos!`,
-          "success",
-          6000
-        );
-        this.showConversionSuccessAnimation(result.hexReceived);
-        await this.refreshOnChainBalances();
-        this.updateHUD();
-        
-        // Cerrar modal después de 2 segundos
-        setTimeout(() => {
-          this.closeTokenModal();
-        }, 2000);
-      } else {
-        this.hud.showNotification(
-          result.error || "Error al convertir Faith a HEX",
-          "critical",
-          5000
-        );
-      }
-    } catch (error: any) {
-      console.error("Error en convertAllFaithToToken1:", error);
-      if (this.tokenModalStatus) {
-        this.tokenModalStatus.textContent = `Error: ${error.message || 'Error desconocido'}`;
-      }
-      this.hud.showNotification("Error al convertir Faith a HEX", "critical");
-    } finally {
-      // Rehabilitar el botón
-      if (this.tokenModalConvertAll) {
-        this.tokenModalConvertAll.disabled = false;
-        this.tokenModalConvertAll.textContent = "Convert all";
-      }
-    }
-  };
-
-  private showConversionSuccessAnimation(hexAmount: number) {
-    if (!this.tokenModal) return;
-    const anim = document.createElement("div");
-    anim.className = "conversion-success-anim";
-    anim.innerHTML = `
-      <div class="fireworks">
-        <div class="firework"></div>
-        <div class="firework"></div>
-        <div class="firework"></div>
-        <div class="firework"></div>
-        <div class="firework"></div>
-        <div class="firework"></div>
-      </div>
-      <div class="coin-3d">
-        <div class="face front"><img src="/assets/extracted_icons/Hex_Token.png" alt="HEX token" /></div>
-        <div class="face back"><img src="/assets/extracted_icons/Hex_Token.png" alt="HEX token" /></div>
-        <div class="edge"></div>
-      </div>
-      <div class="celebrate-text">+${hexAmount.toFixed(2)} HEX</div>
-    `;
-    this.tokenModal.appendChild(anim);
-    setTimeout(() => anim.remove(), 4000);
-  }
-
   private loop = (time: number) => {
     if (!this.running) return;
 
     // If menu is visible, only render it
     if (this.mainMenu.isMenuVisible()) {
-      this.mobileActionBar?.classList.add("is-hidden");
+      this.planning.setActionBarHidden(true);
       this.mainMenu.render();
       // Prevent delta from exploding when closing the menu
       this.lastTime = time;
       requestAnimationFrame(this.loop);
       return;
     }
-    this.mobileActionBar?.classList.remove("is-hidden");
+    this.planning.setActionBarHidden(false);
 
     // If game is not initialized but menu closed, initialize now
     if (!this.gameInitialized) {
@@ -1518,26 +748,26 @@ export class Game {
     });
 
     if (this.input.consumeKey("KeyF")) {
-      this.togglePlanningMode("farm");
+      this.planning.togglePlanningMode("farm");
     }
     if (this.input.consumeKey("KeyM")) {
-      this.togglePlanningMode("mine");
+      this.planning.togglePlanningMode("mine");
     }
     if (this.input.consumeKey("KeyG")) {
-      this.togglePlanningMode("gather");
+      this.planning.togglePlanningMode("gather");
     }
     if (this.input.consumeKey("KeyB")) {
-      this.togglePlanningMode("build");
+      this.planning.togglePlanningMode("build");
     }
     if (this.input.consumeKey("Escape")) {
-      this.clearPlanningMode();
+      this.planning.clearPlanningMode();
     }
-    if (this.planningPriority === "build") {
+    if (this.planning.isBuildMode()) {
       if (this.input.consumeKey("BracketLeft")) {
-        this.cycleStructure(-1);
+        this.planning.cycleStructure(-1);
       }
       if (this.input.consumeKey("BracketRight")) {
-        this.cycleStructure(1);
+        this.planning.cycleStructure(1);
       }
     }
   }
@@ -1565,7 +795,7 @@ export class Game {
     this.updateRoleControls();
     this.updateHUD();
     this.updateCitizenControlPanel();
-    this.refreshStructureSelection();
+    this.planning.refreshStructureSelection();
   }
 
   private enqueueProjectileVisuals(events: SimulationVisualEvent[]) {
@@ -1611,9 +841,7 @@ export class Game {
     const world = this.simulation.getWorld();
     const citizens = citizenSystem.getCitizens();
     const livingPopulation = citizens.filter((citizen) => citizen.state === "alive").length;
-    const tokenSnapshot = this.onChainBalances
-      ? { token1: this.onChainBalances.hex, token2: this.onChainBalances.theron }
-      : this.simulation.getTokens();
+    const tokenSnapshot = this.tokens.getTokenSnapshot() ?? this.simulation.getTokens();
     const hudSnapshot: HUDSnapshot = {
       faith: this.simulation.getFaithSnapshot(),
       tokens: tokenSnapshot,
@@ -1731,18 +959,13 @@ export class Game {
   }
 
   private handleCanvasClick = (event: MouseEvent) => {
-    if (this.skipNextCanvasClick) {
-      this.skipNextCanvasClick = false;
-      if (this.skipClickReset !== null) {
-        window.clearTimeout(this.skipClickReset);
-        this.skipClickReset = null;
-      }
+    if (this.planning.consumeSkippedClick()) {
       return;
     }
     if (!this.gameInitialized || !this.simulation) {
       return;
     }
-    if (this.planningPriority) {
+    if (this.planning.isActive()) {
       return;
     }
     const cell = this.camera.getCellUnderPointer(event);
@@ -1781,10 +1004,10 @@ export class Game {
     if (event.touches.length === 2) {
       this.pinchStartDistance = this.getPinchDistance(event.touches);
       this.pinchStartZoom = this.camera.getZoom();
-    } else if (this.planningPriority) {
+    } else if (this.planning.isActive()) {
       event.preventDefault();
       const pos = { x: primary.clientX, y: primary.clientY };
-      this.handlePlanningTouch(pos);
+      this.planning.handlePlanningTouch(pos);
     }
   };
 
@@ -1806,16 +1029,20 @@ export class Game {
       : false;
     this.touchMoved = this.touchMoved || movedEnough;
 
-    if (this.planningStrokeActive && this.planningPriority && this.planningPriority !== "build") {
+    const planningActive = this.planning.isActive();
+    const strokeActive = this.planning.isStrokeActive();
+    const buildMode = this.planning.isBuildMode();
+
+    if (strokeActive && planningActive && !buildMode) {
       const cell = this.camera.getCellUnderPointer({ clientX: current.x, clientY: current.y } as MouseEvent);
       if (cell) {
         this.hoveredCell = cell;
-        this.applyPlanningAtCell(cell);
+        this.planning.continueStrokeAt(cell);
       }
       return;
     }
 
-    if (!this.planningPriority) {
+    if (!planningActive) {
       if (movedEnough) {
         event.preventDefault();
         if (!this.camera) return;
@@ -1851,23 +1078,25 @@ export class Game {
       return;
     }
 
+    const planningActive = this.planning.isActive();
+    const strokeActive = this.planning.isStrokeActive();
+    const buildMode = this.planning.isBuildMode();
+
     if (!moved) {
       const pseudoEvent = { clientX: last.x, clientY: last.y } as MouseEvent;
-      if (!this.planningPriority) {
+      if (!planningActive) {
         this.handleCanvasClick(pseudoEvent);
       } else {
-        this.planningStrokeActive = false;
-        this.planningStrokeCells.clear();
-        this.suppressNextCanvasClick();
+        this.planning.finishStroke();
+        this.planning.suppressNextCanvasClick();
       }
-    } else if (this.planningPriority && this.planningStrokeActive) {
-      this.planningStrokeActive = false;
-      this.planningStrokeCells.clear();
-      this.suppressNextCanvasClick();
+    } else if (planningActive && strokeActive) {
+      this.planning.finishStroke();
+      this.planning.suppressNextCanvasClick();
     }
 
-    if (this.planningPriority && this.planningPriority !== "build") {
-      this.clearPlanningMode();
+    if (planningActive && !buildMode) {
+      this.planning.clearPlanningMode();
     }
   };
 
@@ -1881,23 +1110,6 @@ export class Game {
     this.isTouchPanning = false;
     this.stopPanning();
   };
-
-  private handlePlanningTouch(position: { x: number; y: number }) {
-    const eventLike = { clientX: position.x, clientY: position.y } as MouseEvent;
-    const cell = this.camera.getCellUnderPointer(eventLike);
-    if (!cell) {
-      return;
-    }
-    if (this.planningPriority === "build") {
-      this.applyStructurePlan(cell);
-      this.planningStrokeActive = false;
-      this.planningStrokeCells.clear();
-    } else {
-      this.planningStrokeActive = true;
-      this.planningStrokeCells.clear();
-      this.applyPlanningAtCell(cell);
-    }
-  }
 
   private handlePinchZoom(event: TouchEvent) {
     if (event.touches.length !== 2 || !this.gameInitialized) {
@@ -1953,8 +1165,8 @@ export class Game {
       return;
     }
     this.hoveredCell = this.camera.getCellUnderPointer(event);
-    if (this.planningStrokeActive && this.planningPriority && this.planningPriority !== "build" && this.hoveredCell) {
-      this.applyPlanningAtCell(this.hoveredCell);
+    if (this.planning.isStrokeActive() && this.planning.isActive() && !this.planning.isBuildMode() && this.hoveredCell) {
+      this.planning.continueStrokeAt(this.hoveredCell);
     }
   };
 
@@ -1982,8 +1194,7 @@ export class Game {
       return;
     }
     this.cellTooltip.hide();
-    this.planningStrokeActive = false;
-    this.planningStrokeCells.clear();
+    this.planning.finishStroke();
   };
 
   private hideTooltip = () => {
@@ -2004,21 +1215,13 @@ export class Game {
     if (!this.gameInitialized) {
       return;
     }
-    if (event.button === 0 && this.planningPriority) {
+    if (event.button === 0 && this.planning.isActive()) {
       const cell = this.camera.getCellUnderPointer(event);
       if (cell) {
         event.preventDefault();
         this.cellTooltip.hide();
-        this.suppressNextCanvasClick(); // Ignore the click event fired right after painting.
-        if (this.planningPriority === "build") {
-          this.applyStructurePlan(cell);
-          this.planningStrokeActive = false;
-          this.planningStrokeCells.clear();
-        } else {
-          this.planningStrokeActive = true;
-          this.planningStrokeCells.clear();
-          this.applyPlanningAtCell(cell);
-        }
+        this.planning.suppressNextCanvasClick(); // Ignore the click event fired right after painting.
+        this.planning.startStrokeAt(cell);
       }
       return;
     }
@@ -2033,13 +1236,10 @@ export class Game {
     if (!this.gameInitialized) {
       return;
     }
-    if (event.button === 0 && this.planningStrokeActive) {
-      this.planningStrokeActive = false;
-      this.planningStrokeCells.clear();
-      this.suppressNextCanvasClick();
-      if (this.planningPriority && this.planningPriority !== "build") {
-        this.clearPlanningMode();
-      }
+    if (event.button === 0 && this.planning.isStrokeActive()) {
+      const shouldClearPlanning = this.planning.isActive() && !this.planning.isBuildMode();
+      this.planning.finishStroke(shouldClearPlanning);
+      this.planning.suppressNextCanvasClick();
     }
     if (event.button === 1) {
       this.camera.stopPanning();
@@ -2048,8 +1248,7 @@ export class Game {
 
   private stopPanning = () => {
     this.camera.stopPanning();
-    this.planningStrokeActive = false;
-    this.planningStrokeCells.clear();
+    this.planning.finishStroke();
   };
 
   private handlePanMove = (event: MouseEvent) => {
@@ -2082,8 +1281,9 @@ export class Game {
     if (!gameWrapper) return;
 
     const wrapperRect = gameWrapper.getBoundingClientRect();
-    const padding = this.useMobileLayout ? 12 : 32;
-    const mobileOffset = this.useMobileLayout ? 96 : 0;
+    const isMobile = this.planning.isMobileLayout();
+    const padding = isMobile ? 12 : 32;
+    const mobileOffset = isMobile ? 96 : 0;
     const availableWidth = Math.max(0, wrapperRect.width - padding);
     const availableHeight = Math.max(0, wrapperRect.height - padding - mobileOffset);
 
@@ -2113,9 +1313,8 @@ export class Game {
 
   destroy() {
     this.cellTooltip.destroy();
-    this.teardownMobileUI();
-    this.mobileMediaQuery.removeEventListener("change", this.syncMobileLayout);
-    window.removeEventListener("orientationchange", this.syncMobileLayout);
+    this.planning.destroy();
+    this.tokens.destroy();
     // Clear other event listeners if necessary
   }
 
