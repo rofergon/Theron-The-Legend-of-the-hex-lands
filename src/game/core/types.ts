@@ -134,6 +134,7 @@ export interface WorldView {
     cropReady: boolean;
     cropStage: 0 | 1 | 2 | 3;
     farmTask: FarmTask | null;
+    visibility: WorldCell["visibility"];
   }>;
   nearbyCitizens: Citizen[];
   threats: Citizen[];
@@ -147,6 +148,7 @@ export type CitizenAction =
   | { type: "rest" }
   | { type: "idle" }
   | { type: "storeResources" }
+  | { type: "refillFood"; amount?: number }
   | { type: "mate"; partnerId: number }
   | { type: "tendCrops"; x: number; y: number }
   | { type: "construct"; siteId: number };
