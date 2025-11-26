@@ -737,6 +737,24 @@ body {
   margin: 6px 0 4px;
 }
 
+.threat-status {
+  border-color: rgba(110, 231, 255, 0.35);
+  background: rgba(110, 231, 255, 0.08);
+  color: #c7e9ff;
+}
+
+.threat-status.success {
+  border-color: rgba(125, 255, 187, 0.45);
+  background: rgba(46, 204, 113, 0.1);
+  color: #e8fff4;
+}
+
+.threat-status.error {
+  border-color: rgba(255, 120, 120, 0.4);
+  background: rgba(255, 120, 120, 0.08);
+  color: #ffd7d7;
+}
+
 .modal:not(.hidden) {
   pointer-events: auto;
 }
@@ -792,6 +810,59 @@ body {
 .citizen-row.is-selected {
   background: rgba(255, 107, 53, 0.15);
   border-left: 3px solid var(--color-accent-fire);
+}
+
+.floating-toast {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0.65rem 0.85rem;
+  background: rgba(15, 27, 42, 0.92);
+  border: 1px solid rgba(110, 231, 255, 0.2);
+  border-radius: 14px;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.35);
+  color: #eaf0ff;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 150;
+}
+
+.floating-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.blessing-toast .toast-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(110, 231, 255, 0.16));
+  border: 1px solid rgba(110, 231, 255, 0.35);
+  font-size: 20px;
+  box-shadow: inset 0 0 12px rgba(110, 231, 255, 0.2);
+}
+
+.blessing-toast .toast-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.blessing-toast .toast-title {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.blessing-toast .toast-message {
+  color: #c7d7f5;
+  font-size: 0.92rem;
+  max-width: 320px;
 }
 
 .citizen-row-id {

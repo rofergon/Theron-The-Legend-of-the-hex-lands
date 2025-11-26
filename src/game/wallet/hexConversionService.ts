@@ -13,7 +13,7 @@
 
 import { Transaction } from '@onelabs/sui/transactions';
 import { onechainClient } from './onechainClient';
-import { getCurrentAccount, isWalletConnected, getWalletInstance } from './walletConfig';
+import { getCurrentAccount, isWalletConnected, getWalletInstance, connectOneWallet } from './walletConfig';
 import { ONECHAIN_PACKAGE_ID, HEX_TOKEN, THERON_TOKEN, CONVERSION_RATES } from '../../config/contracts';
 
 // Decimales del token HEX (9)
@@ -480,11 +480,15 @@ export async function burnHexForRaidBlessing(
     onStatusChange?.('building-transaction', 'Comprobando balance de HEX (20 requeridos)...');
 
     if (!isWalletConnected()) {
-      return { success: false, error: 'Conecta OneWallet para quemar HEX.' };
+      onStatusChange?.('connecting-wallet', 'Conectando OneWallet...');
+      const connection = await connectOneWallet();
+      if (!connection.success) {
+        return { success: false, error: connection.error ?? 'No se pudo conectar OneWallet.' };
+      }
     }
 
-    const account = getCurrentAccount();
-    if (!account?.address) {
+    const account = getCurrentAccount() ?? getWalletInstance()?.accounts?.[0] ?? null;
+    if (!account || !account.address) {
       return { success: false, error: 'No se encontró la cuenta activa en OneWallet.' };
     }
 
@@ -494,25 +498,39 @@ export async function burnHexForRaidBlessing(
       limit: 50,
     });
 
-    const coin = coins.data.find((c) => BigInt(c.balance) >= required);
-    if (!coin) {
-      return { success: false, error: 'Necesitas al menos 20 HEX para la bendición.' };
+    const totalBalance = coins.data.reduce((acc, c) => acc + BigInt(c.balance), 0n);
+    if (totalBalance < required) {
+      const human = Number(totalBalance) / Number(HEX_MULT);
+      return { success: false, error: `Necesitas al menos 20 HEX para la bendición. Balance detectado: ${human.toFixed(2)} HEX.` };
     }
 
     const tx = new Transaction();
     tx.setSender(account.address);
 
-    // Separar exactamente 20 HEX en subunidades (decimales 9)
-    const [burnCoin] = tx.splitCoins(tx.object(coin.coinObjectId), [tx.pure.u64(required)]);
-    const reason = new TextEncoder().encode("raid_blessing");
+    // Tomar la primera coin como base y fusionar el resto para asegurar 20 HEX disponibles
+    const [base, ...rest] = coins.data;
+    if (!base) {
+      return { success: false, error: 'No se encontraron monedas HEX en la wallet.' };
+    }
 
+    const baseRef = tx.object(base.coinObjectId);
+    if (rest.length > 0) {
+      tx.mergeCoins(
+        baseRef,
+        rest.map((c) => tx.object(c.coinObjectId)),
+      );
+    }
+
+    // Separar exactamente 20 HEX en subunidades (decimales 9)
+    const [burnCoin] = tx.splitCoins(baseRef, [tx.pure.u64(required)]);
     tx.moveCall({
       target: `${ONECHAIN_PACKAGE_ID}::${HEX_TOKEN.MODULE}::burn_tokens`,
       arguments: [
         tx.object(HEX_TOKEN.TREASURY_HOLDER),
         tx.object(HEX_TOKEN.ECONOMY_STATS),
         burnCoin,
-        tx.pure(reason),
+        // reason: vector<u8>
+        tx.pure.string("raid_blessing"),
       ],
     });
 

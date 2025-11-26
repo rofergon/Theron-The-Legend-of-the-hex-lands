@@ -35,9 +35,11 @@ export class ThreatController {
   private threatCloseButton = document.querySelector<HTMLButtonElement>("#threat-modal-close");
   private threatResumeButton = document.querySelector<HTMLButtonElement>("#threat-modal-resume");
   private threatBurnButton = document.querySelector<HTMLButtonElement>("#threat-modal-burn");
+  private threatBlessingStatus = document.querySelector<HTMLParagraphElement>("#threat-blessing-status");
 
   // Track threat location for camera focus
   private lastThreatFocus: Vec2 | null = null;
+  private lastThreatAlert: ThreatAlert | null = null;
   // Warriors present when threat appeared (eligible for blessing)
   private preThreatWarriors: number[] = [];
   // Track whether blessing has been applied
@@ -66,6 +68,7 @@ export class ThreatController {
    */
   handleThreat(alert: ThreatAlert) {
     this.burningHex = false;
+    this.lastThreatAlert = alert;
     this.preThreatWarriors = this.captureWarriorIds();
     this.blessingApplied = false;
     this.deps.onPause();
@@ -84,7 +87,16 @@ export class ThreatController {
       }
     };
 
+    const resumeGame = () => {
+      this.hideModal();
+      this.deps.onResume();
+      this.deps.hud.updateStatus("▶️ Simulation resumed.");
+    };
+
     const focus = () => {
+      if (!this.lastThreatFocus && this.lastThreatAlert) {
+        this.focusOnThreat(this.lastThreatAlert);
+      }
       if (this.lastThreatFocus) {
         this.deps.camera.focusOn(this.lastThreatFocus);
       }
@@ -93,7 +105,7 @@ export class ThreatController {
 
     this.threatBackdrop?.addEventListener("click", () => close(false));
     this.threatCloseButton?.addEventListener("click", () => close(false));
-    this.threatResumeButton?.addEventListener("click", () => close(true));
+    this.threatResumeButton?.addEventListener("click", () => resumeGame());
     this.threatFocusButton?.addEventListener("click", () => {
       focus();
       this.deps.hud.updateStatus("Centered on threat. Game paused.");
@@ -144,6 +156,11 @@ export class ThreatController {
     if (this.threatBurnButton) {
       this.threatBurnButton.textContent = this.blessingApplied ? "Blessing applied" : "Burn 20 HEX & bless warriors";
       this.threatBurnButton.disabled = this.blessingApplied || this.burningHex;
+    }
+    if (this.threatBlessingStatus) {
+      this.threatBlessingStatus.textContent = "";
+      this.threatBlessingStatus.classList.add("hidden");
+      this.threatBlessingStatus.classList.remove("success", "error");
     }
     this.deps.hud.updateStatus("⚠️ Invasion detected. Game paused.");
   }
@@ -224,11 +241,32 @@ export class ThreatController {
       resetBurnButton();
       this.deps.hud.updateStatus(result.error ?? "HEX burn failed.");
       this.deps.hud.showNotification(result.error ?? "HEX burn failed", "critical");
+      if (this.threatBlessingStatus) {
+        this.threatBlessingStatus.textContent = result.error ?? "HEX burn failed.";
+        this.threatBlessingStatus.classList.remove("hidden", "success");
+        this.threatBlessingStatus.classList.add("error");
+      }
       return;
     }
-    this.applyWarriorBlessing();
+    const blessing = this.applyWarriorBlessing();
     resetBurnButton();
-    this.deps.hud.showNotification("HEX burned. Warriors blessed with +20% resistance.", "success");
+    const blessedCount = blessing.boosted;
+    const message =
+      blessedCount > 0
+        ? `✨ Transaction confirmed • ${blessedCount} warrior${blessedCount === 1 ? "" : "s"} blessed with +20% resistance.`
+        : "✨ Transaction confirmed • Warriors ready, but no eligible units were present.";
+    this.deps.hud.updateStatus(message);
+    this.deps.hud.showNotification(message, "success", 6000);
+    if (this.threatBlessingStatus) {
+      const list =
+        blessing.boostedIds.length > 0
+          ? `IDs: ${blessing.boostedIds.slice(0, 5).map((id) => `#${id}`).join(", ")}${blessing.boostedIds.length > 5 ? "..." : ""}`
+          : "";
+      this.threatBlessingStatus.textContent = `${message}${list ? ` • ${list}` : ""}`;
+      this.threatBlessingStatus.classList.remove("hidden", "error");
+      this.threatBlessingStatus.classList.add("success");
+    }
+    this.showBlessingToast(message);
   };
 
   /**
@@ -248,11 +286,12 @@ export class ThreatController {
    * Apply resistance blessing to warriors that existed before threat
    * Grants +20% damage resistance and health boost
    */
-  private applyWarriorBlessing() {
+  private applyWarriorBlessing(): { boosted: number; boostedIds: number[] } {
     const simulation = this.deps.getSimulation();
-    if (!simulation) return;
+    if (!simulation) return { boosted: 0, boostedIds: [] as number[] };
     const citizens = simulation.getCitizenSystem().getCitizens();
     let boosted = 0;
+    const boostedIds: number[] = [];
     for (const citizen of citizens) {
       if (citizen.state !== "alive") continue;
       if (citizen.role !== "warrior") continue;
@@ -261,6 +300,7 @@ export class ThreatController {
       citizen.health = clamp(citizen.health * 1.2, -50, 100);
       citizen.hexBlessed = true;
       boosted += 1;
+      boostedIds.push(citizen.id);
     }
     this.deps.hud.updateStatus(
       boosted > 0
@@ -268,5 +308,25 @@ export class ThreatController {
         : "No existing warriors to bless.",
     );
     this.blessingApplied = boosted > 0;
+    return { boosted, boostedIds };
+  }
+
+  /**
+   * Lightweight in-game toast for blessing success
+   */
+  private showBlessingToast(message: string) {
+    const overlay = document.createElement("div");
+    overlay.className = "floating-toast blessing-toast";
+    overlay.innerHTML = `
+      <div class="toast-icon">🛡️</div>
+      <div class="toast-body">
+        <div class="toast-title">Blessing Applied</div>
+        <div class="toast-message">${message}</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    setTimeout(() => overlay.classList.add("show"), 50);
+    setTimeout(() => overlay.classList.remove("show"), 4200);
+    setTimeout(() => overlay.remove(), 4700);
   }
 }

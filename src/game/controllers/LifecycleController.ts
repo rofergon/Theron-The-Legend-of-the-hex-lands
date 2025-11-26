@@ -34,6 +34,7 @@ interface LifecycleDependencies {
 
 export class LifecycleController {
   private running = false;
+  private paused = false;
   private lastTime = 0;
   private accumulatedHours = 0;
   private initialized = false;
@@ -43,12 +44,13 @@ export class LifecycleController {
 
   start() {
     this.running = true;
+    this.paused = false;
     this.lastTime = performance.now();
     requestAnimationFrame(this.loop);
   }
 
   isRunning() {
-    return this.running;
+    return this.initialized && !this.paused;
   }
 
   isInitialized() {
@@ -75,27 +77,22 @@ export class LifecycleController {
       }
       return;
     }
-    if (this.running) {
-      this.pause();
-    } else {
-      this.resume();
-    }
+    this.paused ? this.resume() : this.pause();
   };
 
   pause = () => {
     if (!this.initialized) return;
-    this.running = false;
+    this.paused = true;
     this.deps.hud.updateStatus("⏸️ Paused.");
     this.deps.hud.setPauseButtonState(false);
   };
 
   resume = () => {
-    if (!this.initialized || this.running) return;
-    this.running = true;
+    if (!this.initialized || !this.paused) return;
+    this.paused = false;
     this.lastTime = performance.now();
     this.deps.hud.updateStatus("▶️ Simulation in progress.");
     this.deps.hud.setPauseButtonState(true);
-    requestAnimationFrame(this.loop);
   };
 
   private initializeAndStart() {
@@ -152,10 +149,12 @@ export class LifecycleController {
     this.lastTime = time;
     this.deps.onFrame?.();
 
-    this.accumulatedHours += deltaSeconds * HOURS_PER_SECOND * this.speedMultiplier;
-    while (this.accumulatedHours >= TICK_HOURS) {
-      this.deps.onTick(TICK_HOURS);
-      this.accumulatedHours -= TICK_HOURS;
+    if (!this.paused) {
+      this.accumulatedHours += deltaSeconds * HOURS_PER_SECOND * this.speedMultiplier;
+      while (this.accumulatedHours >= TICK_HOURS) {
+        this.deps.onTick(TICK_HOURS);
+        this.accumulatedHours -= TICK_HOURS;
+      }
     }
 
     this.deps.onDraw();
