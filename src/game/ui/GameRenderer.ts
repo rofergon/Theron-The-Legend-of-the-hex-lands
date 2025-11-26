@@ -99,6 +99,12 @@ export type ViewMetrics = {
   center: Vec2;
 };
 
+export type ProjectileRender = {
+  from: Vec2;
+  to: Vec2;
+  progress: number;
+};
+
 export type RenderState = {
   world: WorldEngine;
   citizens: Citizen[];
@@ -106,6 +112,7 @@ export type RenderState = {
   hoveredCell: Vec2 | null;
   notifications: ToastNotification[];
   view: ViewMetrics;
+  projectiles: ProjectileRender[];
 };
 
 export class GameRenderer {
@@ -290,9 +297,48 @@ export class GameRenderer {
 
     renderList.forEach((item) => item.draw());
 
+    this.drawProjectiles(state.projectiles, hex, state.view);
     this.drawFogOverlays(fogTiles, hex);
     this.drawNotifications(state.notifications);
     this.drawLegend();
+  }
+
+  private drawProjectiles(projectiles: ProjectileRender[], hex: HexGeometry, view: ViewMetrics) {
+    if (projectiles.length === 0) return;
+    const ctx = this.ctx;
+
+    projectiles.forEach((projectile) => {
+      const start = getHexCenter(projectile.from.x, projectile.from.y, hex, view.offsetX, view.offsetY);
+      const end = getHexCenter(projectile.to.x, projectile.to.y, hex, view.offsetX, view.offsetY);
+      const t = clamp(projectile.progress, 0, 1);
+      const x = start.x + (end.x - start.x) * t;
+      const y = start.y + (end.y - start.y) * t;
+      const angle = Math.atan2(end.y - start.y, end.x - start.x);
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(236, 196, 94, 0.9)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+
+      const headSize = 7;
+      ctx.fillStyle = "rgba(236, 196, 94, 0.95)";
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(
+        x - headSize * Math.cos(angle - Math.PI / 7),
+        y - headSize * Math.sin(angle - Math.PI / 7),
+      );
+      ctx.lineTo(
+        x - headSize * Math.cos(angle + Math.PI / 7),
+        y - headSize * Math.sin(angle + Math.PI / 7),
+      );
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    });
   }
 
   private drawTerrainBase(center: Vec2, hex: HexGeometry, cell: WorldCell) {

@@ -2,7 +2,7 @@ import { HOURS_PER_SECOND, PRIORITY_KEYMAP, TICK_HOURS, WORLD_SIZE } from "./cor
 import { InputHandler } from "./core/InputHandler";
 import { clamp } from "./core/utils";
 import type { Citizen, PriorityMark, Role, StructureType, ToastNotification, Vec2 } from "./core/types";
-import { SimulationSession, type ThreatAlert } from "./core/SimulationSession";
+import { SimulationSession, type ThreatAlert, type SimulationVisualEvent } from "./core/SimulationSession";
 import { CameraController } from "./core/CameraController";
 import { HUDController, type HUDSnapshot } from "./ui/HUDController";
 import { CitizenPortraitBarController } from "./ui/CitizenPortraitBar";
@@ -134,6 +134,8 @@ export class Game {
   private burningHex = false;
   private onChainBalances: { hex: number; theron: number } | null = null;
   private onChainBalanceInterval: number | null = null;
+  private projectileAnimations: Array<{ from: Vec2; to: Vec2; spawnedAt: number; duration: number }> = [];
+  private readonly projectileDurationMs = 650;
 
   constructor(private canvas: HTMLCanvasElement) {
     this.mobileMediaQuery = window.matchMedia("(max-width: 900px)");
@@ -1548,6 +1550,10 @@ export class Game {
     this.simulation.runTick(tickHours, {
       priority: priority ?? null,
     });
+    const visualEvents = this.simulation.consumeVisualEvents();
+    if (visualEvents.length > 0) {
+      this.enqueueProjectileVisuals(visualEvents);
+    }
 
     this.pendingPriority = null;
 
@@ -1560,6 +1566,41 @@ export class Game {
     this.updateHUD();
     this.updateCitizenControlPanel();
     this.refreshStructureSelection();
+  }
+
+  private enqueueProjectileVisuals(events: SimulationVisualEvent[]) {
+    const now = performance.now();
+    events.forEach((event) => {
+      if (event.type === "towerProjectile") {
+        this.projectileAnimations.push({
+          from: event.from,
+          to: event.to,
+          spawnedAt: now,
+          duration: this.projectileDurationMs,
+        });
+      }
+    });
+  }
+
+  private collectProjectileFrames(): RenderState["projectiles"] {
+    const now = performance.now();
+    const active: typeof this.projectileAnimations = [];
+    const frames: RenderState["projectiles"] = [];
+
+    this.projectileAnimations.forEach((projectile) => {
+      const progress = (now - projectile.spawnedAt) / projectile.duration;
+      if (progress <= 1) {
+        frames.push({
+          from: projectile.from,
+          to: projectile.to,
+          progress: clamp(progress, 0, 1),
+        });
+        active.push(projectile);
+      }
+    });
+
+    this.projectileAnimations = active;
+    return frames;
   }
 
 
@@ -1682,6 +1723,7 @@ export class Game {
       selectedCitizen: this.selectedCitizen,
       hoveredCell: this.hoveredCell,
       notifications: this.hud.getNotifications(),
+      projectiles: this.collectProjectileFrames(),
       view: this.camera.getViewMetrics(),
     };
 

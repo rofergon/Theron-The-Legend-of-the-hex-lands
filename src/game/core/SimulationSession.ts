@@ -1,5 +1,5 @@
 import { clamp } from "./utils";
-import type { ClimateState, PriorityMark, ResourceTrend, Role, StructureType, ToastNotification, Vec2 } from "./types";
+import type { Citizen, ClimateState, PriorityMark, ResourceTrend, Role, StructureType, ToastNotification, Vec2 } from "./types";
 import { WorldEngine } from "./world/WorldEngine";
 import { CitizenSystem, type CitizenSystemEvent } from "../systems/CitizenSystem";
 import { CONVERSION_RATES } from "../../config/contracts";
@@ -28,6 +28,13 @@ type RunTickOptions = {
   priority?: PriorityMark | null;
 };
 
+export type SimulationVisualEvent =
+  | {
+    type: "towerProjectile";
+    from: Vec2;
+    to: Vec2;
+  };
+
 export class SimulationSession {
   private world!: WorldEngine;
   private citizenSystem!: CitizenSystem;
@@ -43,6 +50,10 @@ export class SimulationSession {
   private token1 = 0;
   private token2 = 0;
   private faithToToken1Rate = CONVERSION_RATES.FAITH_TO_HEX;
+  private readonly towerAttackRange = 4;
+  private readonly warriorBaseDamage = 15;
+  private readonly towerDamage = Math.max(1, Math.round(this.warriorBaseDamage / 2));
+  private visualEvents: SimulationVisualEvent[] = [];
 
   constructor(private playerTribeId: number, private hooks: SimulationHooks = {}) { }
 
@@ -58,6 +69,7 @@ export class SimulationSession {
     this.token1 = 0;
     this.token2 = 0;
     this.world = new WorldEngine(config.worldSize, config.seed);
+    this.visualEvents = [];
 
     this.citizenSystem = new CitizenSystem(this.world, (event) => this.handleCitizenEvent(event));
     this.world.citizenLookup = (id) => this.citizenSystem.getCitizenById(id);
@@ -91,6 +103,7 @@ export class SimulationSession {
     this.updateEvents(tickHours);
     this.world.updateEnvironment(this.climate, tickHours);
     this.citizenSystem.update(tickHours);
+    this.resolveTowerAttacks();
     this.world.updateVisibility(this.citizenSystem.getCitizens(), this.playerTribeId);
     this.generateFaith(tickHours);
     this.trackResourceTrends(tickHours);
@@ -164,6 +177,12 @@ export class SimulationSession {
 
   getFaithConversionRate() {
     return this.faithToToken1Rate;
+  }
+
+  consumeVisualEvents() {
+    const events = [...this.visualEvents];
+    this.visualEvents.length = 0;
+    return events;
   }
 
   getResourceTrendAverage(type: keyof ResourceTrend) {
@@ -328,6 +347,46 @@ export class SimulationSession {
 
   private log(message: string, notificationType?: ToastNotification["type"]) {
     this.hooks.onLog?.(message, notificationType);
+  }
+
+  private resolveTowerAttacks() {
+    const towers = this.world.getStructures().filter((structure) => structure.type === "tower");
+    if (towers.length === 0) return;
+
+    const hostiles = this.citizenSystem.getCitizens().filter(
+      (citizen) => citizen.state === "alive" && citizen.tribeId !== this.playerTribeId,
+    );
+    if (hostiles.length === 0) return;
+
+    towers.forEach((tower) => {
+      const target = this.pickTowerTarget(tower, hostiles);
+      if (!target) return;
+
+      this.citizenSystem.applyRangedDamage(target.id, this.towerDamage, "flecha de torre");
+      this.visualEvents.push({
+        type: "towerProjectile",
+        from: { x: tower.x, y: tower.y },
+        to: { x: target.x, y: target.y },
+      });
+    });
+  }
+
+  private pickTowerTarget(tower: { x: number; y: number }, hostiles: Citizen[]) {
+    let selected: Citizen | null = null;
+    let bestDistance = Infinity;
+
+    for (const hostile of hostiles) {
+      if (hostile.state === "dead") continue;
+      const distance = Math.abs(hostile.x - tower.x) + Math.abs(hostile.y - tower.y);
+      if (distance > this.towerAttackRange) continue;
+
+      if (!selected || distance < bestDistance || (distance === bestDistance && hostile.health < selected.health)) {
+        selected = hostile;
+        bestDistance = distance;
+      }
+    }
+
+    return selected;
   }
 
   private generateFaith(tickHours: number) {

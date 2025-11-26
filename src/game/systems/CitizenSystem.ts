@@ -258,6 +258,20 @@ export class CitizenSystem {
     return counts;
   }
 
+  applyRangedDamage(targetId: number, amount: number, cause: string) {
+    const target = this.repository.getCitizenById(targetId);
+    if (!target || target.state === "dead") return false;
+
+    this.inflictDamage(target, amount, cause);
+    if (target.health <= 0) {
+      this.finalizeCitizenDeath(target);
+      if (target.tribeId !== this.playerTribeId) {
+        this.emit({ type: "powerGain", amount: 1 });
+      }
+    }
+    return true;
+  }
+
   rebalanceRoles(
     targets: Partial<Record<AssignableRole, number>>,
     tribeId?: number,
