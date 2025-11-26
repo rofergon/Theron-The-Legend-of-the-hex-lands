@@ -3,6 +3,7 @@ import { clamp, mulberry32 } from "../utils";
 import type {
   Citizen,
   ClimateState,
+  FarmTask,
   PriorityMark,
   StructureType,
   Terrain,
@@ -244,6 +245,7 @@ export class WorldEngine {
           cropReady,
           cropStage: cell.cropStage,
           farmTask: cell.farmTask,
+          visibility: cell.visibility,
         };
         if (cell.resource) {
           viewCell.resource = cell.resource;
@@ -357,6 +359,30 @@ export class WorldEngine {
     const used = Math.min(amount, available);
     this.stockpile[type] -= used;
     return used;
+  }
+
+  getFarmTasks() {
+    const tasks: Array<{ x: number; y: number; farmTask: FarmTask }> = [];
+    this.cells.forEach((row) => {
+      row.forEach((cell) => {
+        if (cell.priority !== "farm") return;
+        if (!cell.farmTask) return;
+        tasks.push({ x: cell.x, y: cell.y, farmTask: cell.farmTask });
+      });
+    });
+    return tasks;
+  }
+
+  getPriorityCells(priority: PriorityMark) {
+    const results: Vec2[] = [];
+    this.cells.forEach((row) => {
+      row.forEach((cell) => {
+        if (cell.priority === priority) {
+          results.push({ x: cell.x, y: cell.y });
+        }
+      });
+    });
+    return results;
   }
   findClosestMarkedCell(origin: Vec2, priority: PriorityMark, resourceType?: string): Vec2 | null {
     let best: Vec2 | null = null;
