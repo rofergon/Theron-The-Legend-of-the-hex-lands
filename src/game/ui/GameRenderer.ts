@@ -300,7 +300,6 @@ export class GameRenderer {
     this.drawProjectiles(state.projectiles, hex, state.view);
     this.drawFogOverlays(fogTiles, hex);
     this.drawNotifications(state.notifications);
-    this.drawLegend();
   }
 
   private drawProjectiles(projectiles: ProjectileRender[], hex: HexGeometry, view: ViewMetrics) {
@@ -506,6 +505,19 @@ export class GameRenderer {
   }
   private drawCitizen(citizen: Citizen, center: Vec2, hex: HexGeometry) {
     const ctx = this.ctx;
+
+    // Render beasts with a clear wolf marker so they differ from human warriors
+    const isBeast = citizen.currentGoal === "beast" || citizen.tribeId === 120;
+    if (isBeast) {
+      const size = hex.size * 0.9;
+      ctx.save();
+      ctx.font = `${size}px serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("🐺", center.x, center.y);
+      ctx.restore();
+      return;
+    }
 
     // Determine which icon to use based on citizen activity
     let iconKey: string | null = null;
@@ -948,40 +960,4 @@ export class GameRenderer {
 
 
 
-  private drawLegend() {
-    const ctx = this.ctx;
-    const legendWidth = 200;
-    const legendHeight = 140;
-    const x = 16;
-    const y = this.canvas.height - legendHeight - 16;
-
-    ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
-    ctx.fillRect(x, y, legendWidth, legendHeight);
-
-    ctx.strokeStyle = "rgba(233, 204, 152, 0.3)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, legendWidth, legendHeight);
-
-    ctx.font = "bold 11px Arial";
-    ctx.fillStyle = "#f0e7dc";
-    ctx.textAlign = "left";
-    ctx.fillText("LEGEND", x + 8, y + 15);
-
-    const items = [
-      { icon: "🔨", label: "Worker" },
-      { icon: "👨‍🌾", label: "Farmer" },
-      { icon: "⚔️", label: "Warrior" },
-      { icon: "🔍", label: "Scout" },
-      { icon: "🌾", label: "Food" },
-      { icon: "🪨", label: "Stone" },
-      { icon: "🏛️", label: "Village" },
-    ];
-
-    ctx.font = "10px Arial";
-    let itemY = y + 32;
-    items.forEach((item) => {
-      ctx.fillText(`${item.icon} ${item.label}`, x + 8, itemY);
-      itemY += 15;
-    });
-  }
 }
