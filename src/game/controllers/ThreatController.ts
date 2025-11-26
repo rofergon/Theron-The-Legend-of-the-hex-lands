@@ -4,6 +4,7 @@ import type { SimulationSession, ThreatAlert } from "../core/SimulationSession";
 import type { HUDController } from "../ui/HUDController";
 import type { CameraController } from "../core/CameraController";
 import { burnHexForRaidBlessing, type BurnResult, type TransactionStatus } from "../wallet/hexConversionService";
+import { connectOneWallet, isWalletConnected } from "../wallet/walletConfig";
 
 /**
  * Dependencies required by the ThreatController
@@ -174,28 +175,59 @@ export class ThreatController {
    */
   private handleThreatBurn = async () => {
     if (this.burningHex || this.blessingApplied) return;
+
+    const resetBurnButton = () => {
+      if (this.threatBurnButton) {
+        this.threatBurnButton.textContent = this.blessingApplied ? "Blessing applied" : "Burn 20 HEX & bless warriors";
+        this.threatBurnButton.disabled = this.blessingApplied;
+      }
+    };
+
     this.burningHex = true;
     if (this.threatBurnButton) {
       this.threatBurnButton.disabled = true;
       this.threatBurnButton.textContent = "Burning 20 HEX...";
     }
-    const statusUpdate = (status: TransactionStatus, message?: string) => {
-      if (message) {
-        this.deps.hud.updateStatus(message);
+
+    // Ensure OneWallet is connected before attempting the burn
+    if (!isWalletConnected()) {
+      this.deps.hud.updateStatus("Conectando OneWallet para la bendición...");
+      const connection = await connectOneWallet();
+      if (!connection.success) {
+        const errorMessage = connection.error ?? "No se pudo conectar OneWallet.";
+        this.deps.hud.updateStatus(errorMessage);
+        this.deps.hud.showNotification(errorMessage, "critical");
+        this.burningHex = false;
+        resetBurnButton();
+        return;
       }
+      this.deps.hud.showNotification("OneWallet conectada. Continuando con la bendición.", "success");
+    }
+
+    const statusUpdate = (status: TransactionStatus, message?: string) => {
+      const fallbackMessages: Partial<Record<TransactionStatus, string>> = {
+        "connecting-wallet": "Conectando OneWallet...",
+        "building-transaction": "Preparando quema de 20 HEX...",
+        signing: "✍️ Firma la quema en OneWallet",
+        executing: "⏳ Ejecutando quema en OneChain...",
+        confirming: "🔄 Confirmando transacción...",
+        success: "✅ Bendición aplicada.",
+        error: "❌ La quema de HEX falló.",
+      };
+      const statusMessage = message ?? fallbackMessages[status];
+      if (statusMessage) this.deps.hud.updateStatus(statusMessage);
     };
+
     const result: BurnResult = await burnHexForRaidBlessing(statusUpdate);
     this.burningHex = false;
-    if (this.threatBurnButton) {
-      this.threatBurnButton.textContent = this.blessingApplied ? "Blessing applied" : "Burn 20 HEX & bless warriors";
-      this.threatBurnButton.disabled = this.blessingApplied;
-    }
     if (!result.success) {
+      resetBurnButton();
       this.deps.hud.updateStatus(result.error ?? "HEX burn failed.");
       this.deps.hud.showNotification(result.error ?? "HEX burn failed", "critical");
       return;
     }
     this.applyWarriorBlessing();
+    resetBurnButton();
     this.deps.hud.showNotification("HEX burned. Warriors blessed with +20% resistance.", "success");
   };
 
