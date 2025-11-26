@@ -1,7 +1,7 @@
 import type { Citizen, CitizenAction, CitizenAI, FarmTask, Role, StructureType, Vec2, WorldView } from "../../core/types";
 import type { WorldEngine } from "../../core/world/WorldEngine";
 import type { CitizenSystemEvent } from "../CitizenSystem";
-import { ResourceCollectionEngine } from "../resource/ResourceCollectionEngine";
+import { FOOD_STORE_THRESHOLD, ResourceCollectionEngine } from "../resource/ResourceCollectionEngine";
 
 const REST_START_FATIGUE = 70;
 const REST_STOP_FATIGUE = 35;
@@ -264,11 +264,14 @@ const farmerAI: CitizenAI = (citizen, view) => {
     citizen.brain && citizen.brain.kind === "gatherer" && citizen.brain.resourceType === "food" ? citizen.brain : null;
   const isReturningToStorage = brain?.phase === "goingToStorage";
   const isGatheringPhase = brain?.phase === "gathering" || brain?.phase === "goingToResource";
+  const hasExcessFood = citizen.carrying.food >= FOOD_STORE_THRESHOLD;
+  const shouldReturnToStorage = (isReturningToStorage && citizen.carrying.food > 0) || hasExcessFood;
 
-  if (!isReturningToStorage && citizen.carrying.food >= 3) {
-    if (activeGatherEngine) {
-      return activeGatherEngine.runGathererBrain(citizen, view, "food");
+  if (shouldReturnToStorage && activeGatherEngine) {
+    if (hasExcessFood) {
+      citizen.pendingFoodReserve = true;
     }
+    return activeGatherEngine.runGathererBrain(citizen, view, "food");
   }
 
   const farmWork = findFarmWorkCell(citizen, view, FARM_TASK_PRIORITY);
@@ -280,7 +283,7 @@ const farmerAI: CitizenAI = (citizen, view) => {
   }
 
   // If in natural gathering phases, continue
-  if (isReturningToStorage || isGatheringPhase) {
+  if (isGatheringPhase) {
     if (activeGatherEngine) {
       return activeGatherEngine.runGathererBrain(citizen, view, "food");
     }

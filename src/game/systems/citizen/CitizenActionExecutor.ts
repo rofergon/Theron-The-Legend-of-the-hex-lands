@@ -5,7 +5,7 @@ import type { CitizenSystemEvent } from "../CitizenSystem";
 import { CitizenRepository } from "./CitizenRepository";
 import { Navigator } from "./Navigator";
 import type { BehaviorDecision } from "./CitizenBehaviorDirector";
-import { ResourceCollectionEngine } from "../resource/ResourceCollectionEngine";
+import { FOOD_SELF_RESERVE, FOOD_STORE_THRESHOLD, ResourceCollectionEngine } from "../resource/ResourceCollectionEngine";
 
 type BusyAction = Extract<CitizenAction["type"], "gather" | "construct" | "tendCrops" | "attack" | "mate">;
 const BUSY_ACTIONS: readonly BusyAction[] = ["gather", "construct", "tendCrops", "attack", "mate"];
@@ -88,7 +88,12 @@ export class CitizenActionExecutor {
       this.navigator.moveCitizenTowards(citizen, target.x, target.y);
       return;
     }
-    const deposited = this.resourceEngine.storeAtCurrentCell(citizen);
+    const shouldReserveFood = citizen.pendingFoodReserve || citizen.carrying.food >= FOOD_STORE_THRESHOLD;
+    const reserveFood = shouldReserveFood ? FOOD_SELF_RESERVE : 0;
+    const deposited = this.resourceEngine.storeAtCurrentCell(citizen, { reserveFood });
+    if (citizen.pendingFoodReserve) {
+      delete citizen.pendingFoodReserve;
+    }
     if (deposited) {
       citizen.morale = clamp(citizen.morale + 4, 0, 100);
     }

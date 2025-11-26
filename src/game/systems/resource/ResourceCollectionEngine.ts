@@ -4,6 +4,9 @@ import type { WorldEngine } from "../../core/world/WorldEngine";
 
 export type GatherableResourceType = "food" | "stone" | "wood";
 
+export const FOOD_STORE_THRESHOLD = 10;
+export const FOOD_SELF_RESERVE = 3;
+
 const MAX_CARRY: Record<GatherableResourceType, number> = {
   food: 3,
   stone: 3,
@@ -197,16 +200,20 @@ export class ResourceCollectionEngine {
     }
   }
 
-  storeAtCurrentCell(citizen: Citizen) {
+  storeAtCurrentCell(citizen: Citizen, options?: { reserveFood?: number }) {
     const cell = this.world.getCell(citizen.x, citizen.y);
     if (!this.isStorageCell(cell)) {
       return false;
     }
     let deposited = false;
+    const reserveFood = Math.max(0, options?.reserveFood ?? 0);
     if (citizen.carrying.food > 0) {
-      const stored = this.world.deposit("food", citizen.carrying.food);
-      citizen.carrying.food -= stored;
-      deposited = stored > 0 || deposited;
+      const deliverableFood = Math.max(0, citizen.carrying.food - reserveFood);
+      if (deliverableFood > 0) {
+        const stored = this.world.deposit("food", deliverableFood);
+        citizen.carrying.food -= stored;
+        deposited = stored > 0 || deposited;
+      }
     }
     if (citizen.carrying.stone > 0) {
       const stored = this.world.deposit("stone", citizen.carrying.stone);

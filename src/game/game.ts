@@ -72,7 +72,7 @@ export class Game {
   
   // Projectile animation tracking (tower attacks, etc.)
   private projectileAnimations: Array<{ from: Vec2; to: Vec2; spawnedAt: number; duration: number }> = [];
-  private readonly projectileDurationMs = 650;
+  private readonly projectileDurationMs = 500;
 
   /**
    * Initialize the game with all controllers and systems

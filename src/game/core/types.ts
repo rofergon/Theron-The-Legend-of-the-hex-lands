@@ -118,6 +118,7 @@ export interface Citizen {
   pendingRoleChange?: Role;
   activeTask?: "gather" | "construct" | "tendCrops" | "attack" | "mate";
   forceStore?: boolean;
+  pendingFoodReserve?: boolean;
   damageResistance?: number;
   hexBlessed?: boolean;
 }
