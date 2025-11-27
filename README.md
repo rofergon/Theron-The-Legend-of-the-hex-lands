@@ -11,9 +11,23 @@ A blockchain-integrated tribal simulation game where you guide and protect a gro
 ![Vite](https://img.shields.io/badge/Vite-7.2.2-purple)
 ![OneChain](https://img.shields.io/badge/OneChain-Testnet-orange)
 
+</div>
+
 ---
 
-## 📦 Smart Contracts Deployment
+## 📂 Quick Navigation
+
+| Directory | Description | Link |
+|-----------|-------------|------|
+| **Deploy_Contracst/** | Smart contract source code (Move language) and deployment scripts | [View Directory](./Deploy_Contracst) |
+| **src/game/game.ts** | Core game orchestration - main game loop, controllers, and simulation | [View File](./src/game/game.ts) |
+| **src/game/wallet/** | Blockchain wallet integration - OneWallet connection and HEX token conversion | [View Directory](./src/game/wallet) |
+
+<div align="center">
+
+---
+
+##  Smart Contracts Deployment
 
 **OneChain Testnet Package ID:**  
 [`0x1485f42c238eec453bf21abdaf3fe57475f3269a1becb570d9f6d0b368be44a4`](https://onescan.cc/testnet/packageDetail?packageId=0x1485f42c238eec453bf21abdaf3fe57475f3269a1becb570d9f6d0b368be44a4)
