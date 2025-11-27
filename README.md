@@ -71,12 +71,6 @@ All game smart contracts (HEX Token, THERON Token, Land NFTs, and Store) are dep
 - **B**: Enter build mode (or click a building icon); click map to place blueprint
 - **Esc**: Cancel build mode
 
-### Spirit Powers & Time Control
-- **E** or **Space**: Bless nearby citizen (boosts morale)
-- **T**: Invoke protective totem
-- **Enter**: Start game from menu
-- **Pause button** (⏸️ in HUD): Toggle pause/resume
-- **Speed controls**: 1x, 2x, 4x simulation speed
 
 ### UI Interactions
 - **Click citizen portrait**: Select and focus camera on citizen
