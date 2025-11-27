@@ -1,132 +1,132 @@
-# 🎮 Contratos Theron Game - OneChain Testnet
+# 🎮 Theron Game Contracts - OneChain Testnet
 
-Contratos inteligentes del juego Theron escritos en Move, desplegados en OneChain Testnet.
+Smart contracts for the Theron game written in Move, deployed on OneChain Testnet.
 
-## 📦 Contratos Incluidos
+## 📦 Included Contracts
 
-- **hex_token.move** - Token débil e inflacionario (HEX) para economía diaria
-- **theron_token.move** - Token premium con supply limitado (1M THERON)
-- **land_nft.move** - NFTs de tierras con 6 biomas y 4 niveles de rareza
-- **store.move** - Marketplace para comprar tierras y cofres con THERON
+- **hex_token.move** - Weak and inflationary token (HEX) for daily economy
+- **theron_token.move** - Premium token with limited supply (1M THERON)
+- **land_nft.move** - Land NFTs with 6 biomes and 4 rarity levels
+- **store.move** - Marketplace to purchase lands and chests with THERON
 
-## ✅ Estado Actual
+## ✅ Current Status
 
-**CONTRATOS DESPLEGADOS EN ONECHAIN TESTNET**
+**CONTRACTS DEPLOYED ON ONECHAIN TESTNET**
 
 - **Package ID**: `0xee46771b757523af06d19cff029366b81b6716715bea7bb58d0d5013b0e5c73d`
 - **Network**: OneChain Testnet
 - **RPC**: https://rpc-testnet.onelabs.cc:443
 - **Explorer**: https://onescan.cc/testnet/object/0xee46771b757523af06d19cff029366b81b6716715bea7bb58d0d5013b0e5c73d
 
-Ver `DEPLOYMENT_SUCCESS.md` para todos los IDs de objetos y ejemplos de integración.
+See `DEPLOYMENT_SUCCESS.md` for all object IDs and integration examples.
 
 ---
 
-## 🚀 Cómo Desplegar (Si necesitas redesplegar)
+## 🚀 How to Deploy (If you need to redeploy)
 
-### Prerrequisitos
+### Prerequisites
 
-1. **WSL Ubuntu** instalado (para compilar en Windows)
-2. **Sui CLI** instalado en WSL
-3. **Wallet con fondos** en OneChain Testnet (mínimo 0.1 OCT)
-4. **Node.js 18+** instalado
+1. **WSL Ubuntu** installed (to compile on Windows)
+2. **Sui CLI** installed in WSL
+3. **Wallet with funds** on OneChain Testnet (minimum 0.1 OCT)
+4. **Node.js 18+** installed
 
-### Paso 1: Compilar Contratos en WSL
+### Step 1: Compile Contracts in WSL
 
-Abre WSL y ejecuta:
+Open WSL and run:
 
 ```bash
-# Ir al directorio del proyecto
-cd /mnt/c/Users/TU_USUARIO/carpeta\ con\ juan/Deploy_Contracst
+# Go to project directory
+cd /mnt/c/Users/YOUR_USER/carpeta\ con\ juan/Deploy_Contracst
 
-# Compilar los contratos Move
+# Compile Move contracts
 sui move build
 ```
 
-Esto generará el directorio `build/` con los módulos compilados.
+This will generate the `build/` directory with compiled modules.
 
-### Paso 2: Configurar Variables de Entorno
+### Step 2: Configure Environment Variables
 
-Crea un archivo `.env` con tu clave privada:
+Create a `.env` file with your private key:
 
 ```env
 ONECHAIN_PRIVATE_KEY=suiprivkey1...
 ```
 
-**⚠️ IMPORTANTE**: 
-- Nunca compartas tu `.env` ni lo subas a Git
-- El archivo `.env` ya está en `.gitignore`
+**⚠️ IMPORTANT**: 
+- Never share your `.env` or upload it to Git
+- The `.env` file is already in `.gitignore`
 
-### Paso 3: Desplegar con Node.js
+### Step 3: Deploy with Node.js
 
-En PowerShell:
+In PowerShell:
 
 ```powershell
-# Ir al directorio
-cd "c:\Users\TU_USUARIO\carpeta con juan\Deploy_Contracst"
+# Go to directory
+cd "c:\Users\YOUR_USER\carpeta con juan\Deploy_Contracst"
 
-# Instalar dependencias (solo primera vez)
+# Install dependencies (first time only)
 npm install
 
-# Ejecutar deployment
+# Run deployment
 npm run deploy
 ```
 
-### ¿Qué hace el script de deployment?
+### What does the deployment script do?
 
-El script `deploy-sdk.mjs` ejecuta automáticamente:
+The `deploy-sdk.mjs` script automatically executes:
 
-1. ✅ Verifica que los contratos estén compilados
-2. 📦 Lee los módulos compilados de `build/theron_game_contracts/bytecode-modules.json`
-3. 🔑 Carga tu wallet desde `.env`
-4. 🚀 Despliega los contratos a OneChain Testnet
-5. 💾 Guarda todos los IDs en `.env`
-6. 📋 Muestra resumen completo con:
+1. ✅ Verifies that contracts are compiled
+2. 📦 Reads compiled modules from `build/theron_game_contracts/bytecode-modules.json`
+3. 🔑 Loads your wallet from `.env`
+4. 🚀 Deploys contracts to OneChain Testnet
+5. 💾 Saves all IDs in `.env`
+6. 📋 Shows complete summary with:
    - Package ID
-   - IDs de Treasuries (HEX, THERON)
-   - IDs de Stats
-   - IDs de MintCap y Registry (Land NFT)
-   - ID de StoreConfig
-   - Link al explorador
+   - Treasury IDs (HEX, THERON)
+   - Stats IDs
+   - MintCap and Registry IDs (Land NFT)
+   - StoreConfig ID
+   - Explorer link
 
-### Resultado Esperado
+### Expected Result
 
 ```
 ╔═══════════════════════════════════════════════════════╗
-║           ✅ CONTRATOS DESPLEGADOS ✅                  ║
+║           ✅ CONTRACTS DEPLOYED ✅                     ║
 ╚═══════════════════════════════════════════════════════╝
 
 📦 Package ID: 0x...
 
-🎯 Objetos creados:
+🎯 Created objects:
    - HEX Treasury: 0x...
    - THERON Treasury: 0x...
    - Land MintCap: 0x...
    - Store Config: 0x...
    [...]
 
-🌐 Explorador: https://onescan.cc/testnet/object/0x...
+🌐 Explorer: https://onescan.cc/testnet/object/0x...
 ```
 
 ---
 
-## 📁 Estructura del Proyecto
+## 📁 Project Structure
 
 ```
 Deploy_Contracst/
-├── sources/              # ← Código fuente Move
+├── sources/              # ← Move source code
 │   ├── hex_token.move
 │   ├── theron_token.move
 │   ├── land_nft.move
 │   └── store.move
-├── build/               # ← Contratos compilados (auto-generado)
-├── deploy-sdk.mjs       # ← Script de deployment
-├── package.json         # ← Configuración npm
-├── .env                 # ← Tu clave privada (NO SUBIR A GIT)
-├── .gitignore           # ← Protege .env
-├── Move.toml            # ← Config del proyecto Move
-├── DEPLOYMENT_SUCCESS.md # ← Info completa del deployment
-└── INTEGRATION.md       # ← Ejemplos de integración frontend
+├── build/               # ← Compiled contracts (auto-generated)
+├── deploy-sdk.mjs       # ← Deployment script
+├── package.json         # ← npm configuration
+├── .env                 # ← Your private key (DO NOT UPLOAD TO GIT)
+├── .gitignore           # ← Protects .env
+├── Move.toml            # ← Move project config
+├── DEPLOYMENT_SUCCESS.md # ← Full deployment info
+└── INTEGRATION.md       # ← Frontend integration examples
 ```
 
 ---
@@ -135,53 +135,53 @@ Deploy_Contracst/
 
 ### ❌ Error: "Cannot find build directory"
 
-**Solución**: Compila los contratos primero en WSL:
+**Solution**: Compile contracts first in WSL:
 ```bash
-cd /mnt/c/Users/TU_USUARIO/carpeta\ con\ juan/Deploy_Contracst
+cd /mnt/c/Users/YOUR_USER/carpeta\ con\ juan/Deploy_Contracst
 sui move build
 ```
 
 ### ❌ Error: "Insufficient gas"
 
-**Solución**: Tu wallet necesita más OCT. Verifica tu balance:
+**Solution**: Your wallet needs more OCT. Check your balance:
 ```powershell
 npm run balance
 ```
 
-Si necesitas fondos, solicítalos del faucet de OneChain Testnet.
+If you need funds, request them from the OneChain Testnet faucet.
 
-### ❌ Error: "Network error" o "Connection refused"
+### ❌ Error: "Network error" or "Connection refused"
 
-**Solución**: Verifica que el RPC de OneChain esté disponible:
+**Solution**: Verify that the OneChain RPC is available:
 ```
 https://rpc-testnet.onelabs.cc:443
 ```
 
-Intenta hacer ping o verificar en el explorador si la red está activa.
+Try pinging or check in the explorer if the network is active.
 
 ### ❌ Error: "Invalid private key"
 
-**Solución**: Verifica que tu `.env` tenga el formato correcto:
+**Solution**: Verify that your `.env` has the correct format:
 ```env
 ONECHAIN_PRIVATE_KEY=suiprivkey1qzr...
 ```
 
 ---
 
-## 📚 Documentación Adicional
+## 📚 Additional Documentation
 
-- **DEPLOYMENT_SUCCESS.md** - Detalles completos del deployment actual con todos los IDs
-- **INTEGRATION.md** - Ejemplos de integración con frontend TypeScript
-- `.env` - Variables de entorno con IDs de contratos (generado después del deployment)
+- **DEPLOYMENT_SUCCESS.md** - Complete details of current deployment with all IDs
+- **INTEGRATION.md** - Integration examples with TypeScript frontend
+- `.env` - Environment variables with contract IDs (generated after deployment)
 
 ---
 
-## 🌐 Recursos Útiles
+## 🌐 Useful Resources
 
-- [Documentación de OneChain](https://docs.onechain.io)
-- [Explorador OneScan](https://onescan.cc/testnet)
+- [OneChain Documentation](https://docs.onechain.io)
+- [OneScan Explorer](https://onescan.cc/testnet)
 - [Sui Move Book](https://move-language.github.io/move/)
 
 ---
 
-**Desarrollado para Theron Game 🎮**
+**Developed for Theron Game 🎮**
