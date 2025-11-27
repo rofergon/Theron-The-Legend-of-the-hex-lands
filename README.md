@@ -22,6 +22,7 @@ A blockchain-integrated tribal simulation game where you guide and protect a gro
 | **Deploy_Contracst/** | Smart contract source code (Move language) and deployment scripts | [View Directory](./Deploy_Contracst) |
 | **src/game/game.ts** | Core game orchestration - main game loop, controllers, and simulation | [View File](./src/game/game.ts) |
 | **src/game/wallet/** | Blockchain wallet integration - OneWallet connection and HEX token conversion | [View Directory](./src/game/wallet) |
+| **tests/** | Unit tests for game systems (Vitest) - SimulationSession, Citizens, Resources | [View Directory](./tests) |
 
 <div align="center">
 
