@@ -61,7 +61,6 @@ All game smart contracts (HEX Token, THERON Token, Land NFTs, and Store) are dep
 ## 🎮 Controls
 
 ### Movement & Camera
-- **WASD** / **Arrow keys**: Pan camera
 - **Mouse wheel** / **+/- buttons**: Zoom in/out
 - **Middle-click + drag**: Pan camera
 - **Left-click**: Select citizen or inspect cell
