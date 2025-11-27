@@ -13,12 +13,37 @@ Smart contracts for the Theron game written in Move, deployed on OneChain Testne
 
 **CONTRACTS DEPLOYED ON ONECHAIN TESTNET**
 
-- **Package ID**: `0xee46771b757523af06d19cff029366b81b6716715bea7bb58d0d5013b0e5c73d`
+- **Package ID**: `0x1485f42c238eec453bf21abdaf3fe57475f3269a1becb570d9f6d0b368be44a4`
 - **Network**: OneChain Testnet
 - **RPC**: https://rpc-testnet.onelabs.cc:443
-- **Explorer**: https://onescan.cc/testnet/object/0xee46771b757523af06d19cff029366b81b6716715bea7bb58d0d5013b0e5c73d
+- **Explorer**: https://onescan.cc/testnet/object/0x1485f42c238eec453bf21abdaf3fe57475f3269a1becb570d9f6d0b368be44a4
 
-See `DEPLOYMENT_SUCCESS.md` for all object IDs and integration examples.
+### Key Contract Objects
+
+**HEX Token:**
+- Treasury Holder: `0x5a39aaa300943133d2fc9e37d3886974df3e4ad0aac07032aae0f65dbb3e3357`
+- Economy Stats: `0x9f3a36446b3ce1ddf06042da7e7668620d43f5c4f4bc71566217d74358617fe9`
+- Metadata: `0x47bcd82d72269b17a4554df0f1f18f713178fa348d8f4b7b18675c4036613634`
+
+**THERON Token:**
+- Treasury Holder: `0xdbfee58c179faa8c182a472754eb38a66ea4f735193fabbd98f3d46a83e5a8bb`
+- Stats: `0x83d81b4225b444f7a475ce8cc59608db3f1f97b94c9310f651f1a99bb59d065f`
+- Metadata: `0x26b67098c8cfacc4c88d65cce42470fb21195fdc22a24481ed413bd6b7439906`
+
+**Land NFT:**
+- Mint Cap: `0x489ec027e16019c8bb6ea8834cba5ce0ecb4ecac7c7632b856f3fef7b2190bb6`
+- Registry: `0x880b0d03db1f47a9656f474eb10e50e3e96a258b04879752a0f3f8ab361bb56e`
+
+**Store:**
+- Config: `0x5e2e5a12b24115bcbed65a5cf3f572ee2bbf2efe46b6a07efc80541c771b0cec`
+
+**Upgrade Cap:** `0x9161db78cf8dd9627b9af6b4a7b6d8422d73a046b524e3cd5df7001fed6c228b`
+
+**Conversion Rates:**
+- Faith to HEX: 20 Faith = 1 HEX
+- HEX to THERON: 100,000 HEX = 1 THERON
+
+See `DEPLOYMENT_SUCCESS.md` for complete deployment details and integration examples.
 
 ---
 
