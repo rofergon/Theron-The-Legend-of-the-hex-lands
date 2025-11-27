@@ -11,6 +11,15 @@ A blockchain-integrated tribal simulation game where you guide and protect a gro
 ![Vite](https://img.shields.io/badge/Vite-7.2.2-purple)
 ![OneChain](https://img.shields.io/badge/OneChain-Testnet-orange)
 
+---
+
+## 📦 Smart Contracts Deployment
+
+**OneChain Testnet Package ID:**  
+[`0x1485f42c238eec453bf21abdaf3fe57475f3269a1becb570d9f6d0b368be44a4`](https://onescan.cc/testnet/packageDetail?packageId=0x1485f42c238eec453bf21abdaf3fe57475f3269a1becb570d9f6d0b368be44a4)
+
+All game smart contracts (HEX Token, THERON Token, Land NFTs, and Store) are deployed at this package address on OneChain Testnet.
+
 </div>
 
 ## ✨ Features
