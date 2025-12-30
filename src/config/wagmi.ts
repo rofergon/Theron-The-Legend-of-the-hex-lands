@@ -1,14 +1,14 @@
 
-import { createAppKit } from '@reown/appkit/react'
+import { createAppKit } from '@reown/appkit'
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import { baseSepolia } from '@reown/appkit/networks'
 import { cookieStorage, createStorage } from 'wagmi'
 
 // Env vars might not be typed
-export const projectId = import.meta.env.VITE_PROJECT_ID || 'b56e18d47c72db2833830491d923761a' // Fallback to a placeholder if not set
+export const projectId = import.meta.env.VITE_REOWN_PROJECT_ID
 
 if (!projectId) {
-    throw new Error('Project ID is not defined')
+    throw new Error('VITE_REOWN_PROJECT_ID is not set in .env file')
 }
 
 import type { AppKitNetwork } from '@reown/appkit/networks'

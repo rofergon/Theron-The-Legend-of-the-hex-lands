@@ -61,6 +61,7 @@
         </div>
       </div>
       <div class="header-controls" aria-label="Simulation controls">
+        <appkit-button></appkit-button>
         <button id="audio-toggle" class="header-control-btn" title="Mute/Unmute music" aria-pressed="false">🔊</button>
         <div class="speed-controls-header" role="group" aria-label="Speed">
           <button type="button" class="header-control-btn speed-button" data-speed="1"
@@ -235,7 +236,8 @@
 
   <!-- Threat alert modal -->
   <div id="threat-modal-backdrop" class="modal-backdrop hidden"></div>
-  <div id="threat-modal" class="modal modal-danger hidden" role="dialog" aria-modal="true" aria-labelledby="threat-modal-title">
+  <div id="threat-modal" class="modal modal-danger hidden" role="dialog" aria-modal="true"
+    aria-labelledby="threat-modal-title">
     <div class="modal-content">
       <div class="modal-header">
         <h3 id="threat-modal-title">⚔️ Incoming threat</h3>
@@ -260,11 +262,13 @@
 
   <!-- Travelers arrival modal -->
   <div id="travelers-modal-backdrop" class="modal-backdrop hidden"></div>
-  <div id="travelers-modal" class="modal modal-arrival hidden" role="dialog" aria-modal="true" aria-labelledby="travelers-modal-title">
+  <div id="travelers-modal" class="modal modal-arrival hidden" role="dialog" aria-modal="true"
+    aria-labelledby="travelers-modal-title">
     <div class="modal-content">
       <div class="modal-header">
         <h3 id="travelers-modal-title">🛖 Travelers seeking shelter</h3>
-        <button type="button" class="modal-close" id="travelers-modal-close" aria-label="Close travelers alert">✕</button>
+        <button type="button" class="modal-close" id="travelers-modal-close"
+          aria-label="Close travelers alert">✕</button>
       </div>
       <div class="modal-body">
         <p id="travelers-modal-subtitle">A weary group asks to join your tribe.</p>
@@ -310,7 +314,8 @@
           </div>
         </div>
         <div class="modal-info">
-          <small>💡 This will mint HEX tokens on the OneChain blockchain. You’ll need to sign the transaction with OneWallet.</small>
+          <small>💡 This will mint HEX tokens on the OneChain blockchain. You’ll need to sign the transaction with
+            OneWallet.</small>
         </div>
       </div>
       <div class="modal-actions">
