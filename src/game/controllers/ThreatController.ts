@@ -3,8 +3,8 @@ import type { Vec2 } from "../core/types";
 import type { SimulationSession, ThreatAlert } from "../core/SimulationSession";
 import type { HUDController } from "../ui/HUDController";
 import type { CameraController } from "../core/CameraController";
-import { burnHexForRaidBlessing, type BurnResult, type TransactionStatus } from "../wallet/hexConversionService";
-import { connectOneWallet, isWalletConnected } from "../wallet/walletConfig";
+import { ContractService } from "../wallet/contractService";
+import { walletManager } from "../wallet/WalletManager";
 
 /**
  * Dependencies required by the ThreatController
@@ -47,7 +47,7 @@ export class ThreatController {
   // Track ongoing burn transaction
   private burningHex = false;
 
-  constructor(private readonly deps: ThreatDependencies) {}
+  constructor(private readonly deps: ThreatDependencies) { }
 
   /**
    * Initialize threat modal and event listeners
@@ -206,37 +206,28 @@ export class ThreatController {
       this.threatBurnButton.textContent = "Burning 20 HEX...";
     }
 
-    // Ensure OneWallet is connected before attempting the burn
-    if (!isWalletConnected()) {
-      this.deps.hud.updateStatus("Conectando OneWallet para la bendición...");
-      const connection = await connectOneWallet();
-      if (!connection.success) {
-        const errorMessage = connection.error ?? "No se pudo conectar OneWallet.";
-        this.deps.hud.updateStatus(errorMessage);
-        this.deps.hud.showNotification(errorMessage, "critical");
-        this.burningHex = false;
-        resetBurnButton();
-        return;
-      }
-      this.deps.hud.showNotification("OneWallet conectada. Continuando con la bendición.", "success");
+    // Ensure Wallet is connected before attempting the burn
+    if (!walletManager.isConnected()) {
+      this.deps.hud.updateStatus("Opening wallet for blessing...");
+      walletManager.openModal();
+
+      // Since connection is async via modal, we reset and wait for user to click again after connecting
+      // Ideally we would wait for connection, but for simplicity in this flow:
+      this.deps.hud.showNotification("Connect wallet and try again", "warning");
+      this.burningHex = false;
+      resetBurnButton();
+      return;
     }
 
-    const statusUpdate = (status: TransactionStatus, message?: string) => {
-      const fallbackMessages: Partial<Record<TransactionStatus, string>> = {
-        "connecting-wallet": "Conectando OneWallet...",
-        "building-transaction": "Preparando quema de 20 HEX...",
-        signing: "✍️ Firma la quema en OneWallet",
-        executing: "⏳ Ejecutando quema en OneChain...",
-        confirming: "🔄 Confirmando transacción...",
-        success: "✅ Bendición aplicada.",
-        error: "❌ La quema de HEX falló.",
-      };
-      const statusMessage = message ?? fallbackMessages[status];
-      if (statusMessage) this.deps.hud.updateStatus(statusMessage);
-    };
+    // UI Updates during process
+    if (this.deps.hud) {
+      this.deps.hud.updateStatus("Initiating HEX burn transaction...");
+    }
 
-    const result: BurnResult = await burnHexForRaidBlessing(statusUpdate);
+    const result = await ContractService.burnHex(20);
+
     this.burningHex = false;
+
     if (!result.success) {
       resetBurnButton();
       this.deps.hud.updateStatus(result.error ?? "HEX burn failed.");
@@ -248,6 +239,8 @@ export class ThreatController {
       }
       return;
     }
+
+    // Success flow
     const blessing = this.applyWarriorBlessing();
     resetBurnButton();
     const blessedCount = blessing.boosted;

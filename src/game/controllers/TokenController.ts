@@ -1,5 +1,5 @@
-import { convertFaithToHex, type TransactionStatus, getOnChainBalances } from "../wallet/hexConversionService";
-import { isWalletConnected, connectOneWallet, getCurrentAccount, getWalletInstance } from "../wallet/walletConfig";
+import { ContractService } from "../wallet/contractService";
+import { walletManager, type WalletState } from "../wallet/WalletManager";
 import type { HUDController } from "../ui/HUDController";
 import type { SimulationSession } from "../core/SimulationSession";
 import type { ToastNotification } from "../core/types";
@@ -26,6 +26,8 @@ export class TokenController {
   private onChainBalances: OnChainSnapshot | null = null;
   // Polling interval for balance updates
   private onChainBalanceInterval: number | null = null;
+  // Wallet subscription cleanup
+  private unsubscribeWallet: (() => void) | null = null;
 
   // UI elements
   private token1Pill = document.querySelector<HTMLDivElement>("#token1-pill");
@@ -38,7 +40,7 @@ export class TokenController {
   private tokenModalRate = document.querySelector<HTMLSpanElement>("#token-modal-rate");
   private tokenModalStatus = document.querySelector<HTMLParagraphElement>("#token-modal-status");
 
-  constructor(private readonly deps: TokenDependencies) {}
+  constructor(private readonly deps: TokenDependencies) { }
 
   /**
    * Initialize token UI and start balance polling
@@ -46,6 +48,11 @@ export class TokenController {
   init() {
     this.setupTokenUI();
     this.startOnChainBalancePolling();
+
+    // Subscribe to wallet changes
+    this.unsubscribeWallet = walletManager.subscribe((state) => {
+      this.handleWalletStateChange(state);
+    });
   }
 
   /**
@@ -55,6 +62,10 @@ export class TokenController {
     if (this.onChainBalanceInterval !== null) {
       window.clearInterval(this.onChainBalanceInterval);
       this.onChainBalanceInterval = null;
+    }
+    if (this.unsubscribeWallet) {
+      this.unsubscribeWallet();
+      this.unsubscribeWallet = null;
     }
     this.closeTokenModal();
   }
@@ -74,24 +85,47 @@ export class TokenController {
   }
 
   /**
+   * Handle wallet state changes
+   */
+  private handleWalletStateChange(state: WalletState) {
+    if (state.isConnected) {
+      this.refreshOnChainBalances();
+      this.updateTokenModalStats(); // Update modal if open
+    } else {
+      this.onChainBalances = null;
+      this.updateUIBalances(0, 0);
+      this.updateTokenModalStats();
+    }
+  }
+
+  /**
    * Fetch latest on-chain balances and update UI
    */
   async refreshOnChainBalances() {
-    const current = getCurrentAccount();
-    const fallbackAccount = getWalletInstance()?.accounts?.[0];
-    const account = current ?? fallbackAccount ?? null;
-    if (!account?.address) return;
+    if (!walletManager.isConnected()) return;
+
     try {
-      const { hex, theron } = await getOnChainBalances(account.address);
-      const token1El = document.querySelector<HTMLSpanElement>("#token1-value");
-      const token2El = document.querySelector<HTMLSpanElement>("#token2-value");
-      if (token1El) token1El.textContent = hex.toFixed(2);
-      if (token2El) token2El.textContent = theron.toFixed(2);
+      // For now using strings from simulated service
+      const hexStr = await ContractService.getHexBalance();
+      const theronStr = await ContractService.getTheronBalance();
+
+      const hex = parseFloat(hexStr);
+      const theron = parseFloat(theronStr);
+
+      this.updateUIBalances(hex, theron);
+
       this.onChainBalances = { hex, theron };
       this.deps.onBalancesChanged();
     } catch (error) {
-      console.warn("No se pudo refrescar balances on-chain:", error);
+      console.warn("Could not refresh on-chain balances:", error);
     }
+  }
+
+  private updateUIBalances(hex: number, theron: number) {
+    const token1El = document.querySelector<HTMLSpanElement>("#token1-value");
+    const token2El = document.querySelector<HTMLSpanElement>("#token2-value");
+    if (token1El) token1El.textContent = hex.toFixed(2);
+    if (token2El) token2El.textContent = theron.toFixed(2);
   }
 
   /**
@@ -152,10 +186,10 @@ export class TokenController {
     if (this.tokenModalStatus) {
       if (faith <= 0) {
         this.tokenModalStatus.textContent = "No stored Faith to convert.";
-      } else if (!isWalletConnected()) {
-        this.tokenModalStatus.textContent = "Connect your OneWallet to convert Faith to HEX on-chain.";
+      } else if (!walletManager.isConnected()) {
+        this.tokenModalStatus.textContent = "Connect wallet to convert Faith to HEX on-chain.";
       } else {
-        this.tokenModalStatus.textContent = "Convert your Faith to HEX tokens on OneChain.";
+        this.tokenModalStatus.textContent = "Convert your Faith to HEX tokens on Base Sepolia.";
       }
     }
   }
@@ -187,57 +221,37 @@ export class TokenController {
       return;
     }
 
-    if (!isWalletConnected()) {
+    if (!walletManager.isConnected()) {
       if (this.tokenModalStatus) {
-        this.tokenModalStatus.textContent = "Connecting wallet...";
+        this.tokenModalStatus.textContent = "Opening wallet...";
       }
 
-      const connection = await connectOneWallet();
-      if (!connection.success) {
-        if (this.tokenModalStatus) {
-          this.tokenModalStatus.textContent = connection.error || "Error connecting wallet";
-        }
-        this.deps.hud.showNotification("Could not connect wallet", "critical");
-        return;
-      }
-
-      this.deps.hud.showNotification("Wallet connected successfully", "success");
-      await this.refreshOnChainBalances();
+      walletManager.openModal();
+      // AppKit handles connection flow, we can't await it easily like a promise returning success
+      // But we can rely on handleWalletStateChange to update the UI once connected
+      return;
     }
-
-    const updateModalStatus = (status: TransactionStatus, message?: string) => {
-      if (this.tokenModalStatus) {
-        const statusMessages: Record<TransactionStatus, string> = {
-          idle: "Preparing...",
-          "connecting-wallet": "Connecting wallet...",
-          "building-transaction": "Preparing transaction...",
-          signing: "✍️ Please sign the transaction in OneWallet",
-          executing: "⏳ Executing transaction on OneChain...",
-          confirming: "🔄 Confirming...",
-          success: "✅ Conversion successful!",
-          error: "❌ Transaction error",
-        };
-        this.tokenModalStatus.textContent = message || statusMessages[status];
-      }
-    };
 
     if (this.tokenModalConvertAll) {
       this.tokenModalConvertAll.disabled = true;
-      this.tokenModalConvertAll.textContent = "Procesando...";
+      this.tokenModalConvertAll.textContent = "Processing...";
+      if (this.tokenModalStatus) this.tokenModalStatus.textContent = "Processing transaction...";
     }
 
     try {
-      const result = await convertFaithToHex(faithAmount, updateModalStatus);
+      const result = await ContractService.convertFaithToHex(faithAmount);
 
-      if (result.success && result.hexReceived) {
+      if (result.success && result.data?.hexReceived) {
         simulation.convertFaithToToken1();
 
+        const hexReceived = result.data.hexReceived;
+
         this.deps.logEvent(
-          `✨ Converted ${result.faithSpent} Faith into ${result.hexReceived} HEX tokens on-chain. ` +
-            `TX: ${result.transactionDigest?.slice(0, 10)}...`,
+          `✨ Converted ${faithAmount} Faith into ${hexReceived} HEX tokens on-chain. ` +
+          `TX: ${result.hash?.slice(0, 10)}...`,
         );
-        this.deps.hud.showNotification(`¡${result.hexReceived} HEX tokens recibidos!`, "success", 6000);
-        this.showConversionSuccessAnimation(result.hexReceived);
+        this.deps.hud.showNotification(`¡${hexReceived} HEX tokens received!`, "success", 6000);
+        this.showConversionSuccessAnimation(hexReceived);
         await this.refreshOnChainBalances();
         this.deps.onBalancesChanged();
 
@@ -245,14 +259,14 @@ export class TokenController {
           this.closeTokenModal();
         }, 2000);
       } else {
-        this.deps.hud.showNotification(result.error || "Error al convertir Faith a HEX", "critical", 5000);
+        this.deps.hud.showNotification(result.error || "Error converting Faith to HEX", "critical", 5000);
       }
     } catch (error: any) {
-      console.error("Error en convertAllFaithToToken1:", error);
+      console.error("Error in convertAllFaithToToken1:", error);
       if (this.tokenModalStatus) {
-        this.tokenModalStatus.textContent = `Error: ${error.message || "Error desconocido"}`;
+        this.tokenModalStatus.textContent = `Error: ${error.message || "Unknown error"}`;
       }
-      this.deps.hud.showNotification("Error al convertir Faith a HEX", "critical");
+      this.deps.hud.showNotification("Error converting Faith to HEX", "critical");
     } finally {
       if (this.tokenModalConvertAll) {
         this.tokenModalConvertAll.disabled = false;
