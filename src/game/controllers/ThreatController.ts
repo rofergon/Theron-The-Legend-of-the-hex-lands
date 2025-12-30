@@ -46,6 +46,14 @@ export class ThreatController {
   private blessingApplied = false;
   // Track ongoing burn transaction
   private burningHex = false;
+  // Store bound handlers for cleanup (prevents memory leaks)
+  private boundHandlers: {
+    backdropClick?: () => void;
+    closeClick?: () => void;
+    resumeClick?: () => void;
+    focusClick?: () => void;
+    burnClick?: () => Promise<void>;
+  } = {};
 
   constructor(private readonly deps: ThreatDependencies) { }
 
@@ -61,6 +69,23 @@ export class ThreatController {
    */
   destroy() {
     this.hideModal();
+    // Remove all event listeners to prevent memory leaks
+    if (this.boundHandlers.backdropClick) {
+      this.threatBackdrop?.removeEventListener("click", this.boundHandlers.backdropClick);
+    }
+    if (this.boundHandlers.closeClick) {
+      this.threatCloseButton?.removeEventListener("click", this.boundHandlers.closeClick);
+    }
+    if (this.boundHandlers.resumeClick) {
+      this.threatResumeButton?.removeEventListener("click", this.boundHandlers.resumeClick);
+    }
+    if (this.boundHandlers.focusClick) {
+      this.threatFocusButton?.removeEventListener("click", this.boundHandlers.focusClick);
+    }
+    if (this.boundHandlers.burnClick) {
+      this.threatBurnButton?.removeEventListener("click", this.boundHandlers.burnClick);
+    }
+    this.boundHandlers = {};
   }
 
   /**
@@ -80,20 +105,15 @@ export class ThreatController {
    * Set up modal button event handlers
    */
   private setupThreatModal() {
-    const close = (resumeAfter?: boolean) => {
-      this.hideModal();
-      if (resumeAfter) {
-        this.deps.onResume();
-      }
-    };
-
-    const resumeGame = () => {
+    // Store handlers as class properties for cleanup in destroy()
+    this.boundHandlers.backdropClick = () => this.hideModal();
+    this.boundHandlers.closeClick = () => this.hideModal();
+    this.boundHandlers.resumeClick = () => {
       this.hideModal();
       this.deps.onResume();
       this.deps.hud.updateStatus("▶️ Simulation resumed.");
     };
-
-    const focus = () => {
+    this.boundHandlers.focusClick = () => {
       if (!this.lastThreatFocus && this.lastThreatAlert) {
         this.focusOnThreat(this.lastThreatAlert);
       }
@@ -101,16 +121,15 @@ export class ThreatController {
         this.deps.camera.focusOn(this.lastThreatFocus);
       }
       this.deps.onRequestRender();
-    };
-
-    this.threatBackdrop?.addEventListener("click", () => close(false));
-    this.threatCloseButton?.addEventListener("click", () => close(false));
-    this.threatResumeButton?.addEventListener("click", () => resumeGame());
-    this.threatFocusButton?.addEventListener("click", () => {
-      focus();
       this.deps.hud.updateStatus("Centered on threat. Game paused.");
-    });
-    this.threatBurnButton?.addEventListener("click", this.handleThreatBurn);
+    };
+    this.boundHandlers.burnClick = this.handleThreatBurn;
+
+    this.threatBackdrop?.addEventListener("click", this.boundHandlers.backdropClick);
+    this.threatCloseButton?.addEventListener("click", this.boundHandlers.closeClick);
+    this.threatResumeButton?.addEventListener("click", this.boundHandlers.resumeClick);
+    this.threatFocusButton?.addEventListener("click", this.boundHandlers.focusClick);
+    this.threatBurnButton?.addEventListener("click", this.boundHandlers.burnClick);
   }
 
   /**
@@ -310,13 +329,28 @@ export class ThreatController {
   private showBlessingToast(message: string) {
     const overlay = document.createElement("div");
     overlay.className = "floating-toast blessing-toast";
-    overlay.innerHTML = `
-      <div class="toast-icon">🛡️</div>
-      <div class="toast-body">
-        <div class="toast-title">Blessing Applied</div>
-        <div class="toast-message">${message}</div>
-      </div>
-    `;
+
+    // Create elements safely without innerHTML to prevent XSS
+    const iconDiv = document.createElement("div");
+    iconDiv.className = "toast-icon";
+    iconDiv.textContent = "🛡️";
+
+    const bodyDiv = document.createElement("div");
+    bodyDiv.className = "toast-body";
+
+    const titleDiv = document.createElement("div");
+    titleDiv.className = "toast-title";
+    titleDiv.textContent = "Blessing Applied";
+
+    const messageDiv = document.createElement("div");
+    messageDiv.className = "toast-message";
+    messageDiv.textContent = message;
+
+    bodyDiv.appendChild(titleDiv);
+    bodyDiv.appendChild(messageDiv);
+    overlay.appendChild(iconDiv);
+    overlay.appendChild(bodyDiv);
+
     document.body.appendChild(overlay);
     setTimeout(() => overlay.classList.add("show"), 50);
     setTimeout(() => overlay.classList.remove("show"), 4200);
