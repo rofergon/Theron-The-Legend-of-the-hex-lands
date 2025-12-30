@@ -108,20 +108,20 @@ export class SimulationSession {
   runTick(tickHours: number, options: RunTickOptions = {}) {
     if (!this.initialized) return;
 
-    if (options.priority) {
-      this.applyPriority(options.priority);
-    }
+    // Note: priority from options is no longer applied here as applyPriority 
+    // now requires an explicit position. Use applyPriority() directly when needed.
 
     this.updateEvents(tickHours);
     this.world.updateEnvironment(this.climate, tickHours);
     this.citizenSystem.update(tickHours);
-    this.resolveTowerAttacks();
+    this.resolveTowerAttacks(tickHours);
     this.world.updateVisibility(this.citizenSystem.getCitizens(), this.playerTribeId);
     this.generateFaith(tickHours);
     this.trackResourceTrends(tickHours);
     this.checkThreatResolution();
     this.checkExtinction();
   }
+
 
   applyPriority(priority: PriorityMark, position?: Vec2) {
     if (!this.initialized) return;
