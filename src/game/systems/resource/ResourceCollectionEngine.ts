@@ -149,8 +149,10 @@ export class ResourceCollectionEngine {
     }
 
     // Check if stone is critically low compared to wood
-    const stoneRatio = this.world.stockpile.stone / this.world.stockpile.stoneCapacity;
-    const woodRatio = this.world.stockpile.wood / this.world.stockpile.woodCapacity;
+    const stoneCapacity = this.world.stockpile.stoneCapacity || 1;
+    const woodCapacity = this.world.stockpile.woodCapacity || 1;
+    const stoneRatio = this.world.stockpile.stone / stoneCapacity;
+    const woodRatio = this.world.stockpile.wood / woodCapacity;
 
     // If stone is much lower than wood, prefer stone (return false here so AI checks stone next)
     if (stoneRatio < 0.2 && woodRatio > 0.5) {
