@@ -9,6 +9,7 @@ import type { RoleController } from "./RoleController";
 import type { ThreatController } from "./ThreatController";
 import type { TravelersController } from "./TravelersController";
 import type { TokenController } from "./TokenController";
+import type { DeathController } from "./DeathController";
 
 /**
  * Dependencies required by the LifecycleController.
@@ -23,6 +24,7 @@ interface LifecycleDependencies {
   roles: RoleController;
   threats: ThreatController;
   travelers: TravelersController;
+  death: DeathController;
   logEvent: (message: string, notificationType?: ToastNotification["type"]) => void;
   onExtinction: () => void;
   resetExtinctionAnnouncement: () => void;
@@ -154,6 +156,7 @@ export class LifecycleController {
       },
       onThreatCleared: () => this.deps.onThreatCleared?.(),
       onTravelers: (arrival) => this.deps.travelers.handleArrival(arrival),
+      onDeath: (event) => this.deps.death.handleDeath(event),
     });
     simulation.initialize(config);
     this.deps.resetExtinctionAnnouncement();

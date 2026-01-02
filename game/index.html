@@ -285,6 +285,32 @@
     </div>
   </div>
 
+  <!-- Citizen death modal -->
+  <div id="death-modal-backdrop" class="modal-backdrop hidden"></div>
+  <div id="death-modal" class="modal modal-danger hidden" role="dialog" aria-modal="true"
+    aria-labelledby="death-modal-title">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="death-modal-title">💀 Citizen fallen</h3>
+        <button type="button" class="modal-close" id="death-modal-close" aria-label="Close death alert">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="death-modal-subtitle">A member of our tribe has passed away.</p>
+        <div class="death-info-display">
+          <p><strong id="death-modal-name">Unknown</strong> (<span id="death-modal-role">-</span>)</p>
+          <p class="death-cause">Cause: <span id="death-modal-cause">-</span></p>
+        </div>
+        <p class="modal-info">
+          ⚠️ The game is paused. Pay respects and adjust your workforce.
+        </p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="death-modal-focus" class="primary">Focus on location</button>
+        <button type="button" id="death-modal-resume">Resume</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Token conversion modal -->
   <div id="token-modal-backdrop" class="modal-backdrop hidden"></div>
   <div id="token-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="token-modal-title">

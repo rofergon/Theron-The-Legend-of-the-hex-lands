@@ -24,7 +24,7 @@ export class TravelersController {
 
   private lastFocus: Vec2 | null = null;
 
-  constructor(private readonly deps: TravelerDependencies) {}
+  constructor(private readonly deps: TravelerDependencies) { }
 
   init() {
     this.setupModal();
@@ -126,5 +126,9 @@ export class TravelersController {
       x: sum.x / positions.length,
       y: sum.y / positions.length,
     };
+  }
+
+  destroy() {
+    this.hideModal();
   }
 }

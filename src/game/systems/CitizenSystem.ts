@@ -20,7 +20,8 @@ export type CitizenSystemEvent =
     icon: string;
     flavor: "raid" | "beast";
   }
-  | { type: "travelers"; count: number; positions: Vec2[]; attitude: "neutral" | "friendly" };
+  | { type: "travelers"; count: number; positions: Vec2[]; attitude: "neutral" | "friendly" }
+  | { type: "death"; citizenId: number; name: string; role: Role; cause: string; position: Vec2 };
 
 type AssignableRole = Extract<Role, "farmer" | "worker" | "warrior" | "scout">;
 const ASSIGNABLE_ROLES: AssignableRole[] = ["farmer", "worker", "warrior", "scout"];
@@ -561,6 +562,17 @@ export class CitizenSystem {
       type: "log",
       message: `${descriptor} ${citizen.id} ${verb} (${reason}) at ${this.formatCoords(citizen.x, citizen.y)}.`,
     });
+
+    if (isFriendly) {
+      this.emit({
+        type: "death",
+        citizenId: citizen.id,
+        name: citizen.name || `Citizen ${citizen.id}`,
+        role: citizen.role,
+        cause: reason,
+        position: { x: citizen.x, y: citizen.y },
+      });
+    }
   }
 
   private tryEatFromStockpile(citizen: Citizen) {

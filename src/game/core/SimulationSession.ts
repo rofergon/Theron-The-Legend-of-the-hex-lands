@@ -30,6 +30,7 @@ type SimulationHooks = {
   onThreat?: (alert: ThreatAlert) => void;
   onThreatCleared?: () => void;
   onTravelers?: (arrival: TravelerArrival) => void;
+  onDeath?: (event: { citizenId: number; name: string; role: Role; cause: string; position: Vec2 }) => void;
 };
 
 type RunTickOptions = {
@@ -355,6 +356,14 @@ export class SimulationSession {
         count: event.count,
         positions: event.positions,
         attitude: event.attitude,
+      });
+    } else if (event.type === "death") {
+      this.hooks.onDeath?.({
+        citizenId: event.citizenId,
+        name: event.name,
+        role: event.role,
+        cause: event.cause,
+        position: event.position,
       });
     }
   }

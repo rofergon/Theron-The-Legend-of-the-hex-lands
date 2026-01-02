@@ -94,6 +94,7 @@ export type SkillType = keyof CitizenSkills;
 
 export interface Citizen {
   id: number;
+  name: string;
   x: number;
   y: number;
   age: number;

@@ -1,6 +1,13 @@
-import type { Citizen, Role } from "../../core/types";
+import type { Citizen, CitizenSkills, Role, SkillType } from "../../core/types";
 import type { WorldEngine } from "../../core/world/WorldEngine";
 import { SKILL_CONFIG } from "../../core/skillConstants";
+import { clamp } from "../../core/utils";
+
+const CITIZEN_NAMES = [
+  "Alden", "Bael", "Cira", "Doran", "Elda", "Fael", "Goran", "Hilda", "Iona", "Jace",
+  "Kael", "Lyra", "Mira", "Nolan", "Orin", "Phaedra", "Quinn", "Rael", "Sora", "Thane",
+  "Ura", "Vael", "Wren", "Xara", "Yael", "Zane", "Aria", "Boren", "Caelum", "Dara"
+];
 
 /**
  * Encapsulates storage, lookup and lifecycle helpers for citizens so the main
@@ -14,31 +21,46 @@ export class CitizenRepository {
   constructor(private world: WorldEngine) { }
 
   createCitizen(role: Role, x: number, y: number, tribeId: number): Citizen {
-    const baseSkills = SKILL_CONFIG.INITIAL_BY_ROLE[role];
-    const variance = () => Math.floor(Math.random() * SKILL_CONFIG.INITIAL_VARIANCE * 2) - SKILL_CONFIG.INITIAL_VARIANCE;
+    const id = this.nextCitizenId++;
+    const name = CITIZEN_NAMES[Math.floor(Math.random() * CITIZEN_NAMES.length)] + " " + id;
 
-    return {
-      id: this.nextCitizenId++,
+    const skills: CitizenSkills = {
+      farming: 0,
+      mining: 0,
+      combat: 0,
+      construction: 0,
+      foraging: 0,
+    };
+
+    // Initialize skills based on role
+    const config = SKILL_CONFIG.INITIAL_BY_ROLE[role];
+    const skillTypes: SkillType[] = ["farming", "mining", "combat", "construction", "foraging"];
+
+    skillTypes.forEach(skill => {
+      const base = config[skill] ?? 0;
+      const variance = SKILL_CONFIG.INITIAL_VARIANCE;
+      skills[skill] = clamp(base + (Math.random() - 0.5) * 2 * variance, 0, 100);
+    });
+
+    const citizen: Citizen = {
+      id,
+      name,
       x,
       y,
       age: role === "child" ? 2 : role === "elder" ? 60 : 20,
+      tribeId,
       role,
       hunger: 30,
       morale: 65,
       health: 80,
       fatigue: 20,
-      tribeId,
-      carrying: { food: 0, stone: 0, wood: 0 },
       state: "alive",
+      carrying: { food: 0, stone: 0, wood: 0 },
       actionHistory: [],
-      skills: {
-        farming: Math.max(0, baseSkills.farming + variance()),
-        mining: Math.max(0, baseSkills.mining + variance()),
-        combat: Math.max(0, baseSkills.combat + variance()),
-        construction: Math.max(0, baseSkills.construction + variance()),
-        foraging: Math.max(0, baseSkills.foraging + variance()),
-      },
+      skills
     };
+
+    return citizen;
   }
 
   addCitizen(citizen: Citizen) {

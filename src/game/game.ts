@@ -17,6 +17,7 @@ import { TravelersController } from "./controllers/TravelersController";
 import { RoleController } from "./controllers/RoleController";
 import { InteractionController } from "./controllers/InteractionController";
 import { LifecycleController } from "./controllers/LifecycleController";
+import { DeathController } from "./controllers/DeathController";
 import { SoundEngine } from "./audio/SoundEngine";
 
 /**
@@ -31,7 +32,7 @@ export class Game {
 
   // Player identification
   private readonly playerTribeId = 1;
-  
+
   // UI Controllers
   private readonly hud = new HUDController();
   private readonly portraitBar = new CitizenPortraitBarController({
@@ -40,21 +41,22 @@ export class Game {
   });
   private readonly citizenPanel = new CitizenControlPanelController({ onClose: () => this.handlePanelClose() });
   private readonly cellTooltip: CellTooltipController;
-  
+
   // Game Controllers
   private readonly planning: PlanningController;
   private readonly roles: RoleController;
   private readonly interactions: InteractionController;
-  
+
   // Core simulation session
   private simulation: SimulationSession | null = null;
-  
+
   // Feature Controllers
   private readonly tokens: TokenController;
   private readonly threats: ThreatController;
   private readonly travelers: TravelersController;
+  private readonly death: DeathController;
   private readonly lifecycle: LifecycleController;
-  
+
   // Debug and state tracking
   private debugExportButton = document.querySelector<HTMLButtonElement>("#debug-export");
   private extinctionAnnounced = false;
@@ -75,10 +77,10 @@ export class Game {
   private zoomOutButton = document.querySelector<HTMLButtonElement>("#zoom-out");
   private audioToggleButton = document.querySelector<HTMLButtonElement>("#audio-toggle");
   private firstInteractionBound = false;
-  
+
   // Speed control buttons
   private speedButtons: HTMLButtonElement[] = [];
-  
+
   // Projectile animation tracking (tower attacks, etc.)
   private projectileAnimations: Array<{ from: Vec2; to: Vec2; spawnedAt: number; duration: number }> = [];
   private readonly projectileDurationMs = 500;
@@ -89,20 +91,20 @@ export class Game {
    */
   constructor(private canvas: HTMLCanvasElement) {
     this.renderer = new GameRenderer(canvas);
-    
+
     // Initialize cell tooltip with action handlers
     this.cellTooltip = new CellTooltipController({
       onCancelConstruction: this.handleCancelConstruction,
       onClearPriority: this.handleClearPriority,
     });
-    
+
     // Initialize camera controller with zoom constraints
     this.camera = new CameraController({ canvas, minZoom: this.minZoom, maxZoom: this.maxZoom }, () => this.simulation?.getWorld() ?? null);
-    
+
     // Initialize main menu
     this.mainMenu = new MainMenu(canvas, { isMobile: false });
     this.sounds.playMenu();
-    
+
     // Initialize planning controller for building, farming, mining, etc.
     this.planning = new PlanningController({
       hud: this.hud,
@@ -114,14 +116,14 @@ export class Game {
       getHoveredCell: () => this.hoveredCell,
       isRunning: () => this.lifecycle?.isRunning() ?? false,
     });
-    
+
     // Initialize role assignment controller (farmer, worker, warrior, etc.)
     this.roles = new RoleController({
       hud: this.hud,
       getSimulation: () => this.simulation,
       playerTribeId: this.playerTribeId,
     });
-    
+
     // Initialize interaction controller for mouse/touch input
     this.interactions = new InteractionController({
       canvas,
@@ -140,7 +142,7 @@ export class Game {
       showCellTooltip: (cell, event) => this.showCellTooltip(cell, event),
       hideOverlayTooltip: () => this.cellTooltip.hide(),
     });
-    
+
     // Initialize token controller for Faith to HEX conversion
     this.tokens = new TokenController({
       hud: this.hud,
@@ -148,7 +150,7 @@ export class Game {
       logEvent: (message, notificationType) => this.logEvent(message, notificationType),
       onBalancesChanged: () => this.updateHUD(),
     });
-    
+
     // Initialize threat controller for raids and beast attacks
     this.threats = new ThreatController({
       hud: this.hud,
@@ -168,7 +170,15 @@ export class Game {
       onResume: () => this.lifecycle.resume(),
       onRequestRender: () => this.draw(),
     });
-    
+
+    this.death = new DeathController({
+      hud: this.hud,
+      camera: this.camera,
+      onPause: () => this.lifecycle.pause(),
+      onResume: () => this.lifecycle.resume(),
+      onRequestRender: () => this.draw(),
+    });
+
     // Initialize lifecycle controller (start, pause, resume, tick management)
     this.lifecycle = new LifecycleController({
       playerTribeId: this.playerTribeId,
@@ -180,6 +190,7 @@ export class Game {
       roles: this.roles,
       threats: this.threats,
       travelers: this.travelers,
+      death: this.death,
       logEvent: (message, notificationType) => this.logEvent(message, notificationType),
       onExtinction: this.handleExtinction,
       resetExtinctionAnnouncement: () => {
@@ -206,7 +217,7 @@ export class Game {
       onThreatCleared: () => this.sounds.playMainLoop(),
       onGameStarted: () => this.sounds.playMainLoop(),
     });
-    
+
     // Center camera on world
     this.camera.setViewTarget({ x: WORLD_SIZE / 2, y: WORLD_SIZE / 2 });
 
@@ -225,6 +236,7 @@ export class Game {
     this.tokens.init();
     this.threats.init();
     this.travelers.init();
+    this.death.init();
     this.interactions.bind();
     this.debugExportButton?.addEventListener("click", this.exportDebugLog);
     this.audioToggleButton?.addEventListener("click", this.handleAudioToggle);
@@ -369,7 +381,7 @@ export class Game {
     this.simulation.runTick(tickHours, {
       priority: priority ?? null,
     });
-    
+
     // Process visual events (projectiles, etc.)
     const visualEvents = this.simulation.consumeVisualEvents();
     if (visualEvents.length > 0) {
@@ -723,6 +735,8 @@ export class Game {
     this.planning.destroy();
     this.tokens.destroy();
     this.threats.destroy();
+    this.travelers.destroy();
+    this.death.destroy();
     this.interactions.destroy();
     // Clear other event listeners if necessary
   }
