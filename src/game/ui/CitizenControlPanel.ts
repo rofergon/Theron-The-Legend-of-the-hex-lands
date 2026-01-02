@@ -1,4 +1,5 @@
-import type { Citizen } from "../core/types";
+import type { Citizen, SkillType } from "../core/types";
+import { formatSkillBonus, getSkillDescription } from "../core/skillConstants";
 
 export class CitizenControlPanelController {
     private container: HTMLDivElement | null = null;
@@ -21,6 +22,27 @@ export class CitizenControlPanelController {
     private invStoneEl: HTMLSpanElement | null = null;
     private invWoodEl: HTMLSpanElement | null = null;
     private actionTextEl: HTMLDivElement | null = null;
+    private skillFills: Record<SkillType, HTMLDivElement | null> = {
+        farming: null,
+        mining: null,
+        combat: null,
+        construction: null,
+        foraging: null,
+    };
+    private skillValueEls: Record<SkillType, HTMLSpanElement | null> = {
+        farming: null,
+        mining: null,
+        combat: null,
+        construction: null,
+        foraging: null,
+    };
+    private skillBonusEls: Record<SkillType, HTMLSpanElement | null> = {
+        farming: null,
+        mining: null,
+        combat: null,
+        construction: null,
+        foraging: null,
+    };
 
     constructor(private options?: { onClose?: () => void }) {
         this.container = document.querySelector<HTMLDivElement>("#citizen-control-panel");
@@ -91,6 +113,40 @@ export class CitizenControlPanelController {
         if (this.invWoodEl) this.invWoodEl.textContent = `${Math.floor(c.carrying.wood)}`;
 
         if (this.actionTextEl) this.actionTextEl.textContent = this.getActivityText(c);
+
+        // Update skill bars
+        this.updateSkillBar("farming", c.skills.farming);
+        this.updateSkillBar("mining", c.skills.mining);
+        this.updateSkillBar("combat", c.skills.combat);
+        this.updateSkillBar("construction", c.skills.construction);
+        this.updateSkillBar("foraging", c.skills.foraging);
+    }
+
+    private updateSkillBar(skill: SkillType, value: number) {
+        const fill = this.skillFills[skill];
+        if (fill) {
+            const clamped = Math.max(0, Math.min(100, value));
+            fill.style.width = `${clamped}%`;
+
+            // Remove old level classes
+            fill.classList.remove("level-novice", "level-apprentice", "level-expert", "level-master");
+
+            // Add new level class based on value
+            if (clamped <= 20) fill.classList.add("level-novice");
+            else if (clamped <= 50) fill.classList.add("level-apprentice");
+            else if (clamped <= 80) fill.classList.add("level-expert");
+            else fill.classList.add("level-master");
+        }
+
+        const valueEl = this.skillValueEls[skill];
+        if (valueEl) {
+            valueEl.textContent = `${Math.floor(value)}`;
+        }
+
+        const bonusEl = this.skillBonusEls[skill];
+        if (bonusEl) {
+            bonusEl.textContent = formatSkillBonus(value, skill);
+        }
     }
 
     private getCitizenSignature(c: Citizen): string {
@@ -108,6 +164,12 @@ export class CitizenControlPanelController {
             Math.floor(c.carrying.wood),
             c.currentGoal ?? "",
             c.debugLastAction ?? "",
+            // Add skills to signature for updates
+            Math.floor(c.skills.farming),
+            Math.floor(c.skills.mining),
+            Math.floor(c.skills.combat),
+            Math.floor(c.skills.construction),
+            Math.floor(c.skills.foraging),
         ].join("|");
     }
 
@@ -213,8 +275,60 @@ export class CitizenControlPanelController {
         action.appendChild(actionLabel);
         action.appendChild(this.actionTextEl);
 
+        // Skills section
+        const skills = document.createElement("div");
+        skills.className = "panel-skills";
+        const skillsTitle = document.createElement("div");
+        skillsTitle.className = "skills-title";
+        skillsTitle.textContent = "Habilidades";
+        skills.appendChild(skillsTitle);
+
+        const makeSkillBar = (label: string, icon: string, key: SkillType) => {
+            const row = document.createElement("div");
+            row.className = "skill-row";
+            row.title = getSkillDescription(key); // Tooltip on hover
+
+            const iconEl = document.createElement("span");
+            iconEl.className = "skill-icon";
+            iconEl.textContent = icon;
+
+            const labelEl = document.createElement("span");
+            labelEl.className = "skill-label";
+            labelEl.textContent = label;
+
+            const bg = document.createElement("div");
+            bg.className = "skill-bar-bg";
+            const fill = document.createElement("div");
+            fill.className = "skill-bar-fill";
+            bg.appendChild(fill);
+
+            const valueEl = document.createElement("span");
+            valueEl.className = "skill-value";
+
+            const bonusEl = document.createElement("span");
+            bonusEl.className = "skill-bonus";
+
+            row.appendChild(iconEl);
+            row.appendChild(labelEl);
+            row.appendChild(bg);
+            row.appendChild(valueEl);
+            row.appendChild(bonusEl);
+            skills.appendChild(row);
+
+            this.skillFills[key] = fill;
+            this.skillValueEls[key] = valueEl;
+            this.skillBonusEls[key] = bonusEl;
+        };
+
+        makeSkillBar("Farming", "🌾", "farming");
+        makeSkillBar("Mining", "⛏️", "mining");
+        makeSkillBar("Combat", "⚔️", "combat");
+        makeSkillBar("Build", "🔨", "construction");
+        makeSkillBar("Forage", "🍎", "foraging");
+
         this.container.appendChild(header);
         this.container.appendChild(stats);
+        this.container.appendChild(skills);
         this.container.appendChild(inventory);
         this.container.appendChild(action);
         this.panelBuilt = true;
