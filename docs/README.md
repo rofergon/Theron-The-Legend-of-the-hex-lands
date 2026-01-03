@@ -59,7 +59,7 @@ High-level technical architecture and implementation plan:
 ## 🔗 Related Files
 
 - **Main README**: [`../README.md`](../README.md) - Project overview and setup
-- **Contract Deployment**: [`../Deploy_Contracst/`](../Deploy_Contracst/) - Blockchain deployment scripts
+- **Contract Deployment**: [`../smart-contracts/`](../smart-contracts/) - Blockchain deployment scripts
 - **Source Code**: [`../src/`](../src/) - Game implementation
 - **Landing Pages**: [`../public/landing/`](../public/landing/), [`../public/tokenomics/`](../public/tokenomics/)
 

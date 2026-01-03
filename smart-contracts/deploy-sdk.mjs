@@ -31,7 +31,7 @@ try {
     console.error('❌ Error leyendo módulos:', error.message);
     console.error('\nEjecuta primero en WSL:');
     console.error('  export PATH=/usr/bin:/bin:/home/saritu/.cargo/bin:$PATH');
-    console.error('  cd /mnt/c/Users/sebas/carpeta\\ con\\ juan/Deploy_Contracst');
+    console.error('  cd /mnt/c/Users/sebas/carpeta\\ con\\ juan/smart-contracts');
     console.error('  sui move build\n');
     process.exit(1);
 }

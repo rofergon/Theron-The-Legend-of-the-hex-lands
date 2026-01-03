@@ -62,7 +62,7 @@ Open WSL and run:
 
 ```bash
 # Go to project directory
-cd /mnt/c/Users/YOUR_USER/carpeta\ con\ juan/Deploy_Contracst
+cd /mnt/c/Users/YOUR_USER/carpeta\ con\ juan/smart-contracts
 
 # Compile Move contracts
 sui move build
@@ -88,7 +88,7 @@ In PowerShell:
 
 ```powershell
 # Go to directory
-cd "c:\Users\YOUR_USER\carpeta con juan\Deploy_Contracst"
+cd "c:\Users\YOUR_USER\carpeta con juan\smart-contracts"
 
 # Install dependencies (first time only)
 npm install
@@ -138,7 +138,7 @@ The `deploy-sdk.mjs` script automatically executes:
 ## 📁 Project Structure
 
 ```
-Deploy_Contracst/
+smart-contracts/
 ├── sources/              # ← Move source code
 │   ├── hex_token.move
 │   ├── theron_token.move
@@ -162,7 +162,7 @@ Deploy_Contracst/
 
 **Solution**: Compile contracts first in WSL:
 ```bash
-cd /mnt/c/Users/YOUR_USER/carpeta\ con\ juan/Deploy_Contracst
+cd /mnt/c/Users/YOUR_USER/carpeta\ con\ juan/smart-contracts
 sui move build
 ```
 

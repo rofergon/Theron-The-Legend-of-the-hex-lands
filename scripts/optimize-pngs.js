@@ -3,7 +3,7 @@ const { spawnSync } = require("node:child_process");
 const { statSync, readdirSync } = require("node:fs");
 const path = require("node:path");
 
-const targets = ["public", "extracted_tiles"];
+const targets = ["public"]; // public/assets/tiles is already handled by public recursion
 const pngFiles = [];
 
 const collectPngs = (dir) => {

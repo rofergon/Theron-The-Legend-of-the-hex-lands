@@ -19,7 +19,7 @@ A blockchain-integrated tribal simulation game where you guide and protect a gro
 
 | Directory | Description | Link |
 |-----------|-------------|------|
-| **Deploy_Contracst/** | Smart contract source code (Move language) and deployment scripts | [View Directory](./Deploy_Contracst) |
+| **smart-contracts/** | Smart contract source code (Move language) and deployment scripts | [View Directory](./smart-contracts) |
 | **src/game/game.ts** | Core game orchestration - main game loop, controllers, and simulation | [View File](./src/game/game.ts) |
 | **src/game/wallet/** | Blockchain wallet integration - OneWallet connection and HEX token conversion | [View Directory](./src/game/wallet) |
 | **tests/** | Unit tests for game systems (Vitest) - SimulationSession, Citizens, Resources | [View Directory](./tests) |
@@ -108,7 +108,7 @@ npm run test
 1. **Install OneWallet extension**: https://wallet.onelab.cc/
 2. **Create or import wallet**: Follow the extension setup wizard
 3. **Switch to Testnet**: Required for development/testing
-4. **Get test OCT tokens**: Use faucet for gas fees (see Deploy_Contracst/README.md)
+4. **Get test OCT tokens**: Use faucet for gas fees (see smart-contracts/README.md)
 
 ### Project Structure
 ```
@@ -129,7 +129,7 @@ npm run test
 │   │   ├── wallet/        # OneWallet & OneChain integration
 │   │   └── data/          # Structure definitions, constants
 │   └── style.css          # Global styles
-├── Deploy_Contracst/      # Move smart contracts
+├── smart-contracts/      # Move smart contracts
 │   ├── sources/           # .move contract files
 │   └── build/             # Compiled bytecode
 └── tests/                 # Vitest unit tests
@@ -354,7 +354,7 @@ export async function convertFaithToHex(
 **Test with Testnet**:
 ```bash
 # Request test OCT from faucet
-cd Deploy_Contracst
+cd smart-contracts
 node request-faucet.mjs
 
 # Deploy contracts (if needed)
@@ -373,7 +373,7 @@ node check-wallet-balance.mjs
 - **Technical guide**: `src/game/wallet/README.md`
 - **Integration guide**: `src/game/wallet/README_HEX_INTEGRATION.md`
 - **Quick start**: `QUICK_START.md`
-- **Deployment info**: `Deploy_Contracst/DEPLOYMENT_SUCCESS.md`
+- **Deployment info**: `smart-contracts/DEPLOYMENT_SUCCESS.md`
 
 ## 🏗️ Architecture & Systems
 
@@ -676,7 +676,7 @@ Report issues on GitHub: https://github.com/rofergon/carpeta-con-juan/issues
 - **HEX integration**: `src/game/wallet/README_HEX_INTEGRATION.md`
 - **Quick start guide**: `QUICK_START.md`
 - **Integration summary**: `INTEGRATION_COMPLETE.md`
-- **Contract deployment**: `Deploy_Contracst/DEPLOYMENT_SUCCESS.md`
+- **Contract deployment**: `smart-contracts/DEPLOYMENT_SUCCESS.md`
 - **Testing guide**: `GUIA_PRUEBAS.md`
 - **System report**: `docs/system-report.md`
 
